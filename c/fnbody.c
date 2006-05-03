@@ -30,11 +30,10 @@
 ****************************************************************************/
 
 
-#include <stddef.h>
-#include <string.h>
-#include <stdlib.h>
-
 #include "plusplus.h"
+
+#include <stddef.h>
+
 #include "preproc.h"
 #include "errdefns.h"
 #include "memmgr.h"
@@ -495,6 +494,7 @@ static void parseIfStmt( void )
     initBlkLabel( &if_block->outside );
     initBlkLabel( &if_block->u.i.else_part );
     nextYYToken();
+    openScope();
     if( EXPR_ANAL_OK == parseBracketExpr( &AnalyseBoolExpr ) ) {
         if( if_block->expr_true ) {
             CgFrontCode( IC_EXPR_TRASH );
@@ -514,7 +514,6 @@ static void parseIfStmt( void )
         jumpBlkLabel( &if_block->u.i.else_part, O_GOTO );
         currFunction->dead_code = FALSE;
     }
-    openScope();
 }
 
 
@@ -533,7 +532,6 @@ static void parseElseStmt( void )
         dumpBlkLabel( &if_block->u.i.else_part );
     }
     CgFrontLabfreeCs( 1 );
-    openScope();
 }
 
 
@@ -564,6 +562,7 @@ static void parseWhileStmt( void )
     CSTACK *loop;
 
     loop = beginLoop( CS_WHILE );
+    openScope();
     if( EXPR_ANAL_OK == parseBracketExpr( &AnalyseBoolExpr ) ) {
         if( loop->expr_true ) {
             CgFrontCode( IC_EXPR_TRASH );
@@ -577,7 +576,6 @@ static void parseWhileStmt( void )
         jumpBlkLabel( &loop->outside, O_GOTO );
         currFunction->dead_code = FALSE;
     }
-    openScope();
 }
 
 static void parseForStmt( void )
@@ -592,7 +590,7 @@ static void parseForStmt( void )
 
     nextYYToken();
     mustRecog( T_LEFT_PAREN );
-    if( !CompFlags.use_old_for_scope ) {
+    if( ! CompFlags.use_old_for_scope ) {
         openScope();
     }
     if( CurToken == T_SEMI_COLON ) {
@@ -639,9 +637,7 @@ static void parseForStmt( void )
             jumpBlkLabel( &loop->outside, O_IF_FALSE );
         }
     }
-    if( CompFlags.use_old_for_scope ) {
-        openScope();
-    }
+    openScope();
 }
 
 
@@ -676,6 +672,7 @@ static void parseSwitchStmt( void )
     nextYYToken();
     switch_block = beginControl( CS_SWITCH );
     switch_block->u.s.type = NULL;
+    openScope();
     initBlkLabel( &switch_block->outside );
     switch_block->u.s.cases = NULL;
     switch_block->u.s.imm_block = NULL;
@@ -944,8 +941,8 @@ static void parseReturnStmt( SYMBOL func )
     } else {
         currFunction->ret_reqd = TRUE;
         expr = safeParseExpr( T_SEMI_COLON );
-        if( expecting_return ) {
-            if( expr != NULL ) {
+        if( expr != NULL ) {
+            if( expecting_return ) {
                 if( expr->op == PT_ERROR ) {
                     PTreeFreeSubtrees( expr );
                 } else {
@@ -956,10 +953,21 @@ static void parseReturnStmt( SYMBOL func )
                     emitCodeExpr( AnalyseReturnExpr( func, expr ) );
                     return_operand = return_sym;
                 }
+            } else {
+                if( return_sym == NULL ) {
+                    // see C++98 6.6.3 (3)
+                    expr = AnalyseStmtExpr( expr );
+                    if( ( expr->type != NULL ) && VoidType( expr->type ) ) {
+                        emitCodeExpr( expr );
+                        expr = NULL;
+                    }
+                }
+
+                if( expr != NULL ) {
+                    PTreeErrorExpr( expr, ERR_NOT_EXPECTING_RETURN_VALUE );
+                    PTreeFreeSubtrees( expr );
+                }
             }
-        } else {
-            PTreeErrorExpr( expr, ERR_NOT_EXPECTING_RETURN_VALUE );
-            PTreeFreeSubtrees( expr );
         }
     }
     CgFrontReturnSymbol( return_operand );
@@ -1419,22 +1427,33 @@ static boolean endOfStmt(       // PROCESS END-OF-STATEMENT
             endBlock();
             break;
         case CS_IF:
-            closeScope();
             if( recog ) {
                 nextYYToken();
                 recog = FALSE;
             }
             if( CurToken == T_ELSE ) {
                 parseElseStmt();
+                /* Note that the scope opened in parseIfStmt is not
+                 * closed when there is an "else" part. Also note that
+                 * parseElseStmt doesn't open a new scope, so the
+                 * closeScope in the CS_ELSE case below will close the
+                 * scope opened in parseIfStmt.
+                 *
+                 * See 6.4 (3): the name introduced by a declaration
+                 * in a conditoin is in scope until the end of the
+                 * "else" part. BTW, re-declaring that name is not
+                 * allowed by the standard, but the current code
+                 * doesn't catch that.
+                 */ 
                 return recog;
             }
             if( ! top_block->expr_true ) {
                 dumpBlkLabel( &top_block->u.i.else_part );
             }
+            closeScope();
             CgFrontLabfreeCs( 2 );
             break;
         case CS_ELSE:
-            closeScope();
             dead_code = currFunction->dead_code;
             if( ! top_block->expr_false ) {
                 dumpOutsideLabel( top_block );
@@ -1442,6 +1461,7 @@ static boolean endOfStmt(       // PROCESS END-OF-STATEMENT
             if( ! dead_code ) {
                 currFunction->dead_code = FALSE;
             }
+            closeScope();
             CgFrontLabfreeCs( 1 );
             break;
         case CS_FOR:
@@ -1452,6 +1472,9 @@ static boolean endOfStmt(       // PROCESS END-OF-STATEMENT
             closeScope();
             doJUMP( IC_LABEL_CS, O_GOTO, top_block->u.l.top_loop );
             dumpOutsideLabel( top_block );
+            if( id == CS_FOR && ! CompFlags.use_old_for_scope ) {
+                closeScope();
+            }
             CgFrontLabfreeCs( 3 );
             break;
         case CS_DO:
@@ -1511,6 +1534,7 @@ static boolean endOfStmt(       // PROCESS END-OF-STATEMENT
                     CErr1( WARN_SWITCH_NO_CASE_LABELS );
                 }
             }
+            closeScope();
             break;
         case CS_TRY:
             if( recog ) {
@@ -2200,8 +2224,11 @@ void FunctionBody( DECL_INFO *dinfo )
     }
     switch( returnIsRequired( fn_type ) ) {
       case RETN_REQUIRED :
-        CErr1( ERR_MISSING_RETURN_VALUE );
-        break;
+        if( ! MainProcedure( func ) ) {
+            CErr1( ERR_MISSING_RETURN_VALUE );
+            break;
+        }
+        // drops thru, see 3.6.1 (5)
       case RETN_DFLT_INT :
         if( MainProcedure( func ) ) {
             PTREE expr;

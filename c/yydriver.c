@@ -3,8 +3,6 @@ YYDRIVER: driver code to make use of YACC generated parser tables and support
 
 00002 - increment to force compile
 */
-#include <stdlib.h>
-#include <string.h>
 
 #include "plusplus.h"
 #include "errdefns.h"
@@ -29,6 +27,7 @@ YYDRIVER: driver code to make use of YACC generated parser tables and support
 #include "stats.h"
 #include "codegen.h"
 #include "namspace.h"
+#include "memmgr.h"
 #ifndef NDEBUG
 #include "pragdefn.h"
 #endif
@@ -114,6 +113,7 @@ struct parse_stack {
     unsigned            look_ahead_index;
     TOKEN_LOCN          template_record_locn;
     REWRITE             *template_record_tokens;
+    VSTK_CTL            angle_stack;
     unsigned            no_super_tokens : 1;
     unsigned            use_saved_tokens : 1;
     unsigned            favour_reduce : 1;
@@ -121,9 +121,9 @@ struct parse_stack {
     unsigned            look_ahead_stack : 1;
     unsigned            look_ahead_active : 1;
     unsigned            template_decl : 1;
-    unsigned            template_args : 1;
     unsigned            template_class_inst_defer : 1;
     unsigned            special_colon_colon : 1;
+    unsigned            special_gt_gt : 1;
 };
 
 typedef struct {
@@ -131,6 +131,10 @@ typedef struct {
     TOKEN_LOCN          yylocation;
     YYTOKENTYPE         yytok;
 } look_ahead_storage;
+
+typedef struct {
+    unsigned            paren_depth;
+} angle_bracket_stack;
 
 static YYSTYPE yylval;
 static TOKEN_LOCN yylocation;
@@ -393,7 +397,8 @@ static PTREE makeId( void )
     return( t );
 }
 
-static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control )
+static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control,
+                              SYMBOL_NAME *psym_name )
 {
     char *name;
     SYMBOL_NAME sym_name;
@@ -408,6 +413,9 @@ static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control )
     } else {
         ExtraRptIncrementCtr( lookup_other );
         sym_name = ScopeYYMember( scope, name );
+    }
+    if( psym_name != NULL ) {
+        *psym_name = sym_name;
     }
     if( sym_name != NULL ) {
         if( sym_name->name_syms == NULL ) {
@@ -454,7 +462,8 @@ static int doId( void )
     if( LAToken == T_LT ) {
         control |= LK_LT_AHEAD;
     }
-    id_check = lexCategory( GetCurrScope(), id, control );
+    id_check = lexCategory( GetCurrScope(), id, control,
+                            &yylval.tree->sym_name );
     return( lookupToken[ id_check ] );
 }
 
@@ -489,6 +498,12 @@ static void nextYYLexToken( PARSE_STACK *state )
             state->look_ahead_index = 0;
         }
         state->use_saved_tokens = FALSE;
+    }
+    if( state->special_gt_gt ) {
+        state->special_gt_gt = FALSE;
+        CurToken = T_GT;
+        SrcFileGetTokenLocn( &yylocation );
+        return;
     }
     nextRecordedToken( state );
 }
@@ -627,7 +642,8 @@ static int scopedChain( PARSE_STACK *state, PTREE start, PTREE id, unsigned ctrl
                 /* so S::S( T x ) {} works if T is a nested type */
                 return( Y_SCOPED_ID );
             }
-            id_check = lexCategory( scope, id, LK_NULL );
+            id_check = lexCategory( scope, id, LK_NULL,
+                                    &yylval.tree->sym_name );
             switch( id_check ) {
             case LK_ID:
                 return( Y_SCOPED_ID );
@@ -661,6 +677,7 @@ static int scopedChain( PARSE_STACK *state, PTREE start, PTREE id, unsigned ctrl
 
 static int templateScopedChain( PARSE_STACK *state )
 {
+    lk_result id_check;
     PTREE scope_tree;
     PTREE curr;
     PTREE id;
@@ -705,7 +722,11 @@ static int templateScopedChain( PARSE_STACK *state )
                 /* template instantiation errors may have occured */
                 if( template_class_type != NULL ) {
                     scope = template_class_type->u.c.scope;
-                    if( lexCategory( scope, id, LK_NULL ) != LK_ID ) {
+                    id_check = lexCategory( scope, id, LK_NULL,
+                                            &yylval.tree->sym_name );
+                    if( id_check == LK_TEMPLATE ) {
+                        return( Y_TEMPLATE_SCOPED_TEMPLATE_NAME );
+                    } else if( id_check == LK_TYPE ) {
                         return( Y_TEMPLATE_SCOPED_TYPE_NAME );
                     }
                 }
@@ -769,7 +790,8 @@ static int globalChain( PARSE_STACK *state )
             return( scopedChain( state, tree, id, CH_NULL ) );
         }
         yylval.tree = makeBinary( CO_STORAGE, tree, id );
-        id_check = lexCategory( GetFileScope(), id, LK_LEXICAL );
+        id_check = lexCategory( GetFileScope(), id, LK_LEXICAL,
+                                &yylval.tree->sym_name );
         return( globalLookupToken[ id_check ] );
     case T_OPERATOR:
         yylval.tree = makeUnary( CO_OPERATOR, tree );
@@ -791,7 +813,7 @@ static int globalChain( PARSE_STACK *state )
     return( Y_IMPOSSIBLE );
 }
 
-int yylex( PARSE_STACK *state )
+static int yylex( PARSE_STACK *state )
 /*****************************/
 {
     lk_result id_check;
@@ -799,6 +821,7 @@ int yylex( PARSE_STACK *state )
     STRING_CONSTANT literal;
     PTREE tree;
     look_ahead_storage *saved_token;
+    angle_bracket_stack *angle_state;
     struct {
         unsigned no_super_token : 1;
         unsigned special_colon_colon : 1;
@@ -822,7 +845,8 @@ int yylex( PARSE_STACK *state )
             break;
         case Y_TYPE_NAME:
             // this is the only kind of id that can change in an ambiguity zone
-            id_check = lexCategory( GetCurrScope(), yylval.tree, LK_LEXICAL );
+            id_check = lexCategory( GetCurrScope(), yylval.tree, LK_LEXICAL,
+                                    &yylval.tree->sym_name );
             if( id_check != LK_TYPE ) {
                 yylval.tree->type = NULL;
                 token = Y_ID;
@@ -919,6 +943,42 @@ int yylex( PARSE_STACK *state )
     default:
         token = yytranslate[ CurToken ];
     }
+
+    angle_state = VstkTop( &(state->angle_stack) );
+    if( angle_state != NULL ) {
+        if( token == Y_GT ) {
+            if( angle_state->paren_depth == 0 ) {
+                VstkPop( &(state->angle_stack) );
+                token = Y_GT_SPECIAL;
+            }
+        } else if( CompFlags.enable_std0x && ( token == Y_RSHIFT ) ) {
+            // see Right Angle Brackets (N1757/05-0017)
+            if( angle_state->paren_depth == 0 ) {
+                VstkPop( &(state->angle_stack) );
+                token = Y_GT_SPECIAL;
+                state->special_gt_gt = TRUE;
+            }
+        } else if( token == Y_LEFT_BRACE ) {
+            angle_state->paren_depth++;
+        } else if( token == Y_RIGHT_BRACE ) {
+            if( angle_state->paren_depth > 0) {
+                angle_state->paren_depth--;
+            }
+        } else if( token == Y_LEFT_BRACKET ) {
+            angle_state->paren_depth++;
+        } else if( token == Y_RIGHT_BRACKET ) {
+            if( angle_state->paren_depth > 0) {
+                angle_state->paren_depth--;
+            }
+        } else if( token == Y_LEFT_PAREN ) {
+            angle_state->paren_depth++;
+        } else if( token == Y_RIGHT_PAREN ) {
+            if( angle_state->paren_depth > 0) {
+                angle_state->paren_depth--;
+            }
+        }
+    }
+
     currToken = token;
     return( token );
 }
@@ -975,12 +1035,11 @@ static boolean tokenMakesPTREE( unsigned token )
 void ParseFlush( void )
 /*********************/
 {
-    if( tokenMakesPTREE( currToken ) ) {
-#if 0
+    if( tokenMakesPTREE( currToken ) && yylval.tree ) {
+#ifndef NDEBUG
         // NYI: we have a problem when this triggers!
         switch( currToken ) {
         case Y_GLOBAL_ID:
-        case Y_GLOBAL_TYPENAME:
         case Y_GLOBAL_TEMPLATE_NAME:
         case Y_GLOBAL_OPERATOR:
         case Y_GLOBAL_TILDE:
@@ -1001,7 +1060,7 @@ void ParseFlush( void )
         case Y_TEMPLATE_SCOPED_TILDE:
         case Y_TEMPLATE_SCOPED_TIMES:
             ++ErrCount;
-            puts( "ParseFlush with mult-token" );
+            puts( "ParseFlush with multi-token" );
         }
 #endif
         PTreeFreeSubtrees( yylval.tree );
@@ -1047,6 +1106,7 @@ static DECL_SPEC *sendType( PTREE tree )
     }
     if( type == NULL ) {
         type = TypeError;
+        // TODO: add typename support
     }
     dspec = PTypeActualTypeName( type, tree );
     if( scope != NULL ) {
@@ -1176,6 +1236,7 @@ static void commonInit( PARSE_STACK *stack )
     stack->look_ahead_index = 0;
     stack->template_record_tokens = NULL;
     stack->class_colon = NULL;
+    VstkOpen( &(stack->angle_stack), sizeof(angle_bracket_stack), 16 );
     stack->no_super_tokens = FALSE;
     stack->use_saved_tokens = FALSE;
     stack->favour_reduce = FALSE;
@@ -1183,9 +1244,9 @@ static void commonInit( PARSE_STACK *stack )
     stack->look_ahead_stack = FALSE;
     stack->look_ahead_active = FALSE;
     stack->template_decl = FALSE;
-    stack->template_args = FALSE;
     stack->template_class_inst_defer = FALSE;
     stack->special_colon_colon = FALSE;
+    stack->special_gt_gt = FALSE;
 }
 
 static void restartInit( PARSE_STACK *stack )
@@ -1195,6 +1256,7 @@ static void restartInit( PARSE_STACK *stack )
     DbgAssert( stack->look_ahead_count == 0 );
     DbgAssert( stack->look_ahead_index == 0 );
     DbgAssert( stack->template_record_tokens == NULL );
+    DbgAssert( VstkTop( &(stack->angle_stack) ) == NULL );
     DbgAssert( stack->no_super_tokens == FALSE );
     DbgAssert( stack->use_saved_tokens == FALSE );
     DbgAssert( stack->favour_reduce == FALSE );
@@ -1202,9 +1264,9 @@ static void restartInit( PARSE_STACK *stack )
     DbgAssert( stack->look_ahead_stack == FALSE );
     DbgAssert( stack->look_ahead_active == FALSE );
     DbgAssert( stack->template_decl == FALSE );
-    DbgAssert( stack->template_args == FALSE );
     DbgAssert( stack->template_class_inst_defer == FALSE );
     DbgAssert( stack->special_colon_colon == FALSE );
+    DbgAssert( stack->special_gt_gt == FALSE );
 }
 
 static void newLookAheadStack( PARSE_STACK *stack, PARSE_STACK *prev_stack )
@@ -1742,12 +1804,14 @@ static YYACTIONTYPE lookAheadYYAction( YYTOKENTYPE t, PARSE_STACK *state, PARSE_
         what_to_do = response[expr_what][decl_what];
         if( what_to_do > DONE ) {
             if( what_to_do == DECL ) {
-                CErr1( WARN_AMBIGUOUS_CONSTRUCT_DECL );
+                // This warning seems inappropriate. --PeterC
+                // CErr1( WARN_AMBIGUOUS_CONSTRUCT_DECL );
                 yyaction = YYACTION_REDUCE_RULE( YYAMBIGR0 );
                 break;
             }
             if( what_to_do == EXPR ) {
-                CErr1( WARN_AMBIGUOUS_CONSTRUCT_EXPR );
+                // This warning seems inappropriate. --PeterC
+                // CErr1( WARN_AMBIGUOUS_CONSTRUCT_EXPR );
                 yyaction = YYACTION_SHIFT_STATE( YYAMBIGH0 );
                 break;
             }
@@ -1829,7 +1893,8 @@ static p_action doAction( YYTOKENTYPE t, PARSE_STACK *state )
             } else if( state->favour_reduce ) {
                 yyaction = YYACTION_REDUCE_RULE( YYAMBIGR0 );
             } else {
-                CErr1( WARN_AMBIGUOUS_CONSTRUCT );
+                // This warning seems inappropriate. --PeterC
+                // CErr1( WARN_AMBIGUOUS_CONSTRUCT );
                 yyaction = lookAheadYYAction( t, state, state );
             }
         } else {
@@ -2034,15 +2099,60 @@ static void syntaxError( void )
     }
 }
 
-PTREE ParseExpr( int end_token )
-/******************************/
+static void recordTemplateCtorInitializer( PARSE_STACK *state )
+{
+    unsigned paren_depth;
+    unsigned brace_depth;
+
+    brace_depth = 0;
+    paren_depth = 0;
+
+    for(;;) {
+        if( CurToken == T_EOF ) {
+            syntaxError();
+            break;
+        }
+
+        switch( CurToken ) {
+        case T_LEFT_PAREN:
+            ++paren_depth;
+            break;
+        case T_RIGHT_PAREN:
+            if( paren_depth == 0 ) {
+                syntaxError();
+                break;
+            }
+            --paren_depth;
+            break;
+        case T_RIGHT_BRACE:
+        case T_ALT_RIGHT_BRACE:
+            if( brace_depth == 0 ) {
+                syntaxError();
+                break;
+            }
+            --brace_depth;
+            break;
+        case T_LEFT_BRACE:
+        case T_ALT_LEFT_BRACE:
+            if( paren_depth == 0 ) {
+                return;
+            }
+            ++brace_depth;
+            break;
+        }
+        nextRecordedToken( state );
+    }
+}
+
+static PTREE genericParseExpr( YYTOKENTYPE tok, int end_token,
+                               MSG_NUM err_msg )
 {
     int t;
     PARSE_STACK expr_state;
     p_action what;
     PTREE expr_tree;
 
-    newExprStack( &expr_state, Y_EXPRESSION_SPECIAL );
+    newExprStack( &expr_state, tok );
     syncLocation();
     /* do parse */
     for(;;) {
@@ -2053,6 +2163,7 @@ PTREE ParseExpr( int end_token )
         if( what != P_SHIFT ) break;
         nextYYLexToken( &expr_state );
     }
+    expr_tree = NULL;
     if( what > P_SPECIAL ) {
         if( what > P_ERROR ) {
             switch( what ) {
@@ -2060,11 +2171,10 @@ PTREE ParseExpr( int end_token )
                 syntaxError();
                 break;
             case P_OVERFLOW:
-                CErr1( ERR_COMPLICATED_EXPRESSION );
+                CErr1( err_msg );
                 break;
             }
             makeStable( end_token );
-            expr_tree = NULL;
         }
 #ifndef NDEBUG
         else {
@@ -2078,112 +2188,40 @@ PTREE ParseExpr( int end_token )
     return( expr_tree );
 }
 
-PTREE ParseMemInit( void )
-/************************/
+PTREE ParseExpr( int end_token )
 {
-    int t;
-    PARSE_STACK mem_init_state;
-    p_action what;
-    PTREE mem_init_tree;
-
-    newExprStack( &mem_init_state, Y_MEM_INIT_SPECIAL );
-    syncLocation();
-    /* do parse */
-    for(;;) {
-        do {
-            t = yylex( &mem_init_state );
-            what = doAction( t, &mem_init_state );
-        } while( what == P_RELEX );
-        if( what != P_SHIFT ) break;
-        nextYYLexToken( &mem_init_state );
-    }
-    if( what > P_SPECIAL ) {
-        if( what > P_ERROR ) {
-            switch( what ) {
-            case P_SYNTAX:
-                syntaxError();
-                break;
-            case P_OVERFLOW:
-                CErr1( ERR_COMPLICATED_EXPRESSION );
-                break;
-            }
-            makeStable( T_LEFT_BRACE );
-            mem_init_tree = NULL;
-        }
-#ifndef NDEBUG
-        else {
-            CFatal( "invalid return from doAction" );
-        }
-#endif
-    } else {
-        mem_init_tree = mem_init_state.vsp->tree;
-    }
-    deleteStack( &mem_init_state );
-    return( mem_init_tree );
+    return genericParseExpr( Y_EXPRESSION_SPECIAL, end_token,
+                             ERR_COMPLICATED_EXPRESSION );
 }
 
-PTREE ParseGenericDefArg( int start_tok )
-/***********************/
+PTREE ParseExprDecl( void )
 {
-    int t;
-    PARSE_STACK defarg_start;
-    p_action what;
-    PTREE defarg_tree;
+    return genericParseExpr( Y_EXPR_DECL_SPECIAL, T_SEMI_COLON,
+                             ERR_COMPLICATED_STATEMENT );
+}
 
-    newExprStack( &defarg_start, start_tok );
-    syncLocation();
-    /* do parse */
-    for(;;) {
-        do {
-            t = yylex( &defarg_start );
-#ifndef NDEBUG
-            if( PragDbgToggle.dump_parse ){
-                printf("ParseGenericDefArg t = %d - '%s'\n", t, yytoknames[ t ]);
-            }
-#endif
-            what = doAction( t, &defarg_start );
-        } while( what == P_RELEX );
-        if( what != P_SHIFT ) break;
-        nextYYLexToken( &defarg_start );
-    }
-    if( what > P_SPECIAL ) {
-        if( what > P_ERROR ) {
-            switch( what ) {
-            case P_SYNTAX:
-                syntaxError();
-                break;
-            case P_OVERFLOW:
-                CErr1( ERR_COMPLICATED_EXPRESSION );
-                break;
-            }
-            makeStable( T_DEFARG_END );
-            defarg_tree = NULL;
-        }
-#ifndef NDEBUG
-        else {
-            CFatal( "invalid return from doAction" );
-        }
-#endif
-    } else {
-        defarg_tree = defarg_start.vsp->tree;
-    }
-    deleteStack( &defarg_start );
-    return( defarg_tree );
+PTREE ParseMemInit( void )
+{
+    return genericParseExpr( Y_MEM_INIT_SPECIAL, T_LEFT_BRACE,
+                             ERR_COMPLICATED_EXPRESSION );
 }
 
 PTREE ParseDefArg( )
 {
-    return ParseGenericDefArg( Y_DEFARG_SPECIAL );
+    return genericParseExpr( Y_DEFARG_SPECIAL, T_DEFARG_END,
+                             ERR_COMPLICATED_EXPRESSION );
 }
 
 PTREE ParseTemplateIntDefArg( )
 {
-    return ParseGenericDefArg( Y_TEMPLATE_INT_DEFARG_SPECIAL );
+    return genericParseExpr( Y_TEMPLATE_INT_DEFARG_SPECIAL, T_DEFARG_END,
+                             ERR_COMPLICATED_EXPRESSION );
 }
 
 PTREE ParseTemplateTypeDefArg( )
 {
-    return ParseGenericDefArg( Y_TEMPLATE_TYPE_DEFARG_SPECIAL );
+    return genericParseExpr( Y_TEMPLATE_TYPE_DEFARG_SPECIAL, T_DEFARG_END,
+                             ERR_COMPLICATED_EXPRESSION );
 }
 
 DECL_INFO *ParseException( void )
@@ -2311,54 +2349,6 @@ void ParseDecls( void )
     parseEpilogue();
 }
 
-PTREE ParseExprDecl( void )
-/*************************/
-{
-    int t;
-    PARSE_STACK expr_decl_state;
-    p_action what;
-    PTREE expr_tree;
-
-    newExprStack( &expr_decl_state, Y_EXPR_DECL_SPECIAL );
-    syncLocation();
-    /* do parse */
-    for(;;) {
-        do {
-            t = yylex( &expr_decl_state );
-            what = doAction( t, &expr_decl_state );
-        } while( what == P_RELEX );
-        if( what != P_SHIFT ) break;
-        nextYYLexToken( &expr_decl_state );
-    }
-    expr_tree = NULL;           /* assume declaration or error */
-    if( what > P_SPECIAL ) {
-        if( what > P_ERROR ) {
-            switch( what ) {
-            case P_SYNTAX:
-                syntaxError();
-                break;
-            case P_OVERFLOW:
-                CErr1( ERR_COMPLICATED_STATEMENT );
-                break;
-            }
-            makeStable( T_SEMI_COLON );
-        }
-#ifndef NDEBUG
-        else {
-            CFatal( "invalid return from doAction" );
-        }
-#endif
-    } else {
-        /* statement accepted! */
-        if( expr_decl_state.vsp->tree != NULL ) {
-            expr_tree = expr_decl_state.vsp->tree;
-        }
-    }
-    deleteStack( &expr_decl_state );
-
-    return( expr_tree );
-}
-
 DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
 /*********************************************************************/
 {
@@ -2368,6 +2358,8 @@ DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
     DECL_SPEC *new_type;
     REWRITE *last_rewrite;
     REWRITE *save_token;
+    PTREE save_tree;
+    int save_yytoken;
     void (*last_source)( void );
     auto error_state_t check;
     auto TOKEN_LOCN locn;
@@ -2376,9 +2368,14 @@ DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
         return( NULL );
     }
     CErrCheckpoint( &check );
+
     save_token = RewritePackageToken();
+    save_yytoken = currToken;
+    save_tree = yylval.tree;
+    yylval.tree = NULL;
     SrcFileGetTokenLocn( &locn );
     ParseFlush();
+
     LinkagePushCpp();
     newClassInstStack( &instantiate_state );
     if( defer_defn ) {
@@ -2435,9 +2432,13 @@ DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
     }
     deleteStack( &instantiate_state );
     LinkagePop();
+
     SrcFileResetTokenLocn( &locn );
     RewriteRestoreToken( save_token );
     ParseFlush();
+    currToken = save_yytoken;
+    yylval.tree = save_tree;
+
     if( new_type != NULL ) {
         if( CErrOccurred( &check ) ) {
             PTypeRelease( new_type );

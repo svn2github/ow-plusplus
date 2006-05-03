@@ -25,7 +25,8 @@
 :cmt    :jusage. <text>                         Japanese usage text
 :cmt    :title.                                 English title usage text
 :cmt    :jtitle.                                Japanese title usage text
-:cmt    :page.                  text for paging usage message
+:cmt    :page.                                  text for paging usage message
+:cmt    :nochain.                               option isn't chained with other options
 :cmt    :timestamp.                             kludge to record "when" an option
 :cmt                                            is set so that dependencies
 :cmt                                            between options can be simulated
@@ -279,6 +280,54 @@
 :special. scanDefine <name>[=text]
 :usage. same as #define name [text] before compilation
 :jusage. コンパイル前の #define name [text] と同じ
+
+:option. ecc
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to __cdecl
+:jusage.
+
+:option. ecd
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to __stdcall
+:jusage.
+
+:option. ecf
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to __fastcall
+:jusage.
+
+:option. eco
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to _Optlink
+:jusage.
+
+:option. ecp
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to __pascal
+:jusage.
+
+:option. ecr
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to __fortran
+:jusage.
+
+:option. ecs
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to _Syscall
+:jusage.
+
+:option. ecw
+:target. i86 386
+:enumerate. intel_call_conv
+:usage. set default calling convention to __watcall (default)
+:jusage.
 
 :option. ee
 :target. any
@@ -755,12 +804,14 @@
 :option. os
 :target. any
 :enumerate. opt_size_time
+:timestamp.
 :usage. favor code size over execution time in optimizations
 :jusage. 実行時間よりコードサイズの最適化を優先します
 
 :option. ot
 :target. any
 :enumerate. opt_size_time
+:timestamp.
 :usage. favor execution time over code size in optimizations
 :jusage. コードサイズより実行時間の最適化を優先します
 
@@ -773,15 +824,15 @@
 :target. any
 :enumerate. opt_level
 :timestamp.
-:usage. equivalent to -obmilr -s
-:jusage. -obmilr -sと同等
+:usage. equivalent to -obmiler -s
+:jusage. -obmiler -sと同等
 
 :option. oz
 :target. any
 :usage. NULL points to valid memory in the target environment
 :jusage. NULLは、ターゲット環境内の有効なメモリを指します
 
-:option. ad
+:option. ad
 :target. any
 :file.
 :optional.
@@ -805,12 +856,25 @@
 :usage. specify first dependancy in make-style auto depend file
 :jusage. specify first dependancy in make-style auto depend file
 
+:option. adhp
+:target. any
+:file.
+:optional.
+:usage. specify path for headers with none.
+:jusage. specify path for headers with none.
+
 :option. adt
 :target. any
 :file.
 :optional.
 :usage. specify target in make-style auto depend file
 :jusage. specify target in make-style auto depend file
+
+:option. pil
+:target. any
+:nochain.
+:usage. preprocessor ignores #line directives
+:jusage. preprocessor ignores #line directives
 
 :option. p
 :target. any
@@ -1048,6 +1112,11 @@
 :enumerate. iso
 :usage. disable extensions (i.e., accept only ISO/ANSI C++)
 :jusage. 拡張機能を使用不可にします(つまり, ISO/ANSI C++のみ受け付けます)
+
+:option. za0x
+:target. any
+:usage. enable some features of the upcoming ISO C++0x standard
+:jusage.
 
 :option. zat
 :target. any

@@ -30,11 +30,10 @@
 ****************************************************************************/
 
 
-#include <stddef.h>
-#include <string.h>
-#include <stdlib.h>
-
 #include "plusplus.h"
+
+#include <stddef.h>
+
 #include "errdefns.h"
 #include "fnovload.h"
 #include "memmgr.h"
@@ -290,6 +289,7 @@ static void handleInlineFunction( SYMBOL sym )
     case SC_STATIC:
     case SC_TYPEDEF:
     case SC_FUNCTION_TEMPLATE:
+    case SC_STATIC_FUNCTION_TEMPLATE:
     case SC_EXTERN:
         return;
     }
@@ -334,6 +334,7 @@ void DeclDefaultStorageClass( SCOPE scope, SYMBOL sym )
         break;
 #ifndef NDEBUG
     case SCOPE_TEMPLATE_PARM:
+    case SCOPE_TEMPLATE_SPEC_PARM:
     case SCOPE_TEMPLATE_DECL:
     case SCOPE_TEMPLATE_INST:
         break;
@@ -755,6 +756,11 @@ static SYMBOL combineFunctions( SYMBOL prev_fn, SYMBOL curr_fn )
             prevCurrErr( ERR_CONFLICTING_PRAGMA_MODIFIERS, prev_fn, curr_fn );
         }
     }
+    if( SymIsClassMember( curr_fn ) &&
+        SymScope( curr_fn ) == ScopeNearestFileOrClass( GetCurrScope() ) ) {
+        // see C++98 9.3 (2)
+        CErr2p( ERR_CANNOT_REDECLARE_MEMBER_FUNCTION, prev_fn );
+    }
     prev_fn->sym_type = MakeCombinedFunctionType( prev_type, curr_type, new_flags );
     if( ! SymIsInitialized( prev_fn ) ) {
         /* transfer symbol location if previous version wasn't initialized */
@@ -776,6 +782,7 @@ static void verifyMainFunction( SYMBOL sym )
         CErr1( ERR_MAIN_CANNOT_BE_STATIC );
         break;
     case SC_FUNCTION_TEMPLATE:
+    case SC_STATIC_FUNCTION_TEMPLATE:
         CErr1( ERR_MAIN_CANNOT_BE_FN_TEMPLATE );
         break;
     }

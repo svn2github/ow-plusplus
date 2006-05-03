@@ -54,6 +54,7 @@ typedef struct reloc_list RELOC_LIST;
 typedef struct parse_tree_node *PTREE;          // defined in PTREE.H
 typedef struct rewrite_package REWRITE;         // defined in REWRITE.H
 typedef struct template_info TEMPLATE_INFO;     // defined in TEMPLATE.H
+typedef struct template_specialization TEMPLATE_SPECIALIZATION; // defined in TEMPLATE.H
 typedef struct fn_template_defn FN_TEMPLATE_DEFN;//defined in TEMPLATE.H
 typedef struct func_list FNOV_LIST;             // defined in FNOVLOAD.H
 typedef struct pool_con POOL_CON;               // defined in CONPOOL.H
@@ -638,6 +639,7 @@ PCH_struct type {
 ,SCOPE_DEF(SCOPE_TEMPLATE_DECL, MIN_HASHTAB_SIZE )   /* template declaration scope  */\
 ,SCOPE_DEF(SCOPE_TEMPLATE_INST, MIN_HASHTAB_SIZE )   /* template instantiation scope*/\
 ,SCOPE_DEF(SCOPE_TEMPLATE_PARM, MIN_HASHTAB_SIZE )   /* template parameters scope   */\
+,SCOPE_DEF(SCOPE_TEMPLATE_SPEC_PARM, MIN_HASHTAB_SIZE ) /* template parameters (for template specializations) scope   */\
 ,SCOPE_DEF(SCOPE_FREE,          MIN_HASHTAB_SIZE )   /* unused scope (pcheader)     */
 
 typedef enum {
@@ -662,6 +664,7 @@ typedef enum {
 ,SC_DEF(SC_NAMESPACE           )/* symbol is a namespace id             */\
 ,SC_DEF(SC_CLASS_TEMPLATE      )/* symbol is a class template           */\
 ,SC_DEF(SC_FUNCTION_TEMPLATE   )/* symbol is a function template        */\
+,SC_DEF(SC_STATIC_FUNCTION_TEMPLATE)/* symbol is a function template    */\
                                 /* **** used only in Code Generation:   */\
 ,SC_DEF(SC_VIRTUAL_FUNCTION    )/* indirect symbol for a virt. fn call  */\
                                 /* **** only in template instantiation  */\
@@ -733,8 +736,6 @@ typedef enum                            // flags for symbol.flag
     /* multi-bit constants */
 ,   SF_ACCESS           = ( SF_PRIVATE  // - - access for member
                           | SF_PROTECTED )
-,   SF_FN_TEMPLATE_COPY = ( SF_PLUSPLUS // - - flags that need to be copied
-                          )             //     when a function is instantiated
 ,   SF_FN_LONGJUMP      = ( SF_LONGJUMP // - - decidable if function can
                           | SF_NO_LONGJUMP ) //throw, longjump, etc
 
@@ -1235,6 +1236,7 @@ extern SYMBOL ScopeOrderedLast( SCOPE );
 extern SCOPE ScopeEnclosingId( SCOPE, scope_type_t );
 extern SCOPE ScopeNearestNonClass( SCOPE );
 extern SCOPE ScopeNearestFile( SCOPE );
+extern SCOPE ScopeNearestFileOrClass( SCOPE );
 extern SCOPE ScopeFunctionScopeInProgress();
 extern SYMBOL ScopeFunctionScope( SCOPE );
 extern void ScopeMemberModuleFunction( SCOPE, SCOPE );
@@ -1275,6 +1277,8 @@ extern void ScopeAddFriend( SCOPE, SYMBOL );
 extern SYMBOL AllocSymbol( void );
 extern SYMBOL AllocTypedSymbol( TYPE );
 extern SYMBOL_NAME AllocSymbolName( char *, SCOPE );
+boolean EnumTypeName( SYMBOL_NAME sym_name );
+boolean ClassTypeName( SYMBOL_NAME sym_name );
 extern void FreeSymbol( SYMBOL );
 extern void FreeSymbolName( SYMBOL_NAME );
 extern void ScopeBurn( SCOPE );
@@ -1516,7 +1520,6 @@ extern DECL_INFO *AddEllipseArg( DECL_INFO * );
 extern void FreeDeclInfo( DECL_INFO * );
 extern void FreeArgs( DECL_INFO * );
 extern void FreeArgsDefaultsOK( DECL_INFO * );
-extern boolean ProcessTemplateArgs( DECL_INFO * );
 extern DECL_INFO *InsertDeclInfo( SCOPE, DECL_INFO * );
 extern void ProcessDefArgs( DECL_INFO * );
 extern SYMBOL InsertSymbol( SCOPE, SYMBOL, char *name );

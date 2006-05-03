@@ -30,10 +30,11 @@
 ****************************************************************************/
 
 
+#include "plusplus.h"
+
 #include <setjmp.h>
 #include <assert.h>
 
-#include "plusplus.h"
 #include "preproc.h"
 #include "errdefns.h"
 #include "cgfront.h"
@@ -1528,7 +1529,7 @@ static dw_handle dwarfFunctionDefine( SYMBOL sym, CGFILE *file_ctl )
                    dummyLoc,
                    class_dh,
                    dummyLoc,
-                   CppMangleName( NULL, sym ),
+                   GetMangledName( sym ),
                    0,
                    flags );
     if( file_ctl != NULL ) {

@@ -30,10 +30,10 @@
 ****************************************************************************/
 
 
-#include <stddef.h>
-#include <string.h>
-
 #include "plusplus.h"
+
+#include <stddef.h>
+
 #include "cgfront.h"
 #include "errdefns.h"
 #include "ptree.h"
@@ -281,7 +281,10 @@ SYMBOL SymDefaultBase(          // REMOVE DEFAULT ARGUMENTS TO GET BASE SYMBOL
 boolean SymIsStatic(     // DETERMINE IF SYMBOL IS STATIC
     SYMBOL sym )                // - the symbol
 {
-    return SC_STATIC == SymDefaultBase( sym )->id;
+    symbol_class id;
+
+    id = SymDefaultBase( sym )->id;
+    return ( SC_STATIC == id ) || ( SC_STATIC_FUNCTION_TEMPLATE == id );
 }
 
 

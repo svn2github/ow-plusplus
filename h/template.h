@@ -39,10 +39,14 @@ typedef struct template_data TEMPLATE_DATA;
 struct template_data {
     TEMPLATE_DATA       *next;          // (stack)
     DECL_INFO           *args;          // template arguments
+    unsigned            nr_args;        // number of template arguments
+    PTREE               spec_args;      // template specialization arguments
+    TYPE                unbound_type;   // unbound class type
     SCOPE               decl_scope;     // template decl scope
     REWRITE             *defn;          // class template definition
     REWRITE             *member_defn;   // class template member definition
     char                *template_name; // name of the template
+    SCOPE               template_scope; // conaining scope of the template
     TOKEN_LOCN          locn;           // location of class template id
     error_state_t       errors;         // error state at beginning
     unsigned            all_generic : 1;// all args are generic types
@@ -74,19 +78,31 @@ PCH_struct template_member {
     char                **arg_names;    // argument names
 };
 
-PCH_struct template_info {
-    TEMPLATE_INFO       *next;          // (ring)
-    REWRITE             *defn;          // template def'n (may be NULL)
+PCH_struct template_specialization {
+    TEMPLATE_SPECIALIZATION *next;      // (ring)
+    TEMPLATE_INFO       *tinfo;         // parent template info
     CLASS_INST          *instantiations;// list of current instantiations
+    REWRITE             *defn;          // template def'n (may be NULL)
     TEMPLATE_MEMBER     *member_defns;  // external member defns
+    SCOPE               decl_scope;     // template declaration scope
+    TOKEN_LOCN          locn;           // location of class template id
     unsigned            num_args;       // number of template arguments
-    TYPE                unbound_type;   // type to use in unbound circumstances
     TYPE                *type_list;     // template argument types
     char                **arg_names;    // argument names
-    REWRITE             **defarg_list;  // default arguments
-    SYMBOL              sym;            // template symbol
+    PTREE               spec_args;      // template specialization arguments
+    unsigned char       *ordering;      // "at least as specialized as" bitmask
     unsigned            corrupted : 1;  // template def'n contained errors
     unsigned            defn_found : 1; // a template defn has been found
+    unsigned            free : 1;       // used for precompiled headers
+};
+
+PCH_struct template_info {
+    TEMPLATE_INFO       *next;          // (ring)
+    TEMPLATE_SPECIALIZATION *specializations;// template specializations
+    TYPE                unbound_type;   // type to use in unbound circumstances
+    REWRITE             **defarg_list;  // default arguments
+    SYMBOL              sym;            // template symbol
+    unsigned            nr_specs;       // number of template specializations (including the primary template)
     unsigned            free : 1;       // used for precompiled headers
 };
 
@@ -119,20 +135,22 @@ typedef enum tc_fn_control {
     TCF_NULL            = 0x00
 } tc_fn_control;
 
-extern void TemplateDeclInit( TEMPLATE_DATA *, DECL_INFO * );
+extern void TemplateDeclInit( TEMPLATE_DATA * );
+extern void TemplateDeclAddArgument( DECL_INFO *new_dinfo );
 extern void TemplateDeclFini( void );
 extern void TemplateFunctionCheck( SYMBOL, DECL_INFO * );
 extern void TemplateFunctionAttachDefn( DECL_INFO * );
 extern unsigned TemplateFunctionGenerate( SYMBOL *, arg_list *, TOKEN_LOCN *, SYMBOL *, boolean );
-extern void TemplateClassDeclaration( PTREE );
-extern boolean TemplateClassDefinition( PTREE );
+extern void TemplateClassDeclaration( PTREE, SCOPE, char * );
+extern boolean TemplateClassDefinition( PTREE, SCOPE, char * );
 extern DECL_SPEC *TemplateClassInstantiation( PTREE, PTREE, tc_instantiate );
 extern void TemplateHandleClassMember( DECL_INFO * );
 extern void TemplateProcessInstantiations();
 extern boolean TemplateMemberCanBeIgnored( void );
 extern boolean TemplateVerifyDecl( SYMBOL );
-extern void TemplateSpecificDefnStart( char *, PTREE );
+extern void TemplateSpecificDefnStart( PTREE, PTREE );
 extern void TemplateSpecificDefnEnd( void );
+extern void TemplateSpecializationDefn( PTREE, PTREE );
 extern SCOPE TemplateClassInstScope( TYPE );
 extern SCOPE TemplateClassParmScope( TYPE );
 extern boolean TemplateParmEqual( SYMBOL, SYMBOL );
@@ -140,7 +158,7 @@ extern void TemplateFunctionInstantiate( SYMBOL, SYMBOL, void * );
 extern SYMBOL TemplateFunctionTranslate( SYMBOL, SCOPE * );
 extern tc_fn_control TemplateFunctionControl( void );
 extern TYPE TemplateUnboundInstantiate( TYPE, arg_list *, TOKEN_LOCN * );
-extern SYMBOL ClassTemplateLookup( char * );
+extern SYMBOL ClassTemplateLookup( SCOPE scope, char * );
 extern SYMBOL TemplateSymFromClass( TYPE );
 extern void TemplateSetDepth( unsigned );
 extern boolean TemplateUnboundSame( TYPE, TYPE );

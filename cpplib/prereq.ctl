@@ -8,7 +8,6 @@
     wmake -h -k reference
     cdsay ..\dos386.386
     wmake -h -k reference
-    cdsay <PROJDIR>
 
 [ BLOCK <BUILD_PLATFORM> os2386 ]
 #================================
@@ -17,7 +16,6 @@
     wmake -h -k reference
     cdsay ..\os2386.386
     wmake -h -k reference
-    cdsay <PROJDIR>
 
 [ BLOCK <BUILD_PLATFORM> nt386 ]
 #===============================
@@ -26,7 +24,12 @@
     wmake -h -k reference
     cdsay ..\nt386.386
     wmake -h -k reference
-    cdsay <PROJDIR>
+
+[ BLOCK <BUILD_PLATFORM> ntaxp ]
+#===============================
+    echo Building Win32 AXP C++ reference compilers
+    cdsay <PROJDIR>\..\ntaxp.axp
+    wmake -h -k reference
 
 [ BLOCK <BUILD_PLATFORM> linux386 ]
 #==================================
@@ -35,4 +38,8 @@
     wmake -h -k reference
     cdsay ../linux386.386
     wmake -h -k reference
-    cdsay <PROJDIR>
+
+[ BLOCK . . ]
+#============
+
+cdsay <PROJDIR>

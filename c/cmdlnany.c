@@ -29,13 +29,14 @@
 ****************************************************************************/
 
 
-#include <stdlib.h>
+#include "plusplus.h"
+
+#include "compcfg.h"
+
 #include <ctype.h>
-#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "plusplus.h"
 #include "memmgr.h"
 #include "errdefns.h"
 #include "preproc.h"
@@ -55,9 +56,8 @@
 #include "pdefn2.h"
 #include "initdefs.h"
 #include "brinfo.h"
-#include "langenv.h"
 
-#include "cmdlnprs.gh"
+#include "cmdlnpr1.gh"
 #include "cmdlnsys.h"
 
 
@@ -95,9 +95,7 @@ static void checkTabWidth( unsigned *p )
 
 static void checkOENumber( unsigned *p )
 {
-    if( *p == 0 ) {
-        *p = 100;
-    }
+    p = p;
 }
 
 static void checkPrologSize( unsigned *p )
@@ -668,7 +666,7 @@ static void handleOptionFC( OPT_STORAGE *data, int value )
     }
 }
 
-#include "cmdlnprs.c"
+#include "cmdlnpr2.gh"
 
 static boolean openCmdFile(     // OPEN A COMMAND FILE
     char const *filename,       // - file name
@@ -929,13 +927,21 @@ static void analyseAnyTargetOptions( OPT_STORAGE *data )
         break;
     }
     switch( data->opt_level ) {
-    case OPT_opt_level_ox:  /* -ox => -oilmr -s */
+    case OPT_opt_level_ox:  /* -ox => -obmiler -s */
         GenSwitches &= ~ NO_OPTIMIZATION;
         GenSwitches |= BRANCH_PREDICTION;       // -ob
         GenSwitches |= LOOP_OPTIMIZATION;       // -ol
         GenSwitches |= INS_SCHEDULING;          // -or
         CmdSysSetMaxOptimization();             // -om
         CompFlags.inline_intrinsics = 1;        // -oi
+// Disabled for OW 1.4 release
+#if 0
+        if( ! data->oe ) {
+            data->oe = 1;                       // -oe
+            // keep in sync with options.gml
+            data->oe_value = 100;
+        }
+#endif
         PragToggle.check_stack = 0;             // -s
         break;
     case OPT_opt_level_od:
@@ -1130,6 +1136,10 @@ static void analyseAnyTargetOptions( OPT_STORAGE *data )
         SetStringOption( &SrcDepFileName, &(data->add_value) );
         CompFlags.generate_auto_depend = 1;
     }
+    if( data->adhp ) {
+        SetStringOption( &DependHeaderPath, &(data->adhp_value) );
+        CompFlags.generate_auto_depend = 1;
+    }
     if( data->adfs ) {
         ForceSlash = '/';
     }
@@ -1211,6 +1221,9 @@ static void analyseAnyTargetOptions( OPT_STORAGE *data )
     }
     if( data->oz ) {
         GenSwitches |= NULL_DEREF_OK;
+    }
+    if( data->pil ) {
+        CompFlags.cpp_ignore_line = 1;
     }
     if( data->p ) {
         CompFlags.cpp_output_requested = 1;
@@ -1302,6 +1315,9 @@ static void analyseAnyTargetOptions( OPT_STORAGE *data )
     }
     if( data->zat ) {
         CompFlags.no_alternative_tokens = 1;
+    }
+    if( data->za0x ) {
+        CompFlags.enable_std0x = 1;
     }
     if( data->zf ) {
         CompFlags.use_old_for_scope = 1;

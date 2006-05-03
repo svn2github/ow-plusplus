@@ -34,12 +34,11 @@
 CLASS.C : handles processing of declarations within classes
 
 */
-#include <stdlib.h>
-#include <string.h>
+#include "plusplus.h"
+
 #include <malloc.h>
 #include <limits.h>
 
-#include "plusplus.h"
 #include "codegen.h"
 #include "cgfront.h"
 #include "errdefns.h"
@@ -318,8 +317,14 @@ void ClassInitState( type_flag class_variant, CLASS_INIT extra, TYPE class_mod_l
     }
     prev_data = data->next;
     if( prev_data != NULL ) {
-        /* our inline fns go where any previous class' inline fns go */
-        data->inline_data = prev_data->inline_data;
+        if( ( prev_data->info != NULL ) && prev_data->info->defined ) {
+            data->inline_data = NULL;
+        } else {
+            /* our inline fns go where any previous class' inline fns
+             * go, but only if the previous class isn't already fully
+             * defined */
+            data->inline_data = prev_data->inline_data;
+        }
     } else {
         data->inline_data = NULL;
     }
@@ -481,7 +486,7 @@ static boolean handleAccessDeclaration( PTREE id_tree )
                 }
             }
         }
-        if( sym->id != SC_STATIC ) {
+        if( ! SymIsStatic( sym ) ) {
             /* we don't want static member function ambiguity to save us */
             check_sym = sym;
         }
@@ -738,7 +743,8 @@ TYPE ClassTagDefinition( TYPE type, char *name )
     // class T, struct T        if type is a class
     // union T                  if type is an union
     if( type->id == TYP_TYPEDEF ) {
-        if( ScopeId( type->u.t.scope ) == SCOPE_TEMPLATE_PARM ) {
+        if( ScopeType( type->u.t.scope, SCOPE_TEMPLATE_PARM )
+         || ScopeType( type->u.t.scope, SCOPE_TEMPLATE_SPEC_PARM ) ) {
             if( type->u.t.sym->name->name == name ) {
                 return( class_type );
             }
@@ -751,23 +757,24 @@ TYPE ClassTagDefinition( TYPE type, char *name )
     return( class_type );
 }
 
-static CLNAME_STATE processClassTemplate( CLASS_DATA *data, CLASS_DECL declaration,
+static CLNAME_STATE processClassTemplate( CLASS_DATA *data, SCOPE scope,
+                                          CLASS_DECL declaration,
                                           PTREE id )
 {
     CLNAME_STATE ret;
 
     data->nameless_OK = TRUE;
     if( declaration == CLASS_DECLARATION ) {
-        TemplateClassDeclaration( id );
+        TemplateClassDeclaration( id, scope, data->name );
         ret = CLNAME_NULL;
     } else {
-        if( TemplateClassDefinition( id ) ) {
+        if( TemplateClassDefinition( id, scope, data->name ) ) {
             ret = CLNAME_PROBLEM;
         } else {
             ret = CLNAME_CONTINUE;
         }
     }
-    PTreeFree( id );
+    PTreeFreeSubtrees( id );
     return( ret );
 }
 
@@ -776,30 +783,48 @@ TYPE ClassPreDefined( char *name, TOKEN_LOCN *locn )
 {
     TYPE class_type;
     PTREE id;
-    SCOPE save_scope;
+    SYMBOL_NAME sym_name;
+    SYMBOL_NAME std_sym_name;
+    SYMBOL std_sym;
     auto CLASS_DATA data;
 
-    save_scope = GetCurrScope();
-    SetCurrScope(GetFileScope());
+    id = NULL;
     ClassPush( &data );
     ClassInitState( TF1_NULL, CLINIT_NULL, NULL );
-    id = PTreeId( name );
-    id = PTreeSetLocn( id, locn );
+    std_sym_name = ScopeYYMember( GetFileScope(),
+                                  CppSpecialName( SPECIAL_STD ) );
+    std_sym = ( std_sym_name != NULL ) ? std_sym_name->name_type : NULL;
+    if( ( std_sym != NULL ) && ( std_sym->id == SC_NAMESPACE ) ) {
+        sym_name = ScopeYYMember( std_sym->u.ns->scope, name );
+        if( sym_name != NULL ) {
+            id = PTreeId( name );
+            id = PTreeSetLocn( id, locn );
+            id = PTreeBinary( CO_COLON_COLON,
+                              PTreeId( std_sym_name->name ), id );
+            id = PTreeSetLocn( id, locn );
+            id->sym_name = sym_name;
+        }
+    }
+    if( id == NULL ) {
+        id = PTreeId( name );
+        id = PTreeSetLocn( id, locn );
+    }
     ClassName( id, CLASS_DECLARATION );
     class_type = data.type;
     ClassPop( &data );
-    SetCurrScope(save_scope);
     return( class_type );
 }
 
 CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
 /********************************************************/
 {
+    boolean scoped_id;
     char *name;
     CLASS_DATA *data;
     CLASS_DATA *enclosing_data;
     TYPE class_type;
     TYPE type;
+    SCOPE scope;
     SYMBOL sym;
     SYMBOL_NAME sym_name;
     SEARCH_RESULT *result;
@@ -812,13 +837,32 @@ CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
         newClassType( data, declaration );
         return( CLNAME_NULL );
     }
-    name = id->u.id.name;
+
+    scoped_id = FALSE;
+    scope = GetCurrScope();
+
+    if( id->op == PT_ID ) {
+        name = id->u.id.name;
+    } else {
+        sym_name = id->sym_name;
+        DbgAssert( sym_name != NULL );
+
+        if( ClassTypeName( sym_name ) ) {
+            PTREE right = id->u.subtree[1];
+
+            scoped_id = TRUE;
+            name = right->u.id.name;
+
+            scope = sym_name->containing;
+        }
+    }
+
     data->name = name;
     if( declaration == CLASS_GENERIC ) {
         data->generic = TRUE;
         newClassType( data, declaration );
         newClassSym( data, declaration, id );
-        PTreeFree( id );
+        PTreeFreeSubtrees( id );
         return( CLNAME_NULL );
     }
     if( declaration != CLASS_REFERENCE ) {
@@ -826,19 +870,29 @@ CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
             data->class_idiom = TRUE;
         }
         if( data->class_template ) {
-            return( processClassTemplate( data, declaration, id ) );
+            return( processClassTemplate( data, scope, declaration, id ) );
         }
     }
-    result = ScopeFindLexicalClassType( GetCurrScope(), name );
-    if( result != NULL ) {
-        sym_name = result->sym_name;
+
+    if( ! scoped_id ) {
+        result = ScopeFindLexicalClassType( scope, name );
+        if( result != NULL ) {
+            sym_name = result->sym_name;
+            scope = result->scope;
+            ScopeFreeResult( result );
+        } else {
+            sym_name = NULL;
+            scope = GetCurrScope();
+        }
+    }
+
+    if( sym_name != NULL ) {
         sym = sym_name->name_type;
         type = sym->sym_type;
         class_type = ClassTagDefinition( type, name );
         if( class_type == NULL ) {
             /* 'class C' references can't be OK for 'typedef struct S C;' */
-            ScopeFreeResult( result );
-            result = NULL;
+            sym_name = NULL;
         } else {
             if( data->is_union ) {
                 if(( class_type->flag & TF1_UNION ) == 0 ) {
@@ -851,9 +905,9 @@ CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
             }
         }
     }
-    if( result != NULL ) {
+    if( sym_name != NULL ) {
         if( declaration != CLASS_REFERENCE ) {
-            if( result->scope == GetCurrScope() ) {
+            if( scoped_id || ( scope == GetCurrScope() ) ) {
                 if( declaration == CLASS_DEFINITION && TypeDefined( type ) ) {
                     typeError( ERR_CLASS_REDEFINED, type );
                     newClassType( data, declaration );
@@ -879,25 +933,19 @@ CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
                 newClassSym( data, declaration, id );
             }
         } else {
-            if( ScopeCheckSymbol( result, sym ) ) {
-                data->type = TypeError;
-            } else {
-                data->type = type;
-            }
+            data->type = type;
         }
-        ScopeFreeResult( result );
     } else {
         newClassType( data, declaration );
         newClassSym( data, declaration, id );
     }
-    PTreeFree( id );
+    PTreeFreeSubtrees( id );
     return( CLNAME_NULL );
 }
 
 void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration )
 /*******************************************************************/
 {
-    char *name;
     DECL_SPEC *dspec;
     TYPE type;
     PTREE id;
@@ -914,19 +962,37 @@ void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration )
     data = classDataStack;
     switch( declaration ) {
     case CLASS_DEFINITION:
-        if( !ScopeType( GetCurrScope(), SCOPE_FILE ) ) {
-            PTreeFreeSubtrees( args );
-            CErr1( ERR_ONLY_GLOBAL_SPECIFICS );
-        } else {
+        if( ScopeType( GetCurrScope(), SCOPE_FILE ) ) {
+            /* old template specialization syntax */
             data->specific_defn = TRUE;
             data->tflag |= TF1_SPECIFIC | TF1_INSTANTIATION;
-            name = id->u.id.name;
-            TemplateSpecificDefnStart( name, args );
+            TemplateSpecificDefnStart( id, args );
+        } else if ( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) ) {
+            /* new template specialization syntax: instantiation */
+            PTreeFreeSubtrees( args );
+        } else if ( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL )
+                 && ScopeType( GetCurrScope()->enclosing, SCOPE_FILE ) ) {
+            /* new template specialization syntax: definition */
+            TemplateSpecializationDefn( id, args );
+        } else {
+            PTreeFreeSubtrees( args );
+            CErr1( ERR_ONLY_GLOBAL_SPECIFICS );
         }
         ClassName( id, declaration );
         break;
     case CLASS_DECLARATION:
         tci_control |= TCI_NO_CLASS_DEFN;
+        if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) ) {
+            PTreeFreeSubtrees( args );
+            ClassName( id, declaration );
+            break;
+        } else if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL )
+                && ScopeType( GetCurrScope()->enclosing, SCOPE_FILE ) ) {
+            /* new template specialization syntax: declaration */
+            TemplateSpecializationDefn( id, args );
+            ClassName( id, declaration );
+            break;
+        }
         data->nameless_OK = TRUE;
         /* fall through */
     case CLASS_REFERENCE:
@@ -966,7 +1032,8 @@ void ClassStart( void )
     type = data->type;
     info = type->u.c.info;
     info->index = nextClassIndex();
-#ifndef NDEBUG
+#if 0
+    /* TODO */
     if( data->scope->enclosing != GetCurrScope() ) {
         CFatal( "class open is out of synch" );
     }
@@ -2012,7 +2079,7 @@ static void handleFunctionMember( CLASS_DATA *data, SYMBOL sym, char *name )
     is_pure = ( fn_type->flag & TF1_PURE ) != 0;
     is_virtual = ( fn_type->flag & TF1_VIRTUAL ) != 0;
     if( is_virtual ) {
-        if( sym->id == SC_STATIC ) {
+        if( SymIsStatic( sym ) ) {
             CErr1( ERR_NO_STATIC_VIRTUAL );
             is_virtual = FALSE;
         }
@@ -2032,7 +2099,7 @@ static void handleFunctionMember( CLASS_DATA *data, SYMBOL sym, char *name )
     }
     /* used to have "|| data->is_union" here; why? */
     /* deleted it 93/04/22 AFS because unions with dtor/assign didn't work */
-    if( sym->id == SC_STATIC ) {
+    if( SymIsStatic( sym ) ) {
         /* operator new/delete are static member functions */
         if( is_pure ) {
             CErr1( ERR_PURE_VIRTUAL_FUNCTIONS_ONLY );
@@ -2257,6 +2324,11 @@ void ClassMember( SCOPE scope, SYMBOL sym )
             CErr2p( ERR_TYPEDEF_SAME_NAME_AS_CLASS, name );
         }
         return;
+    case SC_CLASS_TEMPLATE:
+        if( ! data->allow_typedef && name == scope_name ) {
+            CErr2p( ERR_TYPEDEF_SAME_NAME_AS_CLASS, name );
+        }
+        return;
     case SC_ENUM:
         if( name == scope_name ) {
             CErr2p( ERR_ENUM_SAME_NAME_AS_CLASS, name );
@@ -2265,6 +2337,7 @@ void ClassMember( SCOPE scope, SYMBOL sym )
     case SC_ACCESS:
         return;
     case SC_STATIC:
+    case SC_STATIC_FUNCTION_TEMPLATE:
         flags.static_member = TRUE;
         if( name == scope_name ) {
             CErr2p( ERR_STATIC_SAME_NAME_AS_CLASS, name );

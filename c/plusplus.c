@@ -28,19 +28,17 @@
 *
 ****************************************************************************/
 
+#include "plusplus.h"
 
-#include <string.h>
 #include <signal.h>
 #include <process.h>
 #include <ctype.h>
-#include <stdlib.h>
 #include <setjmp.h>
 #include <unistd.h>
 #include <limits.h>
 #include <fcntl.h>
 #include <malloc.h>
 
-#include "plusplus.h"
 #include "scan.h"
 #include "memmgr.h"
 #include "stats.h"
@@ -340,9 +338,6 @@ static int doCCompile(          // COMPILE C++ PROGRAM
                         DumpHashStats();
                     }
                 #endif
-                if( CompFlags.external_defn_found == 0 ) {
-                    CErr1( ANSIERR_NO_EXTERNAL_DEFNS_FOUND );
-                }
                 PragmaExtrefsValidate();
                 BrinfWrite();
                 ExitPointRelease( cpp_analysis );

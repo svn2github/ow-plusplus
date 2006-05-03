@@ -30,13 +30,12 @@
 ****************************************************************************/
 
 
-#include <string.h>
+#include "plusplus.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 
-#include "plusplus.h"
 #include "memmgr.h"
 #include "fname.h"
 #include "ring.h"
@@ -1486,7 +1485,7 @@ SRCFILE SrcFileEnclosingPrimary(// FIND ENCLOSING PRIMARY SOURCE FILE
 }
 
 
-void SrcFilePrimary(            // MARK CURRENT SOURCE FILE AS THE PRIMARY FILE
+void SetSrcFilePrimary(         // MARK CURRENT SOURCE FILE AS THE PRIMARY FILE
     void )
 {
     srcFile->primary = TRUE;

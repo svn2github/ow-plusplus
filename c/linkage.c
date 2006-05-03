@@ -30,10 +30,10 @@
 ****************************************************************************/
 
 
-#include <stddef.h>
-#include <string.h>
-
 #include "plusplus.h"
+
+#include <stddef.h>
+
 #include "errdefns.h"
 #include "memmgr.h"
 #include "carve.h"
@@ -240,6 +240,7 @@ void LinkageSet( SYMBOL sym, char *language )
     case SC_DEFAULT:
         return;
     case SC_FUNCTION_TEMPLATE:
+    case SC_STATIC_FUNCTION_TEMPLATE:
         linkage = CppLinkage;
         break;
     default:

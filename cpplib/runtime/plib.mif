@@ -7,7 +7,7 @@ uncompressed=yes        # mklib wont work because objs_c required in both libs
 # .ASM files (in RUNTIME\A)
 
 
-!ifeq target_system ntaxp
+!ifeq host_cpu axp
 objs_asm =
 !else
 objs_asm = fshand.obj
@@ -47,14 +47,12 @@ objs_c +=   rtdbgcom.obj
 require_registration = y
 !else
 !   ifdef pd_registration
-text += -d__USE_PD
 !   else
 sysind_registration = y
 !   endif
 !endif
 
 !ifdef sysind_registration
-text += -d__USE_RW
 require_registration = y
 objs_reg = ljmpdtor.obj &
            ljmpinit.obj
@@ -81,13 +79,7 @@ objs_reg += pdctxaxp.obj &
 !endif
 
 
-!ifeq target_system ntaxp
-objs_cpp = prwsdata.obj
-!else
-objs_cpp =
-!endif
-
-objs_cpp += allocexc.$(obj_ext) &
+objs_cpp =  allocexc.$(obj_ext) &
             arrassgn.obj &
             arrdel.obj   &
             arrnew.obj   &
@@ -99,7 +91,6 @@ objs_cpp += allocexc.$(obj_ext) &
             darrnew.obj  &
             dtorarst.obj &
             exc_pr.obj   &
-            exstring.obj &
             fatalerr.obj &
             $(objs_dyn)  &
             $(objs_reg)  &
@@ -182,6 +173,8 @@ extra_cpp_flags_x_rttiref = -fh=pch09.pch
 extra_cpp_flags_x_rttitid = -fh=pch09.pch
 extra_cpp_flags_x_stabthrw = -fh=pch10.pch
 extra_cpp_flags_x_fsregist = -fh=pch10.pch
+extra_cpp_flags_prwdata = -fh=pch11.pch
+extra_cpp_flags_rtdbgst = -fh=pch12.pch
 
 !include $(plusplus_cpplib_dir)/plibname.mif
 

@@ -59,61 +59,61 @@ Modified        By              Reason
 93/02/09        A.F.Scian       added calls to zapTemplateClassDeclSpec
                                 (see YYDRIVER.C for explanation)
 93/03/11        J.W.Welch       New messaging
-93/03/16	A.F.Scian	streamlined member-declarator to directly call
-				DeclNoInit instead of going through DataInitNoInit
-93/03/29	A.F.Scian	added semantics for "new (int [x+1])" 5.3.3
-				"The first array dimension can be a general
-				 integral expression even when <type-id> is used"
-93/04/20	A.F.Scian	added rules for y_template_scoped_typename to
-				handle nested types inside of templates
-93/04/21	A.F.Scian	fixed actions for function-declaration to not
-				pop the GS_DECL_SPEC stack until the function
-				body is processed (this allows any linkage on
-				the function symbol to be retained for the
-				entire processing of the function body)
-93/07/13	A.F.Scian	- added more than one pointer declarator to
-				  conversion function ids
-				- fixed concatenation of strings so that the
-				  type of the result is correct
-93/07/29	A.F.Scian	it was impossible to tell the difference between
-				no parms and ( void ) (both had parms == NULL)
-				so code now calls AddExplicitParms which handles
-				the problem by setting a bit in the DECL_INFO
-93/08/11	A.F.Scian	allow multiple ;'s in member decl lists
-				e.g., struct S { int a;;;; void foo(){};;; };
-93/12/01	A.F.Scian	added %ambig directives supported by new YACC
-93/12/15	A.F.Scian	added operator new []/operator delete [] support
-94/03/23	A.F.Scian	set up so that class S<int>; doesn't define the
-				class
-94/04/18	A.F.Scian	added support for "class __export __stdcall X"
-94/04/19	A.F.Scian	push some calls to FreeDeclInfo into functions
-				that are called before
-94/06/08	A.F.Scian	improved error message location for missing ';'
-				error messages
-94/10/14	A.F.Scian	added __declspec( <id> )
-94/10/18	A.F.Scian	added kludge to support:
-				typedef struct S { } S, const *CPS;
-							^^^^^- accept this
-94/10/25	A.F.Scian	upgrade LHS of assignment-expr so that it
-				accepts casts and pm-exprs
-94/11/02	A.F.Scian	added support for "class __declspec(dllimport) X"
-94/12/07	A.F.Scian	added Y_GLOBAL_ID as a valid declarator-id so
-				struct S { friend int ::foo( int ); }; works
-95/02/23	A.F.Scian	added __builtin_isfloat( <type-id> ) construct
-95/04/28	A.F.Scian	added __unaligned modifier
-95/05/16	A.F.Scian	added class template directives
-95/06/28	A.F.Scian	added more general offsetof field expressions
-96/01/10	A.F.Scian	adjusted syntax of __unaligned to match 'const'
-				rather than 'far'
-96/02/12	A.F.Scian	added support for __declspec( pragma-modifier )
-96/02/26	A.F.Scian	added some namespace syntax
-96/03/19	A.F.Scian	adjusted ++@/--@ grammar as per ISO C++ mtg in
-				Santa Cruz, CA resolutions
-96/05/07	A.F.Scian	added "using namespace X;"
-96/06/07	A.F.Scian	added support for multiple ids in __declspec()
-96/07/02	A.F.Scian	added sizeof <type-name>
-96/07/25	A.F.Scian	accept unsigned <type-name> : 1; as a bitfield
-96/10/28	A.F.Scian	fixed 96/07/25 so that <type-name> : 1; still works
+93/03/16        A.F.Scian       streamlined member-declarator to directly call
+                                DeclNoInit instead of going through DataInitNoInit
+93/03/29        A.F.Scian       added semantics for "new (int [x+1])" 5.3.3
+                                "The first array dimension can be a general
+                                 integral expression even when <type-id> is used"
+93/04/20        A.F.Scian       added rules for y_template_scoped_typename to
+                                handle nested types inside of templates
+93/04/21        A.F.Scian       fixed actions for function-declaration to not
+                                pop the GS_DECL_SPEC stack until the function
+                                body is processed (this allows any linkage on
+                                the function symbol to be retained for the
+                                entire processing of the function body)
+93/07/13        A.F.Scian       - added more than one pointer declarator to
+                                  conversion function ids
+                                - fixed concatenation of strings so that the
+                                  type of the result is correct
+93/07/29        A.F.Scian       it was impossible to tell the difference between
+                                no parms and ( void ) (both had parms == NULL)
+                                so code now calls AddExplicitParms which handles
+                                the problem by setting a bit in the DECL_INFO
+93/08/11        A.F.Scian       allow multiple ;'s in member decl lists
+                                e.g., struct S { int a;;;; void foo(){};;; };
+93/12/01        A.F.Scian       added %ambig directives supported by new YACC
+93/12/15        A.F.Scian       added operator new []/operator delete [] support
+94/03/23        A.F.Scian       set up so that class S<int>; doesn't define the
+                                class
+94/04/18        A.F.Scian       added support for "class __export __stdcall X"
+94/04/19        A.F.Scian       push some calls to FreeDeclInfo into functions
+                                that are called before
+94/06/08        A.F.Scian       improved error message location for missing ';'
+                                error messages
+94/10/14        A.F.Scian       added __declspec( <id> )
+94/10/18        A.F.Scian       added kludge to support:
+                                typedef struct S { } S, const *CPS;
+                                                        ^^^^^- accept this
+94/10/25        A.F.Scian       upgrade LHS of assignment-expr so that it
+                                accepts casts and pm-exprs
+94/11/02        A.F.Scian       added support for "class __declspec(dllimport) X"
+94/12/07        A.F.Scian       added Y_GLOBAL_ID as a valid declarator-id so
+                                struct S { friend int ::foo( int ); }; works
+95/02/23        A.F.Scian       added __builtin_isfloat( <type-id> ) construct
+95/04/28        A.F.Scian       added __unaligned modifier
+95/05/16        A.F.Scian       added class template directives
+95/06/28        A.F.Scian       added more general offsetof field expressions
+96/01/10        A.F.Scian       adjusted syntax of __unaligned to match 'const'
+                                rather than 'far'
+96/02/12        A.F.Scian       added support for __declspec( pragma-modifier )
+96/02/26        A.F.Scian       added some namespace syntax
+96/03/19        A.F.Scian       adjusted ++@/--@ grammar as per ISO C++ mtg in
+                                Santa Cruz, CA resolutions
+96/05/07        A.F.Scian       added "using namespace X;"
+96/06/07        A.F.Scian       added support for multiple ids in __declspec()
+96/07/02        A.F.Scian       added sizeof <type-name>
+96/07/25        A.F.Scian       accept unsigned <type-name> : 1; as a bitfield
+96/10/28        A.F.Scian       fixed 96/07/25 so that <type-name> : 1; still works
 */
 %token Y_IMPOSSIBLE
 
@@ -131,6 +131,7 @@ Modified        By              Reason
 %token Y_ELSE
 %token Y_ENUM
 %token Y_EXPLICIT
+%token Y_EXPORT
 %token Y_EXTERN
 %token Y_FALSE
 %token Y_FLOAT
@@ -152,6 +153,7 @@ Modified        By              Reason
 %token Y_SIGNED
 %token Y_SIZEOF
 %token Y_STATIC
+%token Y_STATIC_ASSERT
 %token Y_STATIC_CAST
 %token Y_STRUCT
 %token Y_TEMPLATE
@@ -160,6 +162,7 @@ Modified        By              Reason
 %token Y_TRUE
 %token Y_TYPEDEF
 %token Y_TYPEID
+%token Y_TYPENAME
 %token Y_UNION
 %token Y_UNSIGNED
 %token Y_USING
@@ -260,17 +263,19 @@ Modified        By              Reason
 %token Y_EXCEPTION_SPECIAL
 %token Y_MEM_INIT_SPECIAL
 %token Y_DEFARG_SPECIAL
-%token Y_TEMPLATE_INT_DEFARG_SPECIAL    /*  experimental */
-%token Y_TEMPLATE_TYPE_DEFARG_SPECIAL   /*  experimental */
+%token Y_TEMPLATE_INT_DEFARG_SPECIAL
+%token Y_TEMPLATE_TYPE_DEFARG_SPECIAL
 %token Y_CLASS_INST_SPECIAL
 
 /*** terminator tokens for "special" parsing ***/
 %token Y_DEFARG_END
+%token Y_GT_SPECIAL
 
 /*** tokens that are never generated by yylex() ***/
 %token Y_REDUCE_SPECIAL
 %token Y_SHIFT_SPECIAL
 %token Y_DEFARG_GONE_SPECIAL
+%token Y_TEMPLATE_DEFARG_GONE_SPECIAL
 %token Y_PURE_FUNCTION_SPECIAL
 
 /*** special function names ***/
@@ -281,19 +286,26 @@ Modified        By              Reason
 /*** PC-specific keywords ***/
 %token Y___ASM
 %token Y___BASED
+%token Y__CDECL
 %token Y___CDECL
 %token Y___DECLSPEC
+%token Y__EXPORT
 %token Y___EXPORT
 %token Y___FAR
+%token Y__FAR16
 %token Y___FAR16
+%token Y__FASTCALL
+%token Y___FASTCALL
 %token Y___FORTRAN
 %token Y___HUGE
+%token Y___INLINE
 %token Y___INT64
 %token Y___INTERRUPT
 %token Y___LOADDS
 %token Y___NEAR
 %token Y__OPTLINK
 %token Y__PACKED
+%token Y__PASCAL
 %token Y___PASCAL
 %token Y___PRAGMA
 %token Y___SAVEREGS
@@ -303,6 +315,9 @@ Modified        By              Reason
 %token Y___SELF
 %token Y___STDCALL
 %token Y__SYSCALL
+%token Y___SYSCALL
+%token Y__SYSTEM
+%token Y___WATCALL
 %token Y___UNALIGNED
 
 %type <flags> modifier
@@ -313,6 +328,7 @@ Modified        By              Reason
 %type <flags> packed-class-opt
 
 %type <token> class-key
+%type <token> template-typename-key
 %type <token> operator-function-type
 
 %type <type> class-mod-opt
@@ -328,7 +344,6 @@ Modified        By              Reason
 
 %type <rewrite> ctor-initializer
 %type <rewrite> defarg-check
-%type <rewrite> template-defarg-rewrite
 
 %type <dspec> type-specifiers
 %type <dspec> type-specifier
@@ -348,6 +363,7 @@ Modified        By              Reason
 %type <dspec> cv-qualifier
 %type <dspec> class-specifier
 %type <dspec> enum-specifier
+%type <dspec> typename-specifier
 %type <dspec> class-substance
 %type <dspec> class-body
 %type <dspec> qualified-type-specifier
@@ -355,6 +371,7 @@ Modified        By              Reason
 %type <dspec> qualified-class-type
 %type <dspec> template-class-id
 %type <dspec> template-class-instantiation
+%type <dspec> template-member-class-id
 
 %type <dinfo> function-declaration
 %type <dinfo> declarator
@@ -375,13 +392,12 @@ Modified        By              Reason
 %type <dinfo> special-new-actual-abstract-declarator
 %type <dinfo> actual-abstract-declarator
 %type <dinfo> abstract-args
-%type <dinfo> template-abstract-args
 %type <dinfo> simple-arg-declaration
-%type <dinfo> simple-template-arg-declaration
 %type <dinfo> arg-declaration
-%type <dinfo> template-arg-declaration
+%type <dinfo> template-parameter
+%type <dinfo> type-parameter
+%type <dinfo> type-parameter-no-defarg
 %type <dinfo> arg-declaration-list
-%type <dinfo> template-arg-declaration-list
 %type <dinfo> actual-exception-declaration
 %type <dinfo> exception-declaration
 %type <dinfo> member-declaring-declarator
@@ -403,15 +419,6 @@ Modified        By              Reason
 %type <tree> expression-before-semicolon
 %type <tree> expression-list
 %type <tree> expression-list-opt
-%type <tree> template-assignment-expression
-%type <tree> template-conditional-expression
-%type <tree> template-logical-or-expression
-%type <tree> template-logical-and-expression
-%type <tree> template-inclusive-or-expression
-%type <tree> template-exclusive-or-expression
-%type <tree> template-and-expression
-%type <tree> template-equality-expression
-%type <tree> template-relational-expression
 %type <tree> assignment-tree
 %type <tree> assignment-expression
 %type <tree> assignment-expression-opt
@@ -444,7 +451,8 @@ Modified        By              Reason
 %type <tree> field-expression
 %type <tree> field-name
 %type <tree> new-placement
-%type <tree> class-name-id  /* experimental */
+%type <tree> class-name-id
+%type <tree> enum-name
 %type <tree> make-id
 %type <tree> literal
 %type <tree> strings pragma-id
@@ -454,9 +462,9 @@ Modified        By              Reason
 %type <tree> constant-expression
 %type <tree> mem-initializer-list
 %type <tree> mem-initializer-item
-%type <tree> template-parameter-expression
-%type <tree> template-arg-list-opt
-%type <tree> template-arg-list
+%type <tree> template-argument
+%type <tree> template-argument-list-opt
+%type <tree> template-argument-list
 %type <tree> template-class-pre-instantiation
 %type <tree> template-class-pre-id
 %type <tree> template-directive-class
@@ -477,6 +485,15 @@ goal-symbol
     : Y_EXPRESSION_SPECIAL expression
     {
         $$ = $2;
+        t = YYEOFTOKEN;
+    }
+    | Y_EXPRESSION_SPECIAL type-specifiers declaring-declarator initializer
+    {
+        CheckDeclarationDSpec( state->gstack->u.dspec, GetCurrScope() );
+        GStackPop( &(state->gstack) );
+        $$ = $3->id;
+        $3->id = NULL;
+        FreeDeclInfo( $3 );
         t = YYEOFTOKEN;
     }
     | Y_EXPR_DECL_SPECIAL expr-decl-stmt
@@ -533,6 +550,24 @@ goal-symbol
             what = P_DIAGNOSED;
         }
     }
+    | /* nothing */
+    {
+        what = P_DIAGNOSED;
+    }
+    ;
+
+lt-special
+    : lt-special-init Y_LT
+    ;
+
+lt-special-init
+    : /* nothing */
+    {
+        angle_bracket_stack *angle_state;
+
+        angle_state = VstkPush( &(state->angle_stack) );
+        angle_state->paren_depth = 0;
+    }
     ;
 
 expr-decl-stmt
@@ -547,7 +582,7 @@ expression-before-semicolon
     {
         $$ = $1;
         if( t != Y_SEMI_COLON ) {
-	    SetErrLoc( &yylocation );
+            SetErrLoc( &yylocation );
             CErr1( ERR_SYNTAX_MISSING_SEMICOLON );
             what = P_DIAGNOSED;
         }
@@ -579,15 +614,6 @@ expression
     { $$ = setLocation( PTreeBinary( CO_COMMA, $1, $3 ), &yylp[2] ); }
     ;
 
-/*
-%type <tree> template-expression
-template-expression
-    : template-assignment-expression
-    | template-expression Y_COMMA template-assignment-expression
-    { $$ = setLocation( PTreeBinary( CO_COMMA, $1, $3 ), &yylp[2] ); }
-    ;
-*/
-
 assignment-tree
     : Y_EQUAL
     { $$ = setLocation( PTreeBinary( CO_EQUAL, NULL, NULL ), &yylp[1] ); }
@@ -613,15 +639,6 @@ assignment-tree
     { $$ = setLocation( PTreeBinary( CO_XOR_EQUAL, NULL, NULL ), &yylp[1] ); }
     ;
 
-template-assignment-expression
-    : template-conditional-expression
-    | template-logical-or-expression assignment-tree template-assignment-expression
-    {
-        $$ = PTreeReplaceLeft( $2, $1 );
-        $$ = PTreeReplaceRight( $$, $3 );
-    }
-    ;
-
 assignment-expression
     : conditional-expression
     | logical-or-expression assignment-tree assignment-expression
@@ -639,15 +656,6 @@ assignment-expression-opt
     | assignment-expression
     ;
 
-template-conditional-expression
-    : template-logical-or-expression
-    | template-logical-or-expression Y_QUESTION expression Y_COLON template-assignment-expression
-    {
-        $3 = setLocation( PTreeBinary( CO_COLON, $3, $5 ), &yylp[4] );
-        $$ = setLocation( PTreeBinary( CO_QUESTION, $1, $3 ), &yylp[2] );
-    }
-    ;
-
 conditional-expression
     : logical-or-expression
     | logical-or-expression Y_QUESTION expression Y_COLON assignment-expression
@@ -657,22 +665,10 @@ conditional-expression
     }
     ;
 
-template-logical-or-expression
-    : template-logical-and-expression
-    | template-logical-or-expression Y_OR_OR template-logical-and-expression
-    { $$ = setLocation( PTreeBinary( CO_OR_OR, $1, $3 ), &yylp[2] ); }
-    ;
-
 logical-or-expression
     : logical-and-expression
     | logical-or-expression Y_OR_OR logical-and-expression
     { $$ = setLocation( PTreeBinary( CO_OR_OR, $1, $3 ), &yylp[2] ); }
-    ;
-
-template-logical-and-expression
-    : template-inclusive-or-expression
-    | template-logical-and-expression Y_AND_AND template-inclusive-or-expression
-    { $$ = setLocation( PTreeBinary( CO_AND_AND, $1, $3 ), &yylp[2] ); }
     ;
 
 logical-and-expression
@@ -681,22 +677,10 @@ logical-and-expression
     { $$ = setLocation( PTreeBinary( CO_AND_AND, $1, $3 ), &yylp[2] ); }
     ;
 
-template-inclusive-or-expression
-    : template-exclusive-or-expression
-    | template-inclusive-or-expression Y_OR template-exclusive-or-expression
-    { $$ = setLocation( PTreeBinary( CO_OR, $1, $3 ), &yylp[2] ); }
-    ;
-
 inclusive-or-expression
     : exclusive-or-expression
     | inclusive-or-expression Y_OR exclusive-or-expression
     { $$ = setLocation( PTreeBinary( CO_OR, $1, $3 ), &yylp[2] ); }
-    ;
-
-template-exclusive-or-expression
-    : template-and-expression
-    | template-exclusive-or-expression Y_XOR template-and-expression
-    { $$ = setLocation( PTreeBinary( CO_XOR, $1, $3 ), &yylp[2] ); }
     ;
 
 exclusive-or-expression
@@ -705,24 +689,10 @@ exclusive-or-expression
     { $$ = setLocation( PTreeBinary( CO_XOR, $1, $3 ), &yylp[2] ); }
     ;
 
-template-and-expression
-    : template-equality-expression
-    | template-and-expression Y_AND template-equality-expression
-    { $$ = setLocation( PTreeBinary( CO_AND, $1, $3 ), &yylp[2] ); }
-    ;
-
 and-expression
     : equality-expression
     | and-expression Y_AND equality-expression
     { $$ = setLocation( PTreeBinary( CO_AND, $1, $3 ), &yylp[2] ); }
-    ;
-
-template-equality-expression
-    : template-relational-expression
-    | template-equality-expression Y_EQ template-relational-expression
-    { $$ = setLocation( PTreeBinary( CO_EQ, $1, $3 ), &yylp[2] ); }
-    | template-equality-expression Y_NE template-relational-expression
-    { $$ = setLocation( PTreeBinary( CO_NE, $1, $3 ), &yylp[2] ); }
     ;
 
 equality-expression
@@ -731,20 +701,6 @@ equality-expression
     { $$ = setLocation( PTreeBinary( CO_EQ, $1, $3 ), &yylp[2] ); }
     | equality-expression Y_NE relational-expression
     { $$ = setLocation( PTreeBinary( CO_NE, $1, $3 ), &yylp[2] ); }
-    ;
-
-template-relational-expression
-    : shift-expression
-    | template-relational-expression Y_LT shift-expression
-    { $$ = setLocation( PTreeBinary( CO_LT, $1, $3 ), &yylp[2] ); }
-    | template-relational-expression Y_LE shift-expression
-    { $$ = setLocation( PTreeBinary( CO_LE, $1, $3 ), &yylp[2] ); }
-    /* A '>' is the end of a template argument list
-    | template-relational-expression Y_GT shift-expression
-    { $$ = setLocation( PTreeBinary( CO_GT, $1, $3 ), &yylp[2] ); }
-    */
-    | template-relational-expression Y_GE shift-expression
-    { $$ = setLocation( PTreeBinary( CO_GE, $1, $3 ), &yylp[2] ); }
     ;
 
 relational-expression
@@ -845,23 +801,23 @@ unary-expression
 offsetof-field
     : make-id
     {
-	$$ = PTreeBinary( CO_DOT, $1, NULL );
-	$$ = PTreeBinary( CO_DOT, NULL, $$ );
+        $$ = PTreeBinary( CO_DOT, $1, NULL );
+        $$ = PTreeBinary( CO_DOT, NULL, $$ );
     }
     | make-id offsetof-index
     {
-	$$ = PTreeBinary( CO_DOT, $1, $2 );
-	$$ = PTreeBinary( CO_DOT, NULL, $$ );
+        $$ = PTreeBinary( CO_DOT, $1, $2 );
+        $$ = PTreeBinary( CO_DOT, NULL, $$ );
     }
     | offsetof-field Y_DOT make-id
     {
-	$$ = setLocation( PTreeBinary( CO_DOT, $3, NULL ), &yylp[2] );
-	$$ = setLocation( PTreeBinary( CO_DOT, $1, $$ ), &yylp[2] );
+        $$ = setLocation( PTreeBinary( CO_DOT, $3, NULL ), &yylp[2] );
+        $$ = setLocation( PTreeBinary( CO_DOT, $1, $$ ), &yylp[2] );
     }
     | offsetof-field Y_DOT make-id offsetof-index
     {
-	$$ = setLocation( PTreeBinary( CO_DOT, $3, $4 ), &yylp[2] );
-	$$ = setLocation( PTreeBinary( CO_DOT, $1, $$ ), &yylp[2] );
+        $$ = setLocation( PTreeBinary( CO_DOT, $3, $4 ), &yylp[2] );
+        $$ = setLocation( PTreeBinary( CO_DOT, $1, $$ ), &yylp[2] );
     }
     ;
 
@@ -991,13 +947,13 @@ postfix-expression
     { $$ = setLocation( PTreeUnary( CO_POST_MINUS_MINUS, $1 ), &yylp[2] ); }
     | Y___SEGNAME Y_LEFT_PAREN strings Y_RIGHT_PAREN
     { $$ = setLocation( PTreeUnary( CO_SEGNAME, $3 ), &yylp[1] ); }
-    | Y_DYNAMIC_CAST Y_LT type-id Y_GT Y_LEFT_PAREN expression Y_RIGHT_PAREN
+    | Y_DYNAMIC_CAST lt-special type-id Y_GT_SPECIAL Y_LEFT_PAREN expression Y_RIGHT_PAREN
     { $$ = setLocation( PTreeBinary( CO_DYNAMIC_CAST, $3, $6 ), &yylp[1] ); }
-    | Y_STATIC_CAST Y_LT type-id Y_GT Y_LEFT_PAREN expression Y_RIGHT_PAREN
+    | Y_STATIC_CAST lt-special type-id Y_GT_SPECIAL Y_LEFT_PAREN expression Y_RIGHT_PAREN
     { $$ = setLocation( PTreeBinary( CO_STATIC_CAST, $3, $6 ), &yylp[1] ); }
-    | Y_REINTERPRET_CAST Y_LT type-id Y_GT Y_LEFT_PAREN expression Y_RIGHT_PAREN
+    | Y_REINTERPRET_CAST lt-special type-id Y_GT_SPECIAL Y_LEFT_PAREN expression Y_RIGHT_PAREN
     { $$ = setLocation( PTreeBinary( CO_REINTERPRET_CAST, $3, $6 ), &yylp[1] ); }
-    | Y_CONST_CAST Y_LT type-id Y_GT Y_LEFT_PAREN expression Y_RIGHT_PAREN
+    | Y_CONST_CAST lt-special type-id Y_GT_SPECIAL Y_LEFT_PAREN expression Y_RIGHT_PAREN
     { $$ = setLocation( PTreeBinary( CO_CONST_CAST, $3, $6 ), &yylp[1] ); }
     | Y_TYPEID Y_LEFT_PAREN expression Y_RIGHT_PAREN
     { $$ = setLocation( PTreeUnary( CO_TYPEID_EXPR, $3 ), &yylp[1] ); }
@@ -1015,6 +971,17 @@ member-selection-expression
 function-like-cast-expression
     : simple-type-specifier Y_LEFT_PAREN expression-list-opt Y_RIGHT_PAREN %ambig 0 Y_LEFT_PAREN
     { $$ = setLocation( MakeFunctionLikeCast( $1, $3 ), &yylp[2] ); }
+    | Y_TYPENAME Y_SCOPED_TYPE_NAME Y_LEFT_PAREN expression-list-opt Y_RIGHT_PAREN
+    {
+        $$ = setLocation( MakeFunctionLikeCast( sendType( $2 ), $4 ),
+                          &yylp[2] );
+    }
+    | Y_TYPENAME template-class-id Y_TEMPLATE_SCOPED_TYPE_NAME Y_LEFT_PAREN expression-list-opt Y_RIGHT_PAREN
+    {
+        $$ = setLocation( MakeFunctionLikeCast( sendType( $3 ), $5 ),
+                          &yylp[2] );
+        PTypeRelease( $2 );
+    }
     ;
 
 primary-expression
@@ -1048,18 +1015,22 @@ class-name-id
     | Y_TYPE_NAME
     | Y_TEMPLATE_NAME
     | Y_NAMESPACE_NAME
-    | Y_GLOBAL_ID
     | Y_GLOBAL_TYPE_NAME
     | Y_GLOBAL_TEMPLATE_NAME
-    | Y_GLOBAL_NAMESPACE_NAME
-    | Y_SCOPED_ID
     | Y_SCOPED_TYPE_NAME
     | Y_SCOPED_TEMPLATE_NAME
-    | Y_SCOPED_NAMESPACE_NAME
-    | Y_TEMPLATE_SCOPED_ID
     | Y_TEMPLATE_SCOPED_TYPE_NAME
     | Y_TEMPLATE_SCOPED_TEMPLATE_NAME
-    | Y_TEMPLATE_SCOPED_NAMESPACE_NAME
+    ;
+
+enum-name
+    : Y_ID
+    | Y_TYPE_NAME
+    | Y_TEMPLATE_NAME
+    | Y_NAMESPACE_NAME
+    | Y_GLOBAL_TYPE_NAME
+    | Y_SCOPED_TYPE_NAME
+    | Y_TEMPLATE_SCOPED_TYPE_NAME
     ;
 
 destructor-name
@@ -1263,8 +1234,8 @@ strings
 
 /*** declaration syntax ***/
 might-restart-declarations
-	: start-restart-declarations
-	{ popRestartDecl( state ); }
+    : start-restart-declarations
+    { popRestartDecl( state ); }
     | start-restart-declarations declarations
     { popRestartDecl( state ); }
     ;
@@ -1285,6 +1256,7 @@ declaration
     | function-definition
     | linkage-specification
     | template-declaration
+    | explicit-specialization
     | template-directive
     | namespace-definition
     | Y_SEMI_COLON
@@ -1301,10 +1273,20 @@ namespace-using-directive
     ;
     
 namespace-using-declaration
-    : Y_USING qualified-type-specifier
-    { NameSpaceUsingDeclType( $2 ); }
-    | Y_USING qualified-id-expression
+    : Y_USING qualified-id-expression
     { NameSpaceUsingDeclId( $2 ); }
+    | Y_USING Y_TYPE_NAME
+    { NameSpaceUsingDeclType( sendType( $2 ) ); }
+    | Y_USING Y_GLOBAL_TYPE_NAME
+    { NameSpaceUsingDeclType( sendType( $2 ) ); }
+    | Y_USING Y_SCOPED_TYPE_NAME
+    { NameSpaceUsingDeclType( sendType( $2 ) ); }
+    | Y_USING template-class-id Y_TEMPLATE_SCOPED_TYPE_NAME
+    { NameSpaceUsingDeclType( sendType( $3 ) ); PTypeRelease( $2 ); }
+    | Y_USING Y_GLOBAL_TEMPLATE_NAME
+    { NameSpaceUsingDeclTemplateName( $2 ); }
+    | Y_USING Y_SCOPED_TEMPLATE_NAME
+    { NameSpaceUsingDeclTemplateName( $2 ); }
     | Y_USING Y_GLOBAL_ID
     { NameSpaceUsingDeclId( MakeGlobalId( $2 ) ); }
     | Y_USING Y_GLOBAL_OPERATOR operator-function-type
@@ -1355,11 +1337,29 @@ access-declaration
     { ClassAccessTypeDeclaration( $1, &yylocation ); }
     ;
 
+static_assert-declaration
+    : Y_STATIC_ASSERT Y_LEFT_PAREN constant-expression Y_COMMA strings Y_RIGHT_PAREN
+    {
+        /* see N1720 -- Proposal to Add Static Assertions to the Core
+         * Language (Revision 3) */
+        DbgAssert( $3->op == PT_INT_CONSTANT );
+        DbgAssert( $5->op == PT_STRING_CONSTANT );
+
+        if( $3->u.int_constant == 0 ) {
+            CErr2p( ERR_STATIC_ASSERTION_FAILURE,
+                    StringBytes( $5->u.string ) );
+        }
+
+        PTreeFreeSubtrees( $3 );
+        PTreeFreeSubtrees( $5 );
+    }
+    ;
+
 simple-declaration-before-semicolon
     : simple-declaration
     {
         if( t != Y_SEMI_COLON ) {
-	    SetErrLoc( &yylocation );
+            SetErrLoc( &yylocation );
             CErr1( ERR_SYNTAX_MISSING_SEMICOLON );
             what = P_DIAGNOSED;
         }
@@ -1381,6 +1381,7 @@ simple-declaration
     | namespace-alias-definition
     | namespace-using-directive
     | namespace-using-declaration
+    | static_assert-declaration
     ;
 
 no-declarator-declaration
@@ -1485,6 +1486,8 @@ storage-class-specifier
 function-specifier
     : Y_INLINE
     { $$ = PTypeSpecifier( STY_INLINE ); }
+    | Y___INLINE
+    { $$ = PTypeSpecifier( STY_INLINE ); }
     | Y_VIRTUAL
     { $$ = PTypeSpecifier( STY_VIRTUAL ); }
     | Y_FRIEND
@@ -1498,6 +1501,7 @@ type-specifier
     | class-specifier
     | enum-specifier
     | typeof-specifier
+    | typename-specifier
     ;
 
 typeof-specifier
@@ -1591,6 +1595,13 @@ qualified-class-type
     | template-class-id
     ;
 
+typename-specifier
+    : Y_TYPENAME Y_SCOPED_TYPE_NAME
+    { $$ = sendType( $2 ); }
+    | Y_TYPENAME template-class-id Y_TEMPLATE_SCOPED_TYPE_NAME
+    { $$ = sendType( $3 ); PTypeRelease( $2 ); }
+    ;
+
 enum-specifier
     : enum-key enum-start enumerator-list Y_COMMA Y_RIGHT_BRACE
     {
@@ -1607,10 +1618,11 @@ enum-specifier
         $$ = MakeEnumType( &(state->gstack->u.enumdata) );
         GStackPop( &(state->gstack) );
     }
-    | enum-key
+    | Y_ENUM enum-name
     {
-        $$ = EnumReference( &(state->gstack->u.enumdata) );
-        GStackPop( &(state->gstack) );
+        ENUM_DATA edata;
+        InitEnumState( &edata, $2 );
+        $$ = EnumReference( &edata );
     }
     ;
 
@@ -1718,7 +1730,7 @@ init-declarator
     {
         $1 = FinishDeclarator( state->gstack->u.dspec, $1 );
         $$ = InsertDeclInfo( GetCurrScope(), $1 );
-	setInitWithLocn( $$, $3, &yylp[2] );
+        setInitWithLocn( $$, $3, &yylp[2] );
     }
     ;
 
@@ -1734,16 +1746,16 @@ comma-init-declarator
     { $$ = $1; }
     | cv-qualifiers-opt ptr-mod-init-declarator
     {
-	$2 = AddMSCVQualifierKludge( $1, $2 );
+        $2 = AddMSCVQualifierKludge( $1, $2 );
         $2 = FinishDeclarator( state->gstack->u.dspec, $2 );
         $$ = InsertDeclInfo( GetCurrScope(), $2 );
     }
     | cv-qualifiers-opt actual-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
     {
-	$2 = AddMSCVQualifierKludge( $1, $2 );
+        $2 = AddMSCVQualifierKludge( $1, $2 );
         $2 = FinishDeclarator( state->gstack->u.dspec, $2 );
         $$ = InsertDeclInfo( GetCurrScope(), $2 );
-	setInitWithLocn( $$, $4, &yylp[3] );
+        setInitWithLocn( $$, $4, &yylp[3] );
     }
     ;
 
@@ -1779,12 +1791,12 @@ declarator
 comma-declarator
     : cv-qualifiers-opt ptr-mod-declarator
     {
-	$2 = AddMSCVQualifierKludge( $1, $2 );
+        $2 = AddMSCVQualifierKludge( $1, $2 );
         $$ = FinishDeclarator( state->gstack->u.dspec, $2 );
     }
     | cv-qualifiers-opt actual-declarator
     {
-	$2 = AddMSCVQualifierKludge( $1, $2 );
+        $2 = AddMSCVQualifierKludge( $1, $2 );
         $$ = FinishDeclarator( state->gstack->u.dspec, $2 );
     }
     ;
@@ -1803,8 +1815,8 @@ ptr-mod-init-declarator
     { $$ = AddDeclarator( $2, $1 ); }
     | ptr-mod actual-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
     {
-	$$ = AddDeclarator( $2, $1 );
-	setInitWithLocn( $$, $4, &yylp[3] );
+        $$ = AddDeclarator( $2, $1 );
+        setInitWithLocn( $$, $4, &yylp[3] );
     }
     ;
 
@@ -1830,7 +1842,7 @@ actual-declarator
     | actual-declarator Y_LEFT_PAREN abstract-args Y_RIGHT_PAREN cv-qualifiers-opt except-spec-opt
     {
         $$ = AddDeclarator( $1, MakeFnType( &($3), $5, $6 ) );
-	$$ = AddExplicitParms( $$, $3 );
+        $$ = AddExplicitParms( $$, $3 );
     }
     | actual-declarator Y_LEFT_BRACKET constant-expression Y_RIGHT_BRACKET
     { $$ = AddArrayDeclarator( $1, $3 ); }
@@ -1847,10 +1859,14 @@ modifier
     { $$ = TF1_NEAR; }
     | Y___FAR
     { $$ = TF1_FAR; }
+    | Y__FAR16
+    { $$ = TF1_SET_FAR16;       /* equals TF1_FAR on the 8086 */ }
     | Y___FAR16
     { $$ = TF1_SET_FAR16;       /* equals TF1_FAR on the 8086 */ }
     | Y___HUGE
     { $$ = TF1_SET_HUGE;        /* equals TF1_FAR on the 386 */ }
+    | Y__EXPORT
+    { $$ = TF1_DLLEXPORT | TF1_HUG_FUNCTION; }
     | Y___EXPORT
     { $$ = TF1_DLLEXPORT | TF1_HUG_FUNCTION; }
     | Y___LOADDS
@@ -1886,18 +1902,32 @@ pragma-modifier
         StringTrash( $3->u.string );
         PTreeFree( $3 );
     }
+    | Y__CDECL
+    { $$ = MakeIndexPragma( M_CDECL ); }
     | Y___CDECL
     { $$ = MakeIndexPragma( M_CDECL ); }
-    | Y___PASCAL
-    { $$ = MakeIndexPragma( M_PASCAL ); }
+    | Y__FASTCALL
+    { $$ = MakeIndexPragma( M_FASTCALL ); }
+    | Y___FASTCALL
+    { $$ = MakeIndexPragma( M_FASTCALL ); }
     | Y___FORTRAN
     { $$ = MakeIndexPragma( M_FORTRAN ); }
-    | Y__SYSCALL
-    { $$ = MakeIndexPragma( M_SYSCALL ); }
     | Y__OPTLINK
     { $$ = MakeIndexPragma( M_OPTLINK ); }
+    | Y__PASCAL
+    { $$ = MakeIndexPragma( M_PASCAL ); }
+    | Y___PASCAL
+    { $$ = MakeIndexPragma( M_PASCAL ); }
     | Y___STDCALL
     { $$ = MakeIndexPragma( M_STDCALL ); }
+    | Y__SYSCALL
+    { $$ = MakeIndexPragma( M_SYSCALL ); }
+    | Y___SYSCALL
+    { $$ = MakeIndexPragma( M_SYSCALL ); }
+    | Y__SYSTEM
+    { $$ = MakeIndexPragma( M_SYSCALL ); }
+    | Y___WATCALL
+    { $$ = MakeIndexPragma( M_WATCALL ); }
     ;
 
 pragma-id
@@ -2109,28 +2139,11 @@ abstract-args
     { $$ = AddEllipseArg( NULL ); }
     ;
 
-template-abstract-args
-    : /* nothing */
-    { $$ = NULL; }
-    | template-arg-declaration-list
-    ;
-
 arg-declaration-list
     : arg-declaration
     { $$ = AddArgument( NULL, $1 ); }
     | arg-declaration-list Y_COMMA arg-declaration
     { $$ = AddArgument( $1, $3 ); }
-    ;
-
-template-arg-declaration-list
-    : template-arg-declaration
-    { 
-        $$ = AddArgument( NULL, $1 ); 
-    }
-    | template-arg-declaration-list Y_COMMA template-arg-declaration
-    { 
-        $$ = AddArgument( $1, $3 ); 
-    }
     ;
 
 arg-decl-specifiers
@@ -2148,9 +2161,41 @@ arg-declaration
     { GStackPop( &(state->gstack) ); }
     ;
 
-template-arg-declaration
-    : simple-template-arg-declaration
-    { GStackPop( &(state->gstack) ); }
+type-parameter
+    : type-parameter-no-defarg
+    | type-parameter-no-defarg type-defarg-parse-or-copy
+    ;
+
+type-parameter-no-defarg
+    : template-typename-key
+    {
+        DECL_SPEC *dspec;
+
+        pushClassData( state, TF1_NULL, CLINIT_NULL, NULL);
+        ClassName( NULL, CLASS_GENERIC );
+        dspec = ClassRefDef();
+        GStackPop( &(state->gstack) );
+        $$ = DeclSpecDeclarator( dspec );
+        PTypeRelease( dspec );
+    }
+    | template-typename-key make-id
+    {
+        DECL_SPEC *dspec;
+
+        pushClassData( state, TF1_NULL, CLINIT_NULL, NULL);
+        ClassName( $2, CLASS_GENERIC );
+        dspec = ClassRefDef();
+        GStackPop( &(state->gstack) );
+        $$ = DeclSpecDeclarator( dspec );
+        PTypeRelease( dspec );
+    }
+    ;
+
+template-typename-key
+    : Y_TYPENAME
+    { }
+    | Y_CLASS
+    { }
     ;
 
 simple-arg-declaration
@@ -2178,81 +2223,68 @@ defarg-parse-or-copy
     {
         DECL_INFO *dinfo;
 
-	DbgAssert( $1 == NULL );
-	dinfo = $<dinfo>0;
-	dinfo->defarg_expr = $3;
-	dinfo->has_defarg = TRUE;
-	TokenLocnAssign( dinfo->init_locn, yylp[2] );
+        DbgAssert( $1 == NULL );
+        dinfo = $<dinfo>0;
+        dinfo->defarg_expr = $3;
+        dinfo->has_defarg = TRUE;
+        TokenLocnAssign( dinfo->init_locn, yylp[2] );
     }
     | defarg-check Y_DEFARG_GONE_SPECIAL
     {
         DECL_INFO *dinfo;
 
-	dinfo = $<dinfo>0;
-	dinfo->defarg_rewrite = $1;
-	dinfo->has_defarg = TRUE;
-	TokenLocnAssign( dinfo->init_locn, yylp[2] );
-    }
-    ;
-    
-defarg-check
-    : /* nothing */
-    {
-	if( ClassOKToRewrite() ) {
-	    if( t != Y_EQUAL ) {
-		what = P_SYNTAX;
-		$$ = NULL;
-	    } else {
-		$$ = RewritePackageDefArg( NULL );
-		t = Y_DEFARG_GONE_SPECIAL;
-	    }
-	} else {
-	    $$ = NULL;
-	}
+        dinfo = $<dinfo>0;
+        dinfo->defarg_rewrite = $1;
+        dinfo->has_defarg = TRUE;
+        TokenLocnAssign( dinfo->init_locn, yylp[2] );
     }
     ;
 
-simple-template-arg-declaration
-    : arg-decl-specifiers
-    { $$ = DeclSpecDeclarator( $1 ); }
-    | arg-decl-specifiers simple-arg-no-id template-defarg-copy
-    { $$ = $2; }
-    | arg-decl-specifiers declarator
-    { $$ = $2; }
-    | arg-decl-specifiers declarator template-defarg-copy
-    { $$ = $2; }
-    | arg-decl-specifiers abstract-declarator
-    { $$ = $2; }
-    | arg-decl-specifiers abstract-declarator template-defarg-copy
-    { $$ = $2; }
-    ;
-
-template-defarg-copy
-    : template-defarg-rewrite Y_EQUAL
-    { }
-    | template-defarg-rewrite Y_DEFARG_GONE_SPECIAL
+type-defarg-parse-or-copy
+    : defarg-check Y_EQUAL type-id
     {
         DECL_INFO *dinfo;
 
-	dinfo = $<dinfo>0;
-	dinfo->defarg_rewrite = $1;
-	dinfo->has_defarg = TRUE;
-	TokenLocnAssign( dinfo->init_locn, yylp[2] );
+        DbgAssert( $1 == NULL );
+        dinfo = $<dinfo>0;
+        dinfo->defarg_expr = $3;
+        dinfo->has_defarg = TRUE;
+        TokenLocnAssign( dinfo->init_locn, yylp[2] );
+    }
+    | defarg-check Y_DEFARG_GONE_SPECIAL
+    {
+        DECL_INFO *dinfo;
+
+        dinfo = $<dinfo>0;
+        dinfo->defarg_rewrite = $1;
+        dinfo->has_defarg = TRUE;
+        TokenLocnAssign( dinfo->init_locn, yylp[2] );
     }
     ;
 
-template-defarg-rewrite
+defarg-check
     : /* nothing */
     {
         if( t != Y_EQUAL ) {
             what = P_SYNTAX;
             $$ = NULL;
         } else {
-            $$ = RewritePackageTemplateDefArg();
-            t = Y_DEFARG_GONE_SPECIAL;
+            angle_bracket_stack *angle_state;
+
+            angle_state = VstkTop( &(state->angle_stack) );
+            if( state->template_decl && ( angle_state != NULL )
+             && ( angle_state->paren_depth == 0 ) ) {
+                $$ = RewritePackageTemplateDefArg();
+                t = Y_DEFARG_GONE_SPECIAL;
+            } else if( ClassOKToRewrite() ) {
+                $$ = RewritePackageDefArg( NULL );
+                t = Y_DEFARG_GONE_SPECIAL;
+            } else {
+                $$ = NULL;
+            }
         }
     }
-     ;
+    ;
 
 ctor-declarator
     : Y_LEFT_PAREN abstract-args Y_RIGHT_PAREN cv-qualifiers-opt except-spec-opt
@@ -2270,7 +2302,7 @@ ctor-declarator
             what = P_CLASS_TEMPLATE;
         } else {
             AddDeclarator( $$, MakeFnType( &($2), $4, $5 ) );
-	    $$ = AddExplicitParms( $$, $2 );
+            $$ = AddExplicitParms( $$, $2 );
             $$ = FinishDeclarator( dspec, $$ );
         }
     }
@@ -2321,10 +2353,10 @@ function-declaration
 function-definition
     : function-declaration function-body
     {
-        GStackPop( &(state->gstack) );	/* decl-info */
-	if( $1->has_dspec ) {
-	    GStackPop( &(state->gstack) );	/* decl-spec */
-	}
+        GStackPop( &(state->gstack) );  /* decl-info */
+        if( $1->has_dspec ) {
+            GStackPop( &(state->gstack) );      /* decl-spec */
+        }
         if( $1->body != NULL ) {
             if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) ) {
                 TemplateFunctionAttachDefn( $1 );
@@ -2360,7 +2392,7 @@ absorb-body
         /* token will be thrown away (see check-for-rewrite) */
         ParseFlush();
         if( doFnbodyRewrite() ) {
-	    REWRITE *rewrite;
+            REWRITE *rewrite;
             rewrite = RewritePackageFunction( getMultiToken() );
             state->gstack->u.dinfo->body = rewrite;
         } else {
@@ -2390,7 +2422,7 @@ init-start
         dinfo = state->gstack->u.dinfo;
         reuseGStack( state, GS_INIT_DATA );
         DataInitStart( &(state->gstack->u.initdata), dinfo );
-	DataInitSimpleLocn( &yylp[1] );
+        DataInitSimpleLocn( &yylp[1] );
     }
     ;
 
@@ -2455,22 +2487,15 @@ class-name
         switch( t ) {
         case Y_LEFT_BRACE:
         case Y_COLON:
-	    if( state->template_class_inst_defer ) {
-		what = P_DEFER_DEFN;
-		decl_type = CLASS_DECLARATION;
-	    } else {
-		decl_type = CLASS_DEFINITION;
-	    }
+            if( state->template_class_inst_defer ) {
+                what = P_DEFER_DEFN;
+                decl_type = CLASS_DECLARATION;
+            } else {
+                decl_type = CLASS_DEFINITION;
+            }
             break;
         case Y_SEMI_COLON:
             decl_type = CLASS_DECLARATION;
-            break;
-        case Y_COMMA:
-        case Y_GT:
-        case Y_EQUAL:
-            if( state->template_args ) {
-                decl_type = CLASS_GENERIC;
-            }
             break;
         }
         after_name = ClassName( $1, decl_type );
@@ -2512,9 +2537,7 @@ class-body
     ;
 
 class-substance
-    : start-class Y_LEFT_BRACE
-    { $$ = ClassEnd(); what = P_RELEX; }
-    | start-class Y_LEFT_BRACE member-list
+    : start-class Y_LEFT_BRACE member-specification-opt
     { $$ = ClassEnd(); what = P_RELEX; }
     ;
 
@@ -2560,12 +2583,14 @@ class-mod-seq
     { $$ = TypeClassModCombine( $1, $2 ); }
     ;
 
-member-list
-    : member-declaration
-    | member-list member-declaration
-    | access-specifier Y_COLON
-    { ClassPermission( $1 ); }
-    | member-list access-specifier Y_COLON
+member-specification-opt
+    : /* nothing */
+    | member-specification
+    ;
+
+member-specification
+    : member-specification-opt member-declaration
+    | member-specification-opt access-specifier Y_COLON
     { ClassPermission( $2 ); }
     ;
 
@@ -2584,16 +2609,18 @@ member-declaration
     | access-declaration Y_SEMI_COLON
     | Y_SEMI_COLON
     {
-	SetErrLoc( &yylp[1] );
-	CErr1( WARN_EMPTY_MEMBER_DECL );
+        SetErrLoc( &yylp[1] );
+        CErr1( WARN_EMPTY_MEMBER_DECL );
     }
+    | template-declaration
+    | static_assert-declaration Y_SEMI_COLON
     ;
 
 simple-member-declaration-before-semicolon
     : simple-member-declaration
     {
         if( t != Y_SEMI_COLON ) {
-	    SetErrLoc( &yylocation );
+            SetErrLoc( &yylocation );
             CErr1( ERR_SYNTAX_MISSING_SEMICOLON );
             what = P_DIAGNOSED;
         }
@@ -2728,7 +2755,12 @@ base-qualifiers-opt
 ctor-initializer
     : Y_COLON
     {
-        $$ = RewritePackageMemInit( getMultiToken() );
+        if( state->template_record_tokens != NULL ) {
+            recordTemplateCtorInitializer( state );
+            $$ = NULL;
+        } else {
+            $$ = RewritePackageMemInit( getMultiToken() );
+        }
         what = P_RELEX;
     }
     ;
@@ -2749,11 +2781,67 @@ mem-initializer-item
 
 /*** template syntax ***/
 template-declaration
-    : template-key Y_LT template-argument-decl Y_GT template-def
+    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL template-def
     {
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
     }
+    | Y_EXPORT template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL template-def
+    {
+        CErr1( WARN_UNSUPPORTED_TEMPLATE_EXPORT );
+        RewriteFree( ParseGetRecordingInProgress( NULL ) );
+        state->template_decl = FALSE;
+    }
+    ;
+
+explicit-specialization
+    : template-key template-declaration-init lt-special template-empty-parameter-list Y_GT_SPECIAL template-def
+    {
+        RewriteFree( ParseGetRecordingInProgress( NULL ) );
+        state->template_decl = FALSE;
+    }
+    ;
+
+template-declaration-init
+    : /* nothing */
+    {
+        GStackPush( &(state->gstack), GS_TEMPLATE_DATA );
+        TemplateDeclInit( &(state->gstack->u.templatedata) );
+    }
+    ;
+
+template-empty-parameter-list
+    : /* nothing */
+    {
+        pushDefaultDeclSpec( state );
+        state->template_record_tokens =
+            RewriteRecordInit( &(state->template_record_locn) );
+    }
+    ;
+
+template-nonempty-parameter-list
+    : template-parameter-list
+    {
+        pushDefaultDeclSpec( state );
+        state->template_record_tokens =
+            RewriteRecordInit( &(state->template_record_locn) );
+    }
+    ;
+
+template-parameter-list
+    : template-parameter
+    {
+        TemplateDeclAddArgument( $1 );
+    }
+    | template-parameter-list Y_COMMA template-parameter
+    {
+        TemplateDeclAddArgument( $3 );
+    }
+    ;
+
+template-parameter
+    : arg-declaration
+    | type-parameter
     ;
 
 template-key
@@ -2761,22 +2849,11 @@ template-key
     {
         if( state->template_decl ) {
             CErr1( ERR_NO_NESTED_TEMPLATES );
-        } else if( ! ScopeType( GetCurrScope(), SCOPE_FILE ) ) {
+        } else if( ! ScopeType( GetCurrScope(), SCOPE_FILE )
+                && ! ScopeType( GetCurrScope(), SCOPE_CLASS ) ) {
             CErr1( ERR_ONLY_GLOBAL_TEMPLATES );
         }
         state->template_decl = TRUE;
-        state->template_args = TRUE;
-    }
-    ;
-
-template-argument-decl
-    : template-abstract-args
-    {
-        state->template_args = FALSE;
-        GStackPush( &(state->gstack), GS_TEMPLATE_DATA );
-        TemplateDeclInit( &(state->gstack->u.templatedata), $1 );
-        pushDefaultDeclSpec( state );
-        state->template_record_tokens = RewriteRecordInit( &(state->template_record_locn) );
     }
     ;
 
@@ -2798,21 +2875,34 @@ class-template
     ;
 
 template-class-id
-    : template-class-instantiation Y_GT
+    : template-class-instantiation Y_GT_SPECIAL
+    | template-class-id template-member-class-id Y_GT_SPECIAL
+    {
+        $$ = $2;
+        PTypeRelease( $1 );
+    }
     ;
 
-template-class-instantiation
-    : Y_TEMPLATE_NAME Y_LT template-arg-list-opt
+template-member-class-id
+    : Y_TEMPLATE_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
         $$ = TemplateClassInstantiation( $1, $3, TCI_NULL );
         setWatchColonColon( state, $$ );
     }
-    | Y_GLOBAL_TEMPLATE_NAME Y_LT template-arg-list-opt
+    ;
+
+template-class-instantiation
+    : Y_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        $$ = TemplateClassInstantiation( MakeTemplateId( $1 ), $3, TCI_NULL );
+        $$ = TemplateClassInstantiation( $1, $3, TCI_NULL );
         setWatchColonColon( state, $$ );
     }
-    | Y_SCOPED_TEMPLATE_NAME Y_LT template-arg-list-opt
+    | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list-opt
+    {
+        $$ = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        setWatchColonColon( state, $$ );
+    }
+    | Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
         $$ = TemplateClassInstantiation( $1, $3, TCI_NULL );
         setWatchColonColon( state, $$ );
@@ -2820,36 +2910,35 @@ template-class-instantiation
     ;
 
 template-class-pre-id
-    : template-class-pre-instantiation Y_GT
+    : template-class-pre-instantiation Y_GT_SPECIAL
     ;
 
 template-class-pre-instantiation
-    : Y_TEMPLATE_NAME Y_LT template-arg-list
+    : Y_TEMPLATE_NAME lt-special template-argument-list
     { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
-    | Y_GLOBAL_TEMPLATE_NAME Y_LT template-arg-list
-    {
-        $1 = MakeTemplateId( $1 );
-        $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] );
-    }
+    | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list
+    { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
+    | Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list
+    { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
     ;
 
-template-arg-list-opt
+template-argument-list-opt
     : /* nothing */
     { $$ = PTreeBinary( CO_LIST, NULL, NULL ); }
-    | template-arg-list
+    | template-argument-list
     { $$ = $1; }
     ;
 
-template-arg-list
-    : template-parameter-expression
+template-argument-list
+    : template-argument
     { $$ = PTreeBinary( CO_LIST, NULL, $1 ); }
-    | template-arg-list Y_COMMA template-parameter-expression
+    | template-argument-list Y_COMMA template-argument
     { $$ = setLocation( PTreeBinary( CO_LIST,   $1, $3 ), &yylp[2] ); }
     ;
 
-template-parameter-expression
-    : type-id
-    | template-assignment-expression
+template-argument
+    : assignment-expression
+    | type-id
     ;
     
 template-directive
@@ -2868,10 +2957,12 @@ template-class-directive-instantiate
     ;
     
 template-directive-class
-    : Y_TEMPLATE_NAME Y_LT template-arg-list Y_GT
+    : Y_TEMPLATE_NAME lt-special template-argument-list Y_GT_SPECIAL
     { $$ = PTreeBinary( CO_LIST, $1, $3 ); }
-    | Y_GLOBAL_TEMPLATE_NAME Y_LT template-arg-list Y_GT
-    { $$ = PTreeBinary( CO_LIST, MakeTemplateId( $1 ), $3 ); }
+    | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list Y_GT_SPECIAL
+    { $$ = PTreeBinary( CO_LIST, $1, $3 ); }
+    | Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list Y_GT_SPECIAL
+    { $$ = PTreeBinary( CO_LIST, $1, $3 ); }
     ;
 
 /*** exception syntax ***/

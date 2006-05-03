@@ -30,12 +30,11 @@
 ****************************************************************************/
 
 
+#include "plusplus.h"
+
 #include <setjmp.h>
 #include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include "plusplus.h"
 #include "cgfront.h"
 #include "stats.h"
 #include "memmgr.h"
@@ -75,7 +74,7 @@ static SUICIDE_CALLBACK *suicideCallbacks;
 
 #define MSG_SCOPE static
 #define MSG_MEM
-#include "errmsgs.c"
+#include "errmsgs1.gh"
 #include "msgdecod.c"
 #define MSG_CONST
 #include "errlevel.gh"

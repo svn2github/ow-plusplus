@@ -60,7 +60,9 @@ enum
 ,       M_FORTRAN
 ,       M_SYSCALL
 ,       M_STDCALL
+,       M_FASTCALL
 ,       M_OPTLINK
+,       M_WATCALL
 };
 
 //typedef target_ulong target_int_const;

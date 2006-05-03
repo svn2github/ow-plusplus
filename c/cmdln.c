@@ -30,11 +30,11 @@
 ****************************************************************************/
 
 
+#include "plusplus.h"
+
 #include <ctype.h>
-#include <string.h>
 #include <banner.h>
 
-#include "plusplus.h"
 #include "errdefns.h"
 #include "memmgr.h"
 #include "preproc.h"
@@ -52,7 +52,7 @@
 #include "vstk.h"
 #include "vbuf.h"
 
-#include "cmdlnprs.gh"
+#include "cmdlnpr1.gh"
 #include "cmdlnsys.h"
 
 static  RINGNAMECTL undef_names =       // #UNDEF NAMES LIST
@@ -180,9 +180,7 @@ static void defineKeywordMacros(   // PREDEFINE KEYWORD MACROS
     void )
 {
     static char *mac_table[] =  // - predefined macros
-    { "_far16=__far16"
-    , "_Far16=__far16"
-    , "near=__near"
+    { "near=__near"
     , "far=__far"
     , "huge=__huge"
     , "cdecl=__cdecl"
@@ -191,6 +189,7 @@ static void defineKeywordMacros(   // PREDEFINE KEYWORD MACROS
     , "interrupt=__interrupt"
     , "_near=__near"
     , "_far=__far"
+    , "_far16=__far16"
     , "_huge=__huge"
     , "_cdecl=__cdecl"
     , "_pascal=__pascal"
@@ -203,16 +202,10 @@ static void defineKeywordMacros(   // PREDEFINE KEYWORD MACROS
     , "_self=__self"
     , "_segname=__segname"
     , "_segment=__segment"
-    , "_syscall=_Syscall"
-    , "__syscall=_Syscall"
-    , "_System=_Syscall"
-    , "_Cdecl=__cdecl"
-    , "_Pascal=__pascal"
-    , "__inline=inline"
-    , "_inline=inline"
+    , "_syscall=__syscall"
+    , "_inline=__inline"
     , "_stdcall=__stdcall"
-    , "_fastcall="
-    , "__fastcall="
+    , "_fastcall=__fastcall"
     , "_asm=__asm"
     , "_emit=__emit"
     , NULL
@@ -328,7 +321,14 @@ void InitModInfo(               // INITIALIZE MODULE INFORMATION
     CompFlags.emit_targimp_symbols = 1;
     CompFlags.check_truncated_fnames = 1;
     CompFlags.inline_functions = 1;
-    PragInitDefaultInfo();
+    WatcallInfo.cclass = 0;
+    WatcallInfo.code = NULL;
+    WatcallInfo.parms = DefaultParms;
+    HW_CAsgn( WatcallInfo.returns, HW_EMPTY );
+    HW_CAsgn( WatcallInfo.streturn, HW_EMPTY );
+    HW_CAsgn( WatcallInfo.save, HW_FULL );
+    WatcallInfo.use = 0;
+    WatcallInfo.objname = NULL;
     HeadPacks = NULL;
     HeadEnums = NULL;
     FreePrags = NULL;

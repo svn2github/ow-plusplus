@@ -30,13 +30,12 @@
 ****************************************************************************/
 
 
+#include "plusplus.h"
+
 #include <stddef.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <limits.h>
 
-#include "plusplus.h"
 #include "errdefns.h"
 #include "memmgr.h"
 #include "ring.h"
@@ -298,6 +297,7 @@ SYMBOL DFAbbrevSym;
 SYMBOL PCHDebugSym;
 
 static char bool_zapped_char;
+static char static_assert_zapped_char;
 
 extern SCOPE    GetCurrScope(void)
 {
@@ -794,6 +794,7 @@ static void scopeInit(          // SCOPES INITIALIZATION
 {
     defn = defn;
     DbgStmt( bool_zapped_char = '\0' );
+    DbgStmt( static_assert_zapped_char = '\0' );
     PCHActivate();
     carveSYM_REGION = CarveCreate( sizeof( SYM_REGION ), BLOCK_SYM_REGION );
     carveUSING_NS = CarveCreate( sizeof( USING_NS ), BLOCK_USING_NS );
@@ -833,6 +834,9 @@ static void scopeInit(          // SCOPES INITIALIZATION
     injectChipBug();
     injectDwarfAbbrev();
     injectBool();
+    if( ! CompFlags.enable_std0x ) {
+        static_assert_zapped_char = KwDisable( T_STATIC_ASSERT );
+    }
     ExtraRptRegisterCtr( &syms_defined, "symbols defined" );
     ExtraRptRegisterCtr( &scopes_alloced, "scopes allocated" );
     ExtraRptRegisterCtr( &scopes_kept, "scopes kept" );
@@ -859,6 +863,9 @@ static void scopeFini(          // SCOPES COMPLETION
 #endif
     if( CompFlags.extensions_enabled ) {
         KwEnable( T_BOOL, bool_zapped_char );
+    }
+    if( ! CompFlags.enable_std0x ) {
+        KwEnable( T_STATIC_ASSERT, static_assert_zapped_char );
     }
     CarveDestroy( carveSYM_REGION );
     CarveDestroy( carveUSING_NS );
@@ -3851,7 +3858,7 @@ static void differentCopiesAmbiguity( lookup_walk *data )
     flag.static_found = FALSE;
     flag.nonstatic_found = FALSE;
     RingIterBeg( sym_name->name_syms, sym ) {
-        if( sym->id == SC_STATIC ) {
+        if( SymIsStatic( sym ) ) {
             flag.static_found = TRUE;
         } else {
             flag.nonstatic_found = TRUE;
@@ -4423,7 +4430,11 @@ static boolean removeDuplicateNS( lookup_walk *data )
 
 static boolean processNSLookup( lookup_walk *data )
 {
+    PATH_CAP *cap;
+    SYMBOL sym;
+    SYMBOL aliasee;
     unsigned path_count;
+    boolean dead;
 
     path_count = data->path_count;
     if( path_count <= 1 ) {
@@ -4435,6 +4446,30 @@ static boolean processNSLookup( lookup_walk *data )
             return( path_count != 0 );
         }
     }
+
+    // remove duplicate aliases for the same entity
+    aliasee = NULL;
+    dead = FALSE;
+    for( cap = data->paths; cap != NULL; cap = cap->next ) {
+        sym = cap->sym_name->name_syms;
+        if( sym != NULL ) {
+            sym = SymDeAlias( sym );
+            if( aliasee == NULL ) {
+                aliasee = sym;
+            } else if( aliasee == sym ) {
+                cap->throw_away = TRUE;
+                dead = TRUE;
+            }
+        }
+    }
+    if( dead ) {
+        removeDead( data );
+        path_count = data->path_count;
+        if( path_count <= 1 ) {
+            return( path_count != 0 );
+        }
+    }
+
     if( ! allFunctionNames( data ) ) {
         data->lookup_error = TRUE;
         data->error_msg = ERR_AMBIGUOUS_NAMESPACE_LOOKUP;
@@ -6506,7 +6541,7 @@ boolean ScopeAmbiguousSymbol( SEARCH_RESULT *result, SYMBOL sym )
     /* report ambiguity error */
     if( result->mixed_static ) {
         /* fn overload isn't ambiguous provided static member fn is chosen */
-        if( sym->id != SC_STATIC ) {
+        if( ! SymIsStatic( sym ) ) {
             result->ambiguous = TRUE;
         }
     }
@@ -6731,6 +6766,18 @@ SCOPE ScopeNearestFile( SCOPE scope )
     return( scope );
 }
 
+SCOPE ScopeNearestFileOrClass( SCOPE scope )
+/***********************************/
+{
+    for(;;) {
+        if( scope == NULL ) break;
+        if( _IsFileScope( scope ) ) break;
+        if( _IsClassScope( scope ) ) break;
+        scope = scope->enclosing;
+    }
+    return( scope );
+}
+
 SCOPE ScopeFunctionScopeInProgress( void )
 /****************************************/
 {
@@ -6928,7 +6975,7 @@ SYMBOL ScopeIntrinsic( boolean turn_on )
     TYPE type;
 
     name = NameCreateLen( Buffer, TokenLen );
-    result = ScopeFindNaked( GetFileScope(), name );
+    result = ScopeFindNaked( ScopeNearestFile( GetCurrScope() ), name );
     if( result == NULL ) {
         return( NULL );
     }
@@ -7442,6 +7489,7 @@ static void saveSymbol( void *e, carve_walk_base *d )
         s->u.tinfo = TemplateClassInfoGetIndex( save_u_tinfo );
         break;
     case SC_FUNCTION_TEMPLATE:
+    case SC_STATIC_FUNCTION_TEMPLATE:
         save_u_defn = s->u.defn;
         s->u.defn = TemplateFunctionInfoGetIndex( save_u_defn );
         break;
@@ -7482,6 +7530,7 @@ static void saveSymbol( void *e, carve_walk_base *d )
         s->u.tinfo = save_u_tinfo;
         break;
     case SC_FUNCTION_TEMPLATE:
+    case SC_STATIC_FUNCTION_TEMPLATE:
         s->u.defn = save_u_defn;
         break;
     case SC_DEFAULT:
@@ -7749,6 +7798,7 @@ static void readSymbols( void )
             sym->u.tinfo = TemplateClassInfoMapIndex( pch->u.tinfo );
             break;
         case SC_FUNCTION_TEMPLATE:
+        case SC_STATIC_FUNCTION_TEMPLATE:
             sym->u.defn = TemplateFunctionInfoMapIndex( pch->u.defn );
             break;
         case SC_DEFAULT:

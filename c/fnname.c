@@ -30,14 +30,12 @@
 ****************************************************************************/
 
 
+#include "plusplus.h"
+
 #include <stdarg.h>
 #include <stddef.h>
-#include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
 
-#include "plusplus.h"
-#include "tgtenv.h"
 #include "ppintnam.h"
 #include "errdefns.h"
 #include "memmgr.h"
@@ -54,6 +52,7 @@
 #include "pcheader.h"
 #include "stats.h"
 #include "srcfile.h"
+#include "pragdefn.h"
 
 typedef enum {                  // type mangling control
     TM_INCLUDE_FIRST_DIM= 0x01, // - include first dimension in array type mangling
@@ -1029,29 +1028,6 @@ char *CppArrayDtorName(         // CREATE NAME FOR ARRAY DTOR
     return retMangling( save );
 }
 
-
-static char *cppPragmaMangle(   // HANDLE MANGLING REQUIRED FOR SYS-DEP PRAGMAS
-    char *name,                 // - current name
-    SYMBOL sym,                 // - symbol
-    void *pragma )              // - pragma
-{
-    TYPE fn_type;
-    target_size_t size;
-
-    if( CompFlags.use_stdcall_at_number && AddParmSize( pragma ) ) {
-        fn_type = FunctionDeclarationType( sym->sym_type );
-        if( TypeParmSize( fn_type, &size ) ) {
-            DbgVerify( name != mangled_name.buf, "passed mangled name to cppPragmaMangle" );
-            VStrNull( &mangled_name );
-            appendStr( name );
-            appendChar( '@' );
-            appendInt( size );
-            name = mangled_name.buf;
-        }
-    }
-    return( name );
-}
-
 char *CppNameTypeSig(           // NAME OF TYPE SIGNATURE
     TYPE type )                 // - the type
 {
@@ -1254,236 +1230,36 @@ char *CppClassPathDebug(  //TRANSLATE INTERNAL NAME TO CLASS PREFIXED DEBUGGER N
     return( mangled_name.buf );
 }
 
-static char *backSlashCopy(     // DO BACKSLASH ESCAPE COPY
-    char *dst,                  // - target
-    char *src )                 // - source
-{
-    while( *src != '\0' ) {
-        if( *src == '*' || *src == '^' || *src == '!' ) {
-            *dst++ = '\\';
-        }
-        *dst++ = *src++;
-    }
-    return( dst );
-}
-
-static char *allowStrictReplacement( char *patbuff )
-{
-    char *p;
-    char prev;
-
-    // mangled C++ name will be injected as the name so
-    // we only allow 'patbuff' to be a pure replacement
-    // rather than like "_*" "*_" "^" "__!"
-    if( patbuff == NULL ) {
-        return( patbuff );
-    }
-    prev = '\0';
-    for( p = patbuff; *p != '\0'; ++p ) {
-        if( prev != '\\' ) {
-            switch( *p ) {
-            case '*':
-            case '^':
-            case '!':
-                return( NULL );
-            }
-        }
-        prev = *p;
-    }
-    return( patbuff );
-}
-
-static char *objectName(        // DO CODEGEN NAME PROCESSING
-    char *patbuff,              // - pattern
-    char *sym_name )            // - mangled name
-{
-    char        *src;
-    char        *dst;
-    char        *end;
-    unsigned    namelen;
-    unsigned    length;
-
-    if( objNameBuff != NULL ) CMemFreePtr( &objNameBuff );
-    namelen = strlen( sym_name );
-    length = 1;
-    for( src = sym_name; *src != '\0'; ++src ) {
-        if( *src == '*' || *src == '^' || *src == '!' ) {
-            // add one for escape char '\'
-            namelen++;
-        }
-    }
-    for( src = patbuff; *src != '\0'; ++src ) {
-        switch( *src ) {
-        case '\\':
-            ++src;              // next character is taken literally
-            length += 2;        // keep the backslash (might be special char)
-            break;
-        case '*':
-        case '^':
-        case '!':
-            length += namelen;
-            break;
-        default:
-            ++length;
-            break;
-        }
-    }
-    objNameBuff = CMemAlloc( length );
-
-    dst = objNameBuff;
-    for( src = patbuff; *src != '\0'; ++src ) {
-        switch( *src ) {
-        case '\\':
-            *dst++ = '\\';
-            *dst++ = *++src;
-            break;
-        case '*':
-            dst = backSlashCopy( dst, sym_name );
-            break;
-        case '^':
-            end = backSlashCopy( dst, sym_name );
-            while( dst != end ) {
-                *dst = toupper( *dst );
-                ++dst;
-            }
-            break;
-        case '!':
-            end = backSlashCopy( dst, sym_name );
-            while( dst != end ) {
-                *dst = tolower( *dst );
-                ++dst;
-            }
-            break;
-        default:
-            *dst++ = *src;
-            break;
-        }
-    }
-    *dst = '\0';
-    return( objNameBuff );
-}
-
-static char *createFourCharHash( char *mangle, char *buff )
-{
-    uint_32 mangle_hash;
-    size_t num_size;
-
-    mangle_hash = objNameHash( 0, mangle );
-    mangle_hash %= 36L*36L*36L*36L;
-    ultoa( mangle_hash, buff, 36 );
-    num_size = strlen( buff );
-    DbgAssert( num_size > 0 && num_size <= MANGLED_HASH_LEN );
-    while( num_size < MANGLED_HASH_LEN ) {
-        // '_' is not part of the 0-35 digit alphabet
-        // because if we used a digit 'd' we would collide
-        // with other numbers given that we are adding the
-        // filler to the end ( nn, nnd, and nndd would produce
-        // the same four char hash string )
-        buff[ num_size ] = '_';
-        ++num_size;
-    }
-    DbgAssert( num_size == MANGLED_HASH_LEN );
-    buff[ MANGLED_HASH_LEN ] = '\0';
-    return( buff );
-}
-
-static char *reduceMangledName( char *mangle )
-{
-    auto char buff[MANGLED_HASH_LEN+1];
-
-    /* change "W?xxx" to "T?hhhhxxx" */
-    createFourCharHash( mangle, buff );
-    memmove( mangle + 2 + MANGLED_HASH_LEN, mangle + 2,
-             MANGLED_MAX_LEN - MANGLED_HASH_LEN );
-    memcpy( mangle + 2, buff, MANGLED_HASH_LEN );
-    mangle[MANGLED_MAX_LEN] = '\0';
-    mangle[0] = IN_TRUNCATE;
-    return( mangle );
-}
-
-static char *reduceNonMangledName( char *mangle )
-{
-    char *hash_name;
-    auto char buff[MANGLED_HASH_LEN+1];
-
-    /* change "xxx" to "xxxhhhh" */
-    hash_name = createFourCharHash( mangle, buff );
-    memmove( mangle + ( MANGLED_MAX_LEN - MANGLED_HASH_LEN ), buff,
-             MANGLED_HASH_LEN );
-    mangle[MANGLED_MAX_LEN] = '\0';
-    return( mangle );
-}
-
-char *CppMangleName(            // MANGLE SYMBOL NAME
-    char *patbuff,              // - control of result
+char *GetMangledName(           // MANGLE SYMBOL NAME
     SYMBOL sym )                // - symbol to mangle
 {
     char *sym_name;             // - symbol's name
     SCOPE scope;                // - scope for function
     TYPE fn_type;               // - symbol's function type
-    void *pragma;               // - function's pragma modifier
-    size_t len;                 // - mangled name length
 
     if( sym == NULL || sym->name == NULL ) {
-        sym_name = "*** NULL ***";
+        return( "*** NULL ***" );
     } else {
+        scope = SymScope( sym );
         fn_type = FunctionDeclarationType( sym->sym_type );
         if( fn_type != NULL ) {
-            scope = SymScope( sym );
-            if( scope->id != SCOPE_FILE ) {
+            if( ( scope->id != SCOPE_FILE )
+              || LinkageIsCpp( sym ) && ( fn_type->flag & TF1_PLUSPLUS ) ) {
                 sym_name = cppFunctionName( sym );
-                patbuff = allowStrictReplacement( patbuff );
             } else {
-                if( LinkageIsCpp( sym ) && fn_type->flag & TF1_PLUSPLUS ) {
-                    sym_name = cppFunctionName( sym );
-                    patbuff = allowStrictReplacement( patbuff );
-                } else {
-                    sym_name = sym->name->name;
-                    if( patbuff == NULL ) {
-                        patbuff = CODE_OBJNAME;
-                    }
-                    pragma = fn_type->u.f.pragma;
-                    if( pragma != NULL ) {
-                        /* only done for extern "C" functions */
-                        sym_name = cppPragmaMangle( sym_name, sym, pragma );
-                    }
-                }
+                sym_name = sym->name->name;
             }
         } else {
-            scope = SymScope( sym );
-            if( scope->id != SCOPE_FILE ) {
+            if( ( scope->id != SCOPE_FILE )
+              || LinkageIsCpp( sym ) ) {
                 sym_name = cppDataName( sym );
-                patbuff = allowStrictReplacement( patbuff );
             } else {
-                if( LinkageIsCpp( sym ) ) {
-                    sym_name = cppDataName( sym );
-                    patbuff = allowStrictReplacement( patbuff );
-                } else {
-                    sym_name = sym->name->name;
-                    if( patbuff == NULL ) {
-                        patbuff = DATA_OBJNAME;
-                    }
-                }
+                sym_name = sym->name->name;
             }
-        }
-    }
-
-    // handle patbuff modifications
-    if( patbuff != NULL ) {
-        sym_name = objectName( patbuff, sym_name );
-    }
-    len = strlen( sym_name );
-    if( len > MANGLED_MAX_LEN ) {
-        CErr2p( WARN_MANGLED_NAME_TOO_LONG, sym );
-        if( memcmp( sym_name, IN_MANGLE, 2 ) == 0 ) {
-            sym_name = reduceMangledName( sym_name );
-        } else {
-            sym_name = reduceNonMangledName( sym_name );
         }
     }
     return( sym_name );
 }
-
 
 char const* CppTsName(          // MANGLED NAME FOR TYPE SIGNATURE
     TYPE type )                 // - type being signified

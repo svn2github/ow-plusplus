@@ -30,8 +30,6 @@
 ****************************************************************************/
 
 
-#include <string.h>
-
 #include "plusplus.h"
 #include "memmgr.h"
 #include "cgdata.h"
@@ -81,24 +79,13 @@ char *AuxObjnameDup(            // DUPLICATE AUX OBJNAME
     return( strsave( objname ) );
 }
 
-static void freeAuxInfo( AUX_INFO *i )
+void freeAuxInfo( AUX_INFO *i ) // FREE ALL AUX INFO MEM
 {
     if( i->parms != DefaultParms ) {
         CMemFree( i->parms );
     }
     CMemFree( i->objname );
     CMemFree( i->code );
-}
-
-void AuxCopy(                   // COPY AUX STRUCTURE
-    AUX_INFO *to,               // - destination
-    AUX_INFO *from )            // - source
-{
-    freeAuxInfo( to );
-    *to = *from;
-    to->parms = AuxParmDup( from->parms );
-    to->objname = AuxObjnameDup( from->objname );
-    to->code = AuxCodeDup( from->code );
 }
 
 AUX_ENTRY *AuxLookup( char *name )
@@ -169,11 +156,12 @@ pch_status PCHReadPragmas( void )
     readAuxInfo( &SyscallInfo, RAUX_NULL );
     readAuxInfo( &OptlinkInfo, RAUX_NULL );
     readAuxInfo( &StdcallInfo, RAUX_NULL );
-#ifdef __OLD_STDCALL
-    readAuxInfo( &OldStdcallInfo, RAUX_NULL );
-#endif
+    readAuxInfo( &FastcallInfo, RAUX_NULL );
+    readAuxInfo( &WatcallInfo, RAUX_NULL );
+#if _CPU == 386
     readAuxInfo( &Far16CdeclInfo, RAUX_NULL );
     readAuxInfo( &Far16PascalInfo, RAUX_NULL );
+#endif
     for(;;) {
         entry_len = PCHReadUInt();
         if( entry_len == 0 ) break;
@@ -205,11 +193,12 @@ pch_status PCHReadPragmas( void )
     infoTranslate[ SyscallInfo.index ] = &SyscallInfo;
     infoTranslate[ OptlinkInfo.index ] = &OptlinkInfo;
     infoTranslate[ StdcallInfo.index ] = &StdcallInfo;
-#ifdef __OLD_STDCALL
-    infoTranslate[ OldStdcallInfo.index ] = &OldStdcallInfo;
-#endif
+    infoTranslate[ FastcallInfo.index ] = &FastcallInfo;
+    infoTranslate[ WatcallInfo.index ] = &WatcallInfo;
+#if _CPU == 386
     infoTranslate[ Far16CdeclInfo.index ] = &Far16CdeclInfo;
     infoTranslate[ Far16PascalInfo.index ] = &Far16PascalInfo;
+#endif
     return( PCHCB_OK );
 }
 
@@ -270,11 +259,12 @@ pch_status PCHWritePragmas( void )
     writeAuxInfo( &SyscallInfo, &index );
     writeAuxInfo( &OptlinkInfo, &index );
     writeAuxInfo( &StdcallInfo, &index );
-#ifdef __OLD_STDCALL
-    writeAuxInfo( &OldStdcallInfo, &index );
-#endif
+    writeAuxInfo( &FastcallInfo, &index );
+    writeAuxInfo( &WatcallInfo, &index );
+#if _CPU == 386
     writeAuxInfo( &Far16CdeclInfo, &index );
     writeAuxInfo( &Far16PascalInfo, &index );
+#endif
     for( e = AuxList; e != NULL; e = e->next ) {
         len = strlen( e->name );
         PCHWriteUInt( len );
@@ -346,17 +336,20 @@ void *PragmaMapIndex( void *pi )
         if( i == StdcallInfo.index ) {
             return( &StdcallInfo );
         }
-#ifdef __OLD_STDCALL
-        if( i == OldStdcallInfo.index ) {
-            return( &OldStdcallInfo );
+        if( i == FastcallInfo.index ) {
+            return( &FastcallInfo );
         }
-#endif
+        if( i == WatcallInfo.index ) {
+            return( &WatcallInfo );
+        }
+#if _CPU == 386
         if( i == Far16CdeclInfo.index ) {
             return( &Far16CdeclInfo );
         }
         if( i == Far16PascalInfo.index ) {
             return( &Far16PascalInfo );
         }
+#endif
 #ifndef NDEBUG
         CFatal( "invalid index passed to PragmaMapIndex" );
 #endif

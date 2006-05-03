@@ -30,12 +30,11 @@
 ****************************************************************************/
 
 
+#include "plusplus.h"
+
 #include <stddef.h>
 #include <limits.h>
-#include <string.h>
-#include <stdlib.h>
 
-#include "plusplus.h"
 #include "errdefns.h"
 #include "ptree.h"
 #include "cgfront.h"
@@ -45,10 +44,13 @@
 
 //-------------- Temporary Stubs -------------------------------
 
+#define TWOTO32_STRING "4294967296"
+
 static float_handle TwoTo32
     ( void )
 {
-    return BFCnvSF( "4294967296", "0" );
+    char *p = { TWOTO32_STRING };
+    return( BFCnvSF( p, p + sizeof( TWOTO32_STRING ) - 1 ) );
 }
 
 static
