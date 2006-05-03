@@ -3451,6 +3451,21 @@ static SYMBOL sameVirtualFnSignature( SYMBOL_NAME sym_name, lookup_walk *data )
     return( chk_sym );
 }
 
+static boolean anyVirtualFns( SYMBOL_NAME sym_name )
+{
+    SYMBOL sym;
+    TYPE fn_type;
+
+    RingIterBeg( sym_name->name_syms, sym ) {
+        fn_type = FunctionDeclarationType( sym->sym_type );
+        if( fn_type == NULL ) break;
+        if( fn_type->flag & TF1_VIRTUAL ) {
+            return( TRUE );
+        }
+    } RingIterEnd( sym )
+    return( FALSE );
+}
+
 static SYMBOL recordVirtualOverride( lookup_walk *data, BASE_STACK *top, SYMBOL_NAME sym_name )
 {
     BASE_CLASS *base;
@@ -4173,21 +4188,6 @@ static boolean findBestConversion( lookup_walk *data )
     applyOverrideConversion( data );
     data->user_conv_list = gatherOverloadList( data );
     return( TRUE );
-}
-
-static boolean anyVirtualFns( SYMBOL_NAME sym_name )
-{
-    SYMBOL sym;
-    TYPE fn_type;
-
-    RingIterBeg( sym_name->name_syms, sym ) {
-        fn_type = FunctionDeclarationType( sym->sym_type );
-        if( fn_type == NULL ) break;
-        if( fn_type->flag & TF1_VIRTUAL ) {
-            return( TRUE );
-        }
-    } RingIterEnd( sym )
-    return( FALSE );
 }
 
 static void applySameVTable( lookup_walk *data )
@@ -7009,10 +7009,10 @@ static void changeSymType( SYMBOL sym, TYPE type )
 
 static boolean changePragmaType(// TEST IF NEW NEW PRAGMA TYPE REQUIRED
     SYMBOL sym,                 // - old symbol
-    void *aux_info )            // - new aux info
+    AUX_INFO *aux_info )        // - new aux info
 {
-    boolean retn;               // - return: TRUE ==> change required
-    void *old_pragma;           // - old aux info
+    boolean     retn;           // - return: TRUE ==> change required
+    AUX_INFO    *old_pragma;    // - old aux info
 
     old_pragma = TypeHasPragma( sym->sym_type );
     if( old_pragma == NULL ) {
@@ -7028,7 +7028,7 @@ static boolean changePragmaType(// TEST IF NEW NEW PRAGMA TYPE REQUIRED
     return retn;
 }
 
-static void changeNonFunction( SYMBOL sym, void *aux_info )
+static void changeNonFunction( SYMBOL sym, AUX_INFO *aux_info )
 {
     TYPE type;                  // - modifier type
 
@@ -7038,8 +7038,8 @@ static void changeNonFunction( SYMBOL sym, void *aux_info )
     }
 }
 
-void ScopeAuxName( char *id, void *aux_info )
-/*******************************************/
+void ScopeAuxName( char *id, AUX_INFO *aux_info )
+/***********************************************/
 {
     char *name;
     SEARCH_RESULT *result;

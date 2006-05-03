@@ -46,23 +46,21 @@
 
 #include "i64.h"
 
+#include "pragdefn.h"
+
 typedef unsigned char TOKEN;
 
 
 #define BUF_SIZE_SHIFT          (9)
 #define BUF_SIZE                (1<<BUF_SIZE_SHIFT)
 
+#ifdef pick
+#undef pick
+#endif
+#define pick( a, b, c ) a,
 enum
-{       M_UNKNOWN
-,       M_DEFAULT
-,       M_CDECL
-,       M_PASCAL
-,       M_FORTRAN
-,       M_SYSCALL
-,       M_STDCALL
-,       M_FASTCALL
-,       M_OPTLINK
-,       M_WATCALL
+{
+#include "auxinfo.h"
 };
 
 //typedef target_ulong target_int_const;
@@ -208,12 +206,13 @@ int SpecialMacro(               // EXECUTE A SPECIAL MACRO
 void DefineAlternativeTokens(	// DEFINE ALTERNATIVE TOKENS
     void )
 ;
-void * PragmaLookup(            // FIND A PRAGMA
+AUX_INFO * PragmaLookup(        // FIND A PRAGMA
     char * name,                // - name of the pragma
     unsigned index )            // - index (M_UNKNOWN if not known)
 ;
-void *PragmaGetIndex( void * );
-void *PragmaMapIndex( void * );
+unsigned PragmaGetIndex( AUX_INFO * );
+
+AUX_INFO *PragmaMapIndex( unsigned index );
 
 // PROTOTYPES: internal to scanner
 
@@ -258,7 +257,7 @@ int GetNextChar(                // GET NEXT CHARACTER FROM A SOURCE FILE
 void GetNextCharUndo(           // UNDO PREVIOUS GET NEXT CHARACTER
     int c )                     // - character to undo
 ;
-void *GetTargetHandlerPragma    // GET PRAGMA FOR FS HANDLER
+AUX_INFO *GetTargetHandlerPragma // GET PRAGMA FOR FS HANDLER
     ( void )
 ;
 int KwLookup(                   // TRANSFORM TO T_ID OR KEYWORD TOKEN

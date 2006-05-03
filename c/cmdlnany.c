@@ -858,7 +858,7 @@ static int debugOptionAfterOptOption( OPT_STORAGE *data )
 static void analyseAnyTargetOptions( OPT_STORAGE *data )
 {
     // quickly do the quiet option so the banner can be printed
-    if( data->zq ) {
+    if( data->q || data->zq ) {
         CompFlags.quiet_mode = 1;
     }
     switch( data->char_set ) {
@@ -934,8 +934,7 @@ static void analyseAnyTargetOptions( OPT_STORAGE *data )
         GenSwitches |= INS_SCHEDULING;          // -or
         CmdSysSetMaxOptimization();             // -om
         CompFlags.inline_intrinsics = 1;        // -oi
-// Disabled for OW 1.4 release
-#if 0
+#if 0   // Disabled - introduces too many problems which no one is ready to fix
         if( ! data->oe ) {
             data->oe = 1;                       // -oe
             // keep in sync with options.gml

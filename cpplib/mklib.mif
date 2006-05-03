@@ -1,13 +1,8 @@
-# MN: Whatever the "compression" was supposed to do, it doesn't work with
-# 11.0c wlib. Disabled until it is better understood, especially since
-# it doesn't seem to provide any clear benefits.
-uncompressed=1
-
 proj_name = cpplib
 
 suppress_zc = 1
 
-!include $(plusplus_dir)/libtarg.mif
+!include $(cpplib_dir)/libtarg.mif
 
 !ifdef mem_model_$(model)
 memory_model_i86 = $(mem_model_$(model))
@@ -39,7 +34,6 @@ fpu_flags_linux_386  =$(fp_option)
 !include cproj.mif
 !include deftarg.mif
 
-!include $(plusplus_dir)/dirmacs.mif
 !include $(define_library_include)
 
 !ifndef target_objs
@@ -50,13 +44,9 @@ target_objs = $(objs)
 target_xbjs = $(xbjs)
 !endif
 
-lib_flags = -b -c
-!ifeq release 1
-lib_flags += -t
-!ifeq host_CPU axp
-!else
-lib_flags += -s
-!endif
+lib_flags = -b-c-n
+!ifneq release 0
+lib_flags += -s-t
 !endif
 
 !ifndef lib_page_size
@@ -82,34 +72,16 @@ libs : .symbolic $(target_lib) $(files)
 !endif
     @%null
 
-$(target_lib) : $(target_objs)
-!ifdef uncompressed
+$(target_lib) : $(target_objs) $(__MAKEFILES__)
     %create $^&.lbc
     @for %i in ($(target_objs)) do @%append $^&.lbc +%i
-    $(librarian) -n $(lib_flags) $^@ @$^&.lbc
-!else
-    @set obj_list=$(target_objs)
-    cat @obj_list >__wrk__.obj
-    @set obj_list=
-    $(librarian) $(lib_flags) $^@ -+__wrk__.obj
-    @rm -f __wrk__.obj
-    @*trunc -q $(target_objs)
-!endif
+    $(librarian) $(lib_flags) $^@ @$^&.lbc
 
 !ifdef target_lib_x
-$(target_lib_x) : $(target_xbjs)
-!ifdef uncompressed
+$(target_lib_x) : $(target_xbjs) $(__MAKEFILES__)
     %create $^&.lbc
     @for %i in ($(target_xbjs)) do @%append $^&.lbc +%i
-    $(librarian) -n $(lib_flags) $^@ @$^&.lbc
-!else
-    @set obj_list=$(target_xbjs)
-    cat @obj_list >__wrk__.obj
-    @set obj_list=
-    $(librarian) $(lib_flags) $^@ -+__wrk__.obj
-    @rm -f __wrk__.obj
-    @*trunc -q $(target_xbjs)
-!endif
+    $(librarian) $(lib_flags) $^@ @$^&.lbc
 !endif
 
 define_c=-D__OBSCURE_STREAM_INTERNALS
@@ -128,6 +100,10 @@ define_c +=-D__USE_RW
 
 # -xr has to be on in case the user uses -xr
 extra_c_flags=-zl-xr-fhwe
+
+# Include system headers in dependency lists
+extra_c_flags +=-D_ENABLE_AUTODEPEND
+
 !ifdef mthreaded
 extra_c_flags +=-bm
 !endif
@@ -161,8 +137,9 @@ extra_c_flags_win = -zW
 
 comp_flags = $(cflags) $(define_c)
 
+extra_a_flags  = -we
 !ifdef mthreaded
-extra_a_flags =-D__MT__
+extra_a_flags += -D__MT__
 !endif
 
 extra_a_flags_i86 = $(model_switch_i86)
@@ -189,7 +166,7 @@ c_inc_dirs_nt     =-I"$(hdr_dir)/dos" $(inc_dirs_sys_nt)
 c_inc_dirs_qnx    =-I"$(hdr_dir)/qnx"
 c_inc_dirs_linux  =-I"$(hdr_dir)/linux"
 
-inc_dirs = -I"$(lib_misc_dir)/h" -I"../../h" -I"$(plusplus_dir)/h" -I"$(plusplus_runtime_dir)/h" $(c_inc_dirs_$(host_os)) -I"$(watcom_dir)/h" -I"$(comp_cfg_dir)/h"
+inc_dirs = -I"$(lib_misc_dir)/h" -I"../../h" -I"$(plusplus_dir)/h" -I"$(cpplib_dir)/runtime/h" $(c_inc_dirs_$(host_os)) -I"$(watcom_dir)/h" -I"$(comp_cfg_dir)/h"
 
 reference : .symbolic $(target_lib)
     cp $(target_lib) $(plusplus_dir)/bin
@@ -198,34 +175,35 @@ reference : .symbolic $(target_lib)
 .EXTENSIONS: .exe .lnk .obj .xbj .c .cpp .asm
 
 !ifdef __UNIX__
-comp_cpp_i86 = $(plusplus_dir)/bin/rppi8612
-comp_cpp_386 = $(plusplus_dir)/bin/rpp38612
-comp_cpp_axp = $(plusplus_dir)/bin/rppaxp12
+comp_cpp = $(plusplus_dir)/bin/rpp$(host_cpu)
 !else
-comp_cpp_i86 = $(plusplus_dir)\bin\rppi8612.exe
-comp_cpp_386 = $(plusplus_dir)\bin\rpp38612.exe
-comp_cpp_axp = $(plusplus_dir)\bin\rppaxp12.exe
+comp_cpp = $(plusplus_dir)\bin\rpp$(host_cpu).exe
 !endif
-comp_cpp = $(comp_cpp_$(host_cpu))
 
 .cpp : $(cpp_dirs)
 
 .asm : $(asm_dirs)
 
 .cpp.obj : .autodepend
+!ifeq verbose 1
     *$(comp_cpp) -zq $(comp_flags) $(br_flags_$(sw_br_$[&)) $(inc_dirs) -fo=.obj -nm=$[& $(pch_flags) $(extra_cpp_flags_$[&) $[@
+!else
+    @echo ref++ $@
+    @*$(comp_cpp) -zq $(comp_flags) $(br_flags_$(sw_br_$[&)) $(inc_dirs) -fo=.obj -nm=$[& $(pch_flags) $(extra_cpp_flags_$[&) $[@
+!endif
 
 .cpp.xbj : .autodepend
+!ifeq verbose 1
     *$(comp_cpp) -zq -xs $(comp_flags) $(br_flags_$(sw_br_$[&)) $(inc_dirs) -fo=.xbj -nm=$[& $(pch_flags_x) $(extra_cpp_flags_x_$[&) $[@
+!else
+    @echo xref++ $@
+    @*$(comp_cpp) -zq -xs $(comp_flags) $(br_flags_$(sw_br_$[&)) $(inc_dirs) -fo=.xbj -nm=$[& $(pch_flags_x) $(extra_cpp_flags_x_$[&) $[@
+!endif
 
 .asm.obj : .autodepend
+!ifeq verbose 1
     $(as) $(aflags) $[@
-
-!ifeq release 0
-!ifdef define_deps_include
-obj_deps_ext=obj
-!include $(define_deps_include)
-obj_deps_ext=xbj
-!include $(define_deps_include)
-!endif
+!else
+    @echo as $@
+    @$(as) $(aflags) $[@
 !endif

@@ -24,16 +24,11 @@
 *
 *  ========================================================================
 *
-* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
-*               DESCRIBE IT HERE!
+* Description:  Handle processing of declarations within classes.
 *
 ****************************************************************************/
 
 
-/*
-CLASS.C : handles processing of declarations within classes
-
-*/
 #include "plusplus.h"
 
 #include <malloc.h>
@@ -1816,11 +1811,6 @@ boolean ClassIsDefaultCtor( SYMBOL sym, TYPE class_type )
     return TypeHasNumArgs( sym->sym_type, 0 );
 }
 
-static boolean isDefaultAssign( SYMBOL sym, TYPE class_type, unsigned *arg_info )
-{
-    return( isDefaultCopy( sym, class_type, arg_info ) );
-}
-
 static boolean isDefaultCopy( SYMBOL sym, TYPE class_type, unsigned *arg_info )
 {
     arg_list *args;
@@ -1852,6 +1842,11 @@ static boolean isDefaultCopy( SYMBOL sym, TYPE class_type, unsigned *arg_info )
         return( TRUE );
     }
     return( FALSE );
+}
+
+static boolean isDefaultAssign( SYMBOL sym, TYPE class_type, unsigned *arg_info )
+{
+    return( isDefaultCopy( sym, class_type, arg_info ) );
 }
 
 boolean ClassIsDefaultCopy( SYMBOL sym, TYPE class_type )
@@ -2029,8 +2024,8 @@ static boolean checkForCallingConventionChange( SYMBOL sym, SYMBOL above )
 {
     TYPE fn_type1 = FunctionDeclarationType( sym->sym_type );
     TYPE fn_type2 = FunctionDeclarationType( above->sym_type );
-    void *prag1 = TypeHasPragma( fn_type1 );
-    void *prag2 = TypeHasPragma( fn_type2 );
+    AUX_INFO *prag1 = TypeHasPragma( fn_type1 );
+    AUX_INFO *prag2 = TypeHasPragma( fn_type2 );
 
     if( prag1 == prag2 ) {
         return( FALSE );

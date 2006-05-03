@@ -393,7 +393,13 @@ static SRCFILE srcFileAlloc(    // ALLOCATE A SRCFILE
             new_src->pch_kludge = TRUE;
         }
         old_act = activeSrc();
-        new_src->parent_locn = old_act->line;
+        if( CurrChar == '\n' ) {
+            // if we have scanned a \n already then getCharCheck
+            // will have incremented the current line too soon
+            new_src->parent_locn = old_act->line - 1;
+        } else {
+            new_src->parent_locn = old_act->line;
+        }
         old_act->currc = CurrChar;
     }
     new_act = RingPop( &freeFiles );
@@ -593,7 +599,7 @@ boolean SrcFileClose(           // CLOSE A SOURCE FILE
                     PpStartFile();
                     act->line = 0;
                 }
-                EmitLineNL( act->line, srcFile->name );
+                EmitLineNL( old_src->parent_locn, srcFile->name );
             }
             retn = TRUE;
         }
@@ -795,6 +801,29 @@ static boolean readBuffer(      // READ NEXT BUFFER
     }
 }
 
+static int getTestCharFromFile( OPEN_FILE **pact )
+{
+    OPEN_FILE *act;
+    int c;
+
+    DbgAssert( *pact == activeSrc() );  // NYI: is always true we can optimize
+    for(;;) {
+        act = activeSrc();
+        c = *act->nextc++;
+        if( c != '\0' ) {
+            break;
+        }
+        // '\0' in the middle of the buffer must be processed as a char
+        if( act->nextc != ( act->lastc + 1 ) ) break;
+        if( readBuffer( getGuardState() == GUARD_IFNDEF ) ) {
+            c = CurrChar;
+            break;
+        }
+    }
+    *pact = activeSrc();
+    return( c );
+}
+
 static int getSecondMultiByte( void )
 {
     int c;
@@ -869,29 +898,6 @@ static int getCharAfterTwoQuestion( void )
     CurrChar = '?';
     NextChar = getCharAfterOneQuestion;
     return( CurrChar );
-}
-
-static int getTestCharFromFile( OPEN_FILE **pact )
-{
-    OPEN_FILE *act;
-    int c;
-
-    DbgAssert( *pact == activeSrc() );  // NYI: is always true we can optimize
-    for(;;) {
-        act = activeSrc();
-        c = *act->nextc++;
-        if( c != '\0' ) {
-            break;
-        }
-        // '\0' in the middle of the buffer must be processed as a char
-        if( act->nextc != ( act->lastc + 1 ) ) break;
-        if( readBuffer( getGuardState() == GUARD_IFNDEF ) ) {
-            c = CurrChar;
-            break;
-        }
-    }
-    *pact = activeSrc();
-    return( c );
 }
 
 static void outputTrigraphWarning( char c ) {

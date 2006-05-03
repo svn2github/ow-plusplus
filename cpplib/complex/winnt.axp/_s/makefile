@@ -7,7 +7,6 @@ system       = winnt
 model        =
 convention   =
 linkage      = static
-uncompressed = 1
-define_library_include = $(plusplus_complex_dir)/complex.mif
-define_deps_include = $(plusplus_complex_dir)/deps.mif
-!include $(plusplus_dir)/mklib.mif
+
+define_library_include = $(cpplib_dir)/complex/complex.mif
+!include $(cpplib_dir)/mklib.mif

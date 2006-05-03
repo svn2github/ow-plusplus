@@ -48,15 +48,13 @@
 #include "pcheader.h"
 
 
-extern  int     GetAliasInfo();
-
+static int      GetAliasInfo();
 static byte_seq *AuxCodeDup( byte_seq *code );
+static int      GetByteSeq( void );
 
 static  hw_reg_set      asmRegsSaved = { HW_D( HW_FULL ) };
 
 #define WCPP_ASM     // enable assembler
-
-static unsigned long    asm_CPU;
 
 static void pragmaInit(         // INITIALIZATION FOR PRAGMAS
     INITFINI* defn )            // - definition
@@ -64,7 +62,7 @@ static void pragmaInit(         // INITIALIZATION FOR PRAGMAS
     defn = defn;
     PragInit();
 
-    PragmaAuxCallInfoInit( DefaultInfo.cclass & FAR, CompFlags.use_stdcall_at_number );
+    PragmaAuxInfoInit( CompFlags.use_stdcall_at_number );
 
 #if _CPU == 386
     HW_CTurnOff( asmRegsSaved, HW_EAX );
@@ -80,7 +78,7 @@ static void pragmaInit(         // INITIALIZATION FOR PRAGMAS
     HW_CTurnOff( asmRegsSaved, HW_ES );
 #endif
 
-    DefaultInfo = *DftCallConv;
+    SetAuxDefaultInfo();
 }
 
 
@@ -90,7 +88,7 @@ static void freeInfo( AUX_INFO *info )
         CMemFree( info->code );
         info->code = NULL;
     }
-    if( info->parms != DefaultParms ) {
+    if( !IsAuxParmsBuiltIn( info->parms ) ) {
         CMemFree( info->parms );
         info->parms = NULL;
     }
@@ -117,23 +115,13 @@ static void pragmaFini(         // FINISH PRAGMAS
             } else {
                 freeInfo( next->info );
 #ifndef NDEBUG
-                if(( next->info == &DefaultInfo ) ||
-                   ( next->info == &CdeclInfo ) ||
-                   ( next->info == &PascalInfo ) ||
-                   ( next->info == &SyscallInfo ) ||
-                   ( next->info == &OptlinkInfo ) ||
-                   ( next->info == &StdcallInfo ) ||
-                   ( next->info == &FastcallInfo ) ||
-#if _CPU == 386
-                   ( next->info == &Far16CdeclInfo ) ||
-                   ( next->info == &Far16PascalInfo ) ||
-#endif
-                   ( next->info == &WatcallInfo ) ||
-                   ( next->info == &FortranInfo ) ) {
+                if( IsAuxInfoBuiltIn( next->info ) ) {
                     CFatal( "freeing a static calling convention info" );
                 }
 #endif
-                if( next->info != &DefaultInfo )  CMemFree( next->info );
+                if( !IsAuxInfoBuiltIn( next->info ) ) {
+                    CMemFree( next->info );
+                }
             }
         }
         next = next->next;
@@ -919,11 +907,11 @@ boolean AsmSysInsertFixups( VBUF *code )
     return( uses_auto );
 }
 
-void *AsmSysCreateAux( char *name )
-/*********************************/
+AUX_INFO *AsmSysCreateAux( char *name )
+/*************************************/
 {
     CreateAux( name );
-    AuxCopy( CurrInfo, &DefaultInfo );
+    AuxCopy( CurrInfo, &WatcallInfo );
     CurrInfo->use = 1;
     CurrInfo->save = asmRegsSaved;
     CurrEntry->info = CurrInfo;
@@ -958,13 +946,13 @@ void AsmSysInit( void )
 /*********************/
 {
     AsmCodeAddress = 0;
-    asm_CPU = GetAsmCPUInfo();
+    AsmSaveCPUInfo();
 }
 
 void AsmSysFini( void )
 /*********************/
 {
-    SetAsmCPUInfo( asm_CPU );
+    AsmRestoreCPUInfo();
 }
 
 static char *copyCodeLen( char *d, void *v, unsigned len )
@@ -1102,8 +1090,7 @@ void AsmSysPCHReadCode( AUX_INFO *info )
     }
 }
 
-static int GetByteSeq(
-    void )
+static int GetByteSeq( void )
 {
     int i;
     char *name;
@@ -1292,7 +1279,7 @@ boolean PragmasTypeEquivalent(  // TEST IF TWO PRAGMAS ARE TYPE-EQUIVALENT
 }
 
 boolean PragmaOKForInlines(     // TEST IF PRAGMA IS SUITABLE FOR INLINED FN
-    struct aux_info *fnp )      // - pragma
+    AUX_INFO *fnp )             // - pragma
 {
     if( fnp->code != NULL ) {
         return FALSE;
@@ -1341,6 +1328,14 @@ boolean PragmaOKForVariables(   // TEST IF PRAGMA IS SUITABLE FOR A VARIABLE
     return( TRUE );
 }
 
+
+static boolean okClassChange(   // TEST IF OK TO CHANGE A CLASS IN PRAGMA
+    call_class oldp,                 // - old
+    call_class newp,                 // - new
+    call_class defp )                // - default
+{
+    return ( ( oldp & newp) == oldp ) || ( oldp == defp );
+}
 
 static boolean okPtrChange(     // TEST IF OK TO CHANGE A PTR IN PRAGMA
     void *oldp,                 // - old ptr
@@ -1395,7 +1390,9 @@ boolean PragmaChangeConsistent( // TEST IF PRAGMA CHANGE IS CONSISTENT
     if( oldp == newp ) {
         return TRUE;
     }
-    return ( ( oldp->cclass & newp->cclass ) == oldp->cclass )
+    return( ( okClassChange( oldp->cclass
+                         , newp->cclass
+                         , DefaultInfo.cclass ) )
         && ( ( oldp->flags & newp->flags ) == oldp->flags )
         && ( okParmChange( oldp->parms
                          , newp->parms
@@ -1414,6 +1411,5 @@ boolean PragmaChangeConsistent( // TEST IF PRAGMA CHANGE IS CONSISTENT
                         , DefaultInfo.objname ) )
         && ( okPtrChange( oldp->code
                         , newp->code
-                        , DefaultInfo.code ) )
-        ;
+                        , DefaultInfo.code ) ) );
 }
