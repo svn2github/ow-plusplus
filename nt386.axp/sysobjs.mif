@@ -1,6 +1,4 @@
 # system-dependent files (NT)
 
-!include ..\ppobj86.mif
+!include ../ppobjaxp.mif
 
-common_objs += &
-prag386.obj

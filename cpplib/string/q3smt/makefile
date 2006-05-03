@@ -2,11 +2,13 @@
 #
 # strgmt3s.lib -- stack based multi-thread 32-bit STRING library
 #
+host_cpu = 386
+
 target_system = qnx
 suffix = mt3s
 target_lib = $(prefix)$(suffix).lib
 production_lib = lib386
-define_library_include = $(plusplus_string_dir)\string.mif
-define_deps_include = $(plusplus_string_dir)\deps.mif
-define_target_include = $(plusplus_dir)\lib$(suffix).mif
-!include $(plusplus_dir)\mklib.mif
+define_library_include = $(plusplus_string_dir)/string.mif
+define_deps_include = $(plusplus_string_dir)/deps.mif
+define_target_include = $(plusplus_dir)/lib$(suffix).mif
+!include $(plusplus_dir)/mklib.mif

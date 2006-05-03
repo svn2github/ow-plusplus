@@ -2,13 +2,15 @@
 #
 # strgmt3r.lib -- register based multi-thread 32-bit STRING library
 #
+host_cpu = 386
+
 fs_registration = yes
 target_system = nt
 text = -d__USE_FS
 suffix = mt3r
 target_lib = $(prefix)$(suffix).lib
 production_lib = lib386
-define_library_include = $(plusplus_string_dir)\string.mif
-define_deps_include = $(plusplus_string_dir)\deps.mif
-define_target_include = $(plusplus_dir)\lib$(suffix).mif
-!include $(plusplus_dir)\mklib.mif
+define_library_include = $(plusplus_string_dir)/string.mif
+define_deps_include = $(plusplus_string_dir)/deps.mif
+define_target_include = $(plusplus_dir)/lib$(suffix).mif
+!include $(plusplus_dir)/mklib.mif

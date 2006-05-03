@@ -34,14 +34,14 @@
 
 #ifndef _TARGET_INCLUDED
 #define _TARGET_INCLUDED
-#include "target32.h"
+#include "targetax.h"
 #include "targdef.h"
 
 // target
-#define _CPU            386
+#define _CPU            _AXP
 
 // host
 #define _OS             _NT
-#define _HOST           _AXP
+#define _HOST           386
 
 #endif

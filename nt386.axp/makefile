@@ -1,6 +1,6 @@
-#pmake: all compiler nomodel cpu_axp target_386 os_nt
-host_CPU = axp
+#pmake: flat cpu_386 target_axp os_nt
+host_CPU = 386
 host_OS = nt
-host_CG = axp
-target_CPU = 386
-!include ..\master.mif
+host_CG = nt
+target_CPU = axp
+!include ../master.mif
