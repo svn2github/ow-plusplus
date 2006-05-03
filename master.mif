@@ -1,9 +1,11 @@
 proj_name = plusplus
+plusplus_autodepends = .autodepend
 
-.erase
-.continue
-.extensions:
-.extensions: .qnx .exe .exp .pp .obj .rbj .lbj .asm .c .mif
+# Important! The C++ compiler modifies string literals
+suppress_zc = 1
+
+!include cproj.mif
+!include defrule.mif
 
 .mif: $(mif_path)
 
@@ -13,14 +15,19 @@ proj_name = plusplus
 !  endif
 !endif
 
-!include cproj.mif
-
 !include $(cg_dir)/mif/fe.mif
 !include $(cg_dir)/mif/hostos.mif
-
 !include $(dwarf_dir)/dw/client.mif
 
+xlibs = $(dwarf_dw_lib) $(asminline_lib)
+
 !include ../verify.mif
+
+#pre_obj_deps must be defined before ppobjs.mif is included
+pre_obj_deps = global.chk errmsgs.gh ic_mask.gh weights.gh keywords.gh yylex.gh
+# international data files
+pre_obj_deps += wpp$(target_cpu)01.int $(pre_obj_deps_wasm)
+
 !include ../ppobjs.mif
 
 inc_dirs =.;
@@ -64,15 +71,13 @@ comp_objs = $($(host_os)$(target_cpu)_objs)
 comp_objs_exe = $(comp_objs) $(exe_objs)
 comp_objs_dll = $(comp_objs) $(dll_objs)
 
-cflags =
-
 !ifeq host_cpu axp
 !ifeq release 0
 cflags += -si
 !endif
-!else
-cflags += -5r-fpc
 !endif
+
+cflags_386 += -fpc
 
 !ifdef plusplus_rtdll
 cflags += -br
@@ -83,20 +88,6 @@ cflags += -br
 !  include $(%plusplus_local_mif)
 !else ifdef plusplus_local_mif
 !  include $(plusplus_local_mif)
-!endif
-
-cflags += -oalrs-s-zq-w4-we -bt=$(host_os)
-
-!ifndef dbg_cflags
-!  ifeq release 1
-!    define dbg_cflags -d1
-!  else
-!    define dbg_cflags -d2
-!  endif
-!endif
-
-!ifeq release 1
-cflags += -dNDEBUG -ot
 !endif
 
 !ifdef %plusplus_cflags
@@ -115,17 +106,17 @@ cflags += -d__OS2__
 !ifeq host_cpu axp
 # alpha
 !ifeq plusplus_trmem 1
-extra_opts_memmgr = -dTRACKER
+extra_c_flags_memmgr = -dTRACKER
 !endif
 !else
 # all intel
-extra_opts_cscan = -4r
-extra_opts_srcfile = -4r
+extra_c_flags_cscan = -4r
+extra_c_flags_srcfile = -4r
 !ifeq plusplus_trmem 1
-extra_opts_memmgr = -of+ -dTRACKER
+extra_c_flags_memmgr = -of+ -dTRACKER
 !endif
 !ifeq release 1
-extra_opts_pcheader = -oi
+extra_c_flags_pcheader = -oi
 !endif
 !endif
 # all platforms
@@ -138,24 +129,25 @@ fesupp_hdr   = "fesupp.h"
 carvecpp_hdr = "carvecpp.h"
 !endif
 
-extra_opts_carve    = -dheader=$(fesupp_hdr) -dheader2=$(carvecpp_hdr)
-extra_opts_cmdlnany = -os
-extra_opts_idedrv = -dSTATIC_LINKAGE
-extra_opts_initfini = -dheader=$(fesupp_hdr) -dSPLIT_REQD
-extra_opts_intlload = -d__header=$(fesupp_hdr)
-extra_opts_pstk     = -dheader=$(fesupp_hdr)
-extra_opts_pstk     = -dheader=$(fesupp_hdr)
-extra_opts_ringfns  = -dheader=$(fesupp_hdr)
-extra_opts_vbuf     = -dheader=$(fesupp_hdr)
-extra_opts_vstk     = -dheader=$(fesupp_hdr)
+extra_c_flags_carve    = -dheader=$(fesupp_hdr) -dheader2=$(carvecpp_hdr)
+extra_c_flags_cmdlnany = -os
+extra_c_flags_idedrv   = -dSTATIC_LINKAGE
+extra_c_flags_idedlld  = -bd
+extra_c_flags_initfini = -dheader=$(fesupp_hdr) -dSPLIT_REQD
+extra_c_flags_intlload = -d__header=$(fesupp_hdr)
+extra_c_flags_pstk     = -dheader=$(fesupp_hdr)
+extra_c_flags_pstk     = -dheader=$(fesupp_hdr)
+extra_c_flags_ringfns  = -dheader=$(fesupp_hdr)
+extra_c_flags_vbuf     = -dheader=$(fesupp_hdr)
+extra_c_flags_vstk     = -dheader=$(fesupp_hdr)
 !ifeq release 1
-extra_opts_wppdlldr = -dDLL_NAME=$(dll_bld_name)
+extra_c_flags_wppdlldd = -dDLL_NAME=$(dll_bld_name)
 !else
-extra_opts_wppdlldr = -dDLL_NAME=$(dll_dbg_name)
-extra_opts_dbgzap   = -dheader=$(fesupp_hdr)
+extra_c_flags_wppdlldd = -dDLL_NAME=$(dll_dbg_name)
+extra_c_flags_dbgzap   = -dheader=$(fesupp_hdr)
 !endif
 !ifdef plusplus_dll_ptree
-extra_opts_dbgptree = -dDLL_PTREE
+extra_c_flags_dbgptree = -dDLL_PTREE
 !endif
 !ifeq host_os dos
 cflags += -dIDE_PGM
@@ -180,11 +172,6 @@ extra_l_flags_nt  = OPTION dosseg, stack=0x10000k, offset=64k COMMIT stack=32k
 # WLINK .DLL options for the various hosts
 wlink_dll_os2_386 = OPTION manyautodata
 
-#######################################
-# workaround for OW 1.0 WLINK problem 
-#######################################
-linker+= op caseex
-#######################################
 extra_l_flags = OPTION map
 wlink_opt_common_exe = OPTION symfile
 wlink_opt_common_drv = OPTION symfile
@@ -221,31 +208,12 @@ optencod_targ_linux = linux
 optencod_targ_dbg = dbg
 !endif
 
-pre_obj_deps = global.chk errmsgs.gh ic_mask.gh
-# international data files
-pre_obj_deps += wpp$(target_cpu)01.int
-pre_obj_deps += $(pre_obj_deps_wasm)
+external_dependencies = $(cg_deps) $(xlibs)
 
-external_dependencies = $(cg_deps) $(dwarf_dw_dep)
-
-# objects for dll
-# obj -- normal object
-# lbj -- in DLL
-# rbj -- in driver for DLL
+# source search path
 
 .c: ../c;$(wasm_dir)/c;$(watcom_dir)/c;$(fe_misc_dir)/c;$(brinfo_dir)/c
 
-.c.lbj:
-        $(cc) $(cflags) $(dbg_cflags) -fo=.lbj -bd-dwpp_dll $[@ $(extra_opts_$[&)
-
-.c.rbj:
-        $(cc) $(cflags) $(dbg_cflags) -fo=.rbj -dwpp_drv $[@ $(extra_opts_$[&)
-
-.c.obj:
-        $(cc) $(cflags) $(dbg_cflags) -fo=.obj $[@ $(extra_opts_$[&)
-
-.c.pp:
-        $(cc) $(cflags) $(dbg_cflags) $[@ $(extra_opts_$[&) -fo=*.pp -p
 
 !ifeq release 1
 
@@ -380,7 +348,7 @@ build : .symbolic $(exe_bld_name).elf
     @%null
 
 !else
-!error no rules for host_os setting
+!error no rules for $(host_os) setting
 !endif
 
 
@@ -430,8 +398,6 @@ plusplus.rc : ./genverrc.exe ../rc/r_$(host_os)$(host_cpu).rc
 !endif
 
 
-!include ../deps.mif
-
 # conventions:
 #
 # p<xxx>[<yyy>].lnk
@@ -452,10 +418,7 @@ pexe.lnk : $(__MAKEFILES__)
     @%append $^@ $(wlink_dbgfmt)
     @%append $^@ $(wlink_opt_common_exe)
     @for %i in ($(comp_objs_exe)) do @%append $^@ file %i
-    @%append $^@ library $(dwarf_dw_lib)
-!ifdef as_lib
-    @%append $^@ library $(as_lib)
-!endif
+    @%append $^@ library { $(xlibs) }
 
 #
 # -- production version
@@ -507,10 +470,7 @@ pdll.lnk : $(__MAKEFILES__)
     @%append $^@ $(wlink_dll_$(host_os)_$(host_cpu))
     @%append $^@ $(wlink_opt_common_dll)
     @for %i in ($(comp_objs_dll)) do @%append $^@ file %i
-    @%append $^@ library $(dwarf_dw_lib)
-!ifdef as_lib
-    @%append $^@ library $(as_lib)
-!endif
+    @%append $^@ library { $(xlibs) }
     @%append $^@ reference __DLLstart_
 
 #
@@ -613,8 +573,13 @@ has_prag_386 = yes
 code$(target_cpu).gh : xcode$(target_cpu).tmp ./mkcode.exe
         $]@ $[@ $^@
 
+target_as_axp=wasmaxp -zq -w4
+target_as_i86=bwasm -zq -w4
+target_as_386=bwasm -zq -3 -w4
+target_as_ppc=wasmppc -zq -w4
+
 xcode$(target_cpu).tmp: $(cc_dir)/a/code$(target_cpu).asm
-        $(as) $(aflags) $(extra_a_flags_$[&) $[@
+        $(target_as_$(target_cpu)) -fo=.obj $[@
         $(linker) format dos com op nodefault file code$(target_cpu).obj name $^@ disable 1023,1080
 
 ./mkcode.exe: $(cc_dir)/a/mkcode.c

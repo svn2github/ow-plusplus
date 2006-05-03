@@ -24,8 +24,7 @@
 *
 *  ========================================================================
 *
-* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
-*               DESCRIBE IT HERE!
+* Description:  Platform independent command line processing.
 *
 ****************************************************************************/
 
@@ -411,7 +410,10 @@ static void stripQuotes( char *fname )
         // string will shrink so we can reduce in place
         d = fname;
         for( s = d + 1; *s && *s != '"'; ++s ) {
-            if( s[0] == '\\' && s[1] == '"' ) {
+            // collapse double backslashes, only then look for escaped quotes
+            if( s[0] == '\\' && s[1] == '\\' ) {
+                ++s;
+            } else if( s[0] == '\\' && s[1] == '"' ) {
                 ++s;
             }
             *d++ = *s;
@@ -632,6 +634,10 @@ static void handleOptionEQ( OPT_STORAGE *data, int value )
     data = data;
     CompFlags.eq_switch_used = value;
 }
+
+static void procOptions(        // PROCESS AN OPTIONS LINE
+    OPT_STORAGE *data,          // - options data
+    char *str );                // - scan position in command line
 
 static void handleOptionFC( OPT_STORAGE *data, int value )
 {
@@ -1293,6 +1299,12 @@ static void analyseAnyTargetOptions( OPT_STORAGE *data )
     }
     if( data->xto ) {
         CompFlags.obfuscate_typesig_names = 1;
+    }
+    if( data->zat ) {
+        CompFlags.no_alternative_tokens = 1;
+    }
+    if( data->zf ) {
+        CompFlags.use_old_for_scope = 1;
     }
     if( data->zg ) {
         CompFlags.use_base_types = 1;

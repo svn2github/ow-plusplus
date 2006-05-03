@@ -130,6 +130,24 @@ static void CSkip( void )
 {
 }
 
+static void IncLevel( int value )
+{
+    struct cpp_info *cpp;
+
+    cpp = VstkPush( &vstkPp );
+    pp_stack = cpp;
+    SrcFileGetTokenLocn( &cpp->locn );
+    cpp->cpp_type = PRE_IF;
+    cpp->processing = 0;
+    if( NestLevel == SkipLevel ) {
+        if( value ) {
+            ++SkipLevel;
+            cpp->processing = 1;
+        }
+    }
+    ++NestLevel;
+}
+
 static void CSkipIf( void )
 {
     IncLevel( 0 );
@@ -238,9 +256,11 @@ static boolean skipEqualOK( void )
         NextToken();
         break;
     case T_SHARP :
+    case T_ALT_SHARP :
         NextToken();
         break;
     case T_SHARP_SHARP :
+    case T_ALT_SHARP_SHARP :
         CurToken = T_SHARP;     // strip # from ##
         break;
     case T_NULL :
@@ -297,7 +317,8 @@ static MEPTR grabTokens(    // SAVE TOKENS IN A MACRO DEFINITION
                 }
             }
         }
-        if( CurToken == T_SHARP_SHARP ) {
+        if( ( CurToken == T_SHARP_SHARP )
+          || ( CurToken == T_ALT_SHARP_SHARP ) ) {
             CErr1( ERR_MISPLACED_SHARP_SHARP );
             NextToken();
         }
@@ -306,6 +327,7 @@ static MEPTR grabTokens(    // SAVE TOKENS IN A MACRO DEFINITION
         if( CurToken == T_NULL ) break;
         switch( CurToken ) {
           case T_SHARP:
+          case T_ALT_SHARP:
             /* if it is a function-like macro definition */
             if( parm_cnt != 0 ) {
                 CurToken = T_MACRO_SHARP;
@@ -313,6 +335,7 @@ static MEPTR grabTokens(    // SAVE TOKENS IN A MACRO DEFINITION
             MacroOffsetAddChar( &mlen, 1, CurToken );
             break;
           case T_SHARP_SHARP:
+          case T_ALT_SHARP_SHARP:
             CurToken = T_MACRO_SHARP_SHARP;
             MacroOffsetAddChar( &mlen, 1, CurToken );
             break;
@@ -472,6 +495,13 @@ MEPTR MacroScan(                // SCAN AND DEFINE A MACRO (#define, -d)
     return( mptr );
 }
 
+static void ChkEOL( void )
+{
+    if( CurToken != T_NULL && CurToken != T_EOF ) {
+        Expecting( "end of line" );
+    }
+}
+
 static void ppIf( int value )    // PREPROCESSOR IF
 {
     if( SrcFileGuardedIf( value ) ) {
@@ -553,24 +583,6 @@ static void CElif( void )
     }
 }
 
-static void IncLevel( int value )
-{
-    struct cpp_info *cpp;
-
-    cpp = VstkPush( &vstkPp );
-    pp_stack = cpp;
-    SrcFileGetTokenLocn( &cpp->locn );
-    cpp->cpp_type = PRE_IF;
-    cpp->processing = 0;
-    if( NestLevel == SkipLevel ) {
-        if( value ) {
-            ++SkipLevel;
-            cpp->processing = 1;
-        }
-    }
-    ++NestLevel;
-}
-
 static void wantEOL( void )
 {
     if( CurToken != T_NULL && CurToken != T_EOF ) {
@@ -637,13 +649,6 @@ static void CUnDef( void )
     MacroUndefine( TokenLen );
     NextToken();
     ChkEOL();
-}
-
-static void ChkEOL( void )
-{
-    if( CurToken != T_NULL && CurToken != T_EOF ) {
-        Expecting( "end of line" );
-    }
 }
 
 static void CLine( void )
@@ -754,11 +759,23 @@ int ChkControl(                 // CHECK AND PROCESS DIRECTIVES
         for(;;) {
             if( CompFlags.cpp_output )  PrtChar( '\n' );
             NextChar();
-            if( CurrChar != PreProcChar ) {
+            // look for a #-char or the corresponding digraph (%:)
+            if( CurrChar != PreProcChar && CurrChar != '%' ) {
                 SkipAhead();
             }
             if( CurrChar == LCHR_EOF ) break;
             PPState = PPS_EOL | PPS_NO_EXPAND | PPS_NO_LEX_ERRORS;
+
+            if( CurrChar == '%' ) {
+                NextChar();
+                if( CurrChar == ':' ) {
+                    // replace the digraph (%:) with the preproc-char
+                    CurrChar = PreProcChar;
+                } else {
+                    GetNextCharUndo( CurrChar );
+                    CurrChar = '%';
+                }
+            }
             if( CurrChar == PreProcChar ) {
                 preProcStmt();
             } else if( NestLevel != SkipLevel ) {

@@ -76,6 +76,7 @@ typedef enum ppstate_t {
 // PREPROCESSOR DATA:
 
 global  unsigned    PPState;            // pre-processor state (ppstate_t)
+global  boolean     PPStateAsm;         // pre-processor state in _asm
 global  enum TOKEN  CurToken;           // current token
 global  unsigned    BadTokenInfo;       // error message that describes why T_BAD_TOKEN is bad
 global  int         TokenLen;           // length of current token
@@ -202,6 +203,9 @@ void FiniPPScan(                 // INIT SCANNER FOR PPNUMBER TOKENS
 int SpecialMacro(               // EXECUTE A SPECIAL MACRO
     MEPTR fmentry )             // - macro entry
 ;
+void DefineAlternativeTokens(	// DEFINE ALTERNATIVE TOKENS
+    void )
+;
 void * PragmaLookup(            // FIND A PRAGMA
     char * name,                // - name of the pragma
     unsigned index )            // - index (M_UNKNOWN if not known)
@@ -267,7 +271,8 @@ void KwEnable(                  // ENABLE A KEYWORD TOKEN FROM T_ID
 ;
 MEPTR MacroSpecialAdd(          // ADD A SPECIAL MACRO
     char *name,                 // - macro name
-    unsigned value )            // - value for special macro
+    unsigned value,             // - value for special macro
+    unsigned flags )            // - macro flags
 ;
 MEPTR MacroDefine(              // DEFINE A NEW MACRO
     MEPTR mentry,               // - scanned macro

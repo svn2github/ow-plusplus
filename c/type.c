@@ -1319,6 +1319,15 @@ static boolean cantHaveDefaultArgs( int err_msg, DECL_INFO *dinfo )
     return( FALSE );
 }
 
+/*
+//  cantHaveDefaultArgGaps
+//      Supposedly checks for gaps in default arguments. Don't think it works!
+//  called from:
+//      ForceNoDefaultArgs  (called from FinishDeclarator)
+//      FreeArgsDefaultsOK  (only called from template.c)
+//      FreeArgs            (only called from template.c (not any more!))
+//      checkUsefulParms    (called from FinishDeclarator)
+*/
 static boolean cantHaveDefaultArgGaps( DECL_INFO *dinfo )
 {
     boolean transition_detected;
@@ -1344,6 +1353,38 @@ static boolean cantHaveDefaultArgGaps( DECL_INFO *dinfo )
     return( FALSE );
 }
 
+/*
+ * see 14.1 p11:
+ * If a template-parameter has a default template-argument, all
+ * subsequent template-parameters shall have a default
+ * template-argument supplied.
+ *
+ * only called from: FreeArgsDefaultsOK  (only called from template.c)
+ */
+static boolean checkForMissingDefaultArgs( DECL_INFO *dinfo )
+{
+    boolean prev_defarg;
+    DECL_INFO *curr;
+
+    prev_defarg = FALSE;
+    RingIterBeg( dinfo, curr ) {
+        if( curr->has_defarg ) {
+            prev_defarg = ( curr != NULL );
+        } else if( prev_defarg ) {
+            /* previous parameter had a default argument, but this one
+             * hasn't => error */
+            if( curr->generic_sym ) {
+                SetErrLoc( &curr->generic_sym->locn->tl);
+            } else {
+                SetErrLoc( &curr->sym->locn->tl);
+            }
+            CErr1( ERR_DEFAULT_ARGS_MISSING );
+            return( TRUE );
+        }
+    } RingIterEnd( curr )
+    return( FALSE );
+}
+
 void ForceNoDefaultArgs( DECL_INFO *dinfo, int err_msg )
 /******************************************************/
 {
@@ -1354,6 +1395,12 @@ void ForceNoDefaultArgs( DECL_INFO *dinfo, int err_msg )
     if( cantHaveDefaultArgs( err_msg, parms )){
         removeDefaultArgs( parms );
     }
+}
+
+void FreeArgsDefaultsOK( DECL_INFO * dinfo)
+{
+    checkForMissingDefaultArgs( dinfo );
+    freeDeclList( &dinfo );
 }
 
 void FreeArgs( DECL_INFO *dinfo )
@@ -6766,18 +6813,7 @@ TYPE MakeVBTableFieldType( boolean add_in_consts )
     return( vbtable );
 }
 
-static boolean aZeroConstant( PTREE init )
-{
-    if( init->op != PT_INT_CONSTANT ) {
-        return( FALSE );
-    }
-    if( init->u.int_constant != 0 ) {
-        return( FALSE );
-    }
-    return( TRUE );
-}
-
-void VerifyPureFunction( DECL_INFO *dinfo, PTREE init )
+boolean VerifyPureFunction( DECL_INFO *dinfo )
 /*****************************************************/
 {
     SYMBOL sym;
@@ -6787,15 +6823,11 @@ void VerifyPureFunction( DECL_INFO *dinfo, PTREE init )
     sym = dinfo->sym;
     type = sym->sym_type;
     fn_type = FunctionDeclarationType( type );
-    if( fn_type == NULL ) {
-        CErr1( ERR_PURE_FUNCTIONS_ONLY );
-    } else {
+    if( fn_type != NULL ) {
         sym->sym_type = MakePureFunction( type );
-        if( ! aZeroConstant( init ) ) {
-            CErr1( ERR_MUST_BE_ZERO );
-        }
+        return( TRUE );
     }
-    PTreeFree( init );
+    return( FALSE );
 }
 
 void VerifyMemberFunction( DECL_SPEC *dspec, DECL_INFO *dinfo )

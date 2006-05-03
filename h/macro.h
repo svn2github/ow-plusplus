@@ -35,7 +35,7 @@
 typedef char *  MACADDR_T;       /* contains actual pointer to block of memory */
 
 enum special_macros {
-#define pick( s, i )    i,
+#define pick( s, i, f )    i,
 #include "specmac.h"
     MACRO_MAX
 };
@@ -60,8 +60,8 @@ struct macro_entry {
     TOKEN_LOCN  defn;           /* where it was defined */
     uint_16     macro_defn;     /* offset to defn, 0 ==> special macro name*/
     uint_16     macro_len;      /* length of macro definition */
+    uint_16     macro_flags;    /* flags */
     uint_8      parm_count;     /* special macro indicator if defn == 0 */
-    uint_8      macro_flags;    /* flags */
     unsigned    : 0;            /* align macro_name to a DWORD boundary */
     char        macro_name[1];  /* name,parms, and macro definition */
 };
@@ -70,15 +70,19 @@ struct macro_entry {
 #define MACRO_CAN_BE_REDEFINED                  0x02
 #define MACRO_USER_DEFINED                      0x04
 #define MACRO_REFERENCED                        0x08
-#define MACRO_HAS_VAR_ARGS                      0x10
+// See below                                    0x10
+#define MACRO_HAS_VAR_ARGS                      0x20
 #define MACRO_PCH_CHECKED                       0x40
 #define MACRO_PCH_OVERRIDE                      0x80
+// a special macro won't appear as a macro to the program (e.g. ifdef
+// will return false)
+#define MACRO_SPECIAL                           0x100
 
 #define MACRO_PCH_TEMPORARY_FLAGS               ( MACRO_PCH_CHECKED \
                                                 | MACRO_PCH_OVERRIDE )
 
 
-// following are used only in browinsing, not in macro definitions
+// Following are used only in browsing, not in macro definitions
 
 #define MACRO_BRINFO_UNDEF                      0x10
 #define MACRO_BRINFO_DEFN                       ( MACRO_USER_DEFINED \

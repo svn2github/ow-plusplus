@@ -79,6 +79,8 @@ typedef enum {
     SCAN_DELIM12EQ2EQ,  // @, @@, @=, or @@= token
     SCAN_DELIM1EQ,      // @ or @= token
     SCAN_SLASH,         // /, /=, // comment, or /* comment */
+    SCAN_LT,            // <, <=, <<, <<=, <%, <:
+    SCAN_PERCENT,       // %, %=, %>, %:, %:%:
     SCAN_COLON,         // :, ::, or :>
     SCAN_MINUS,         // -, -=, --, ->, or ->*
     SCAN_FLOAT,         // .
@@ -120,12 +122,12 @@ static char InitClassTable[] = {
     '=',        SCAN_DELIM1EQ,          // = ==
     '^',        SCAN_DELIM1EQ,          // ^ ^=
     '!',        SCAN_DELIM1EQ,          // ! !=
-    '%',        SCAN_DELIM1EQ,          // % %=
+    '%',        SCAN_PERCENT,           // % %= %> %: %:%:
     '*',        SCAN_DELIM1EQ,          // * *=
     '&',        SCAN_DELIM12EQ,         // & &= &&
     '|',        SCAN_DELIM12EQ,         // | |= ||
     '+',        SCAN_DELIM12EQ,         // + += ++
-    '<',        SCAN_DELIM12EQ2EQ,      // < <= << <<=
+    '<',        SCAN_LT,                // < <= << <<= <% <:
     '>',        SCAN_DELIM12EQ2EQ,      // > >= >> >>=
     '-',        SCAN_MINUS,             // - -= -- -> ->*
     '/',        SCAN_SLASH,             // / /=    // /**/
@@ -576,6 +578,16 @@ static int skipWhiteSpace( int c )
     return( c );
 }
 
+static void unGetChar( int c )
+{
+    if( NextChar == rescanBuffer ) {
+        --ReScanPtr;
+        CompFlags.rescan_buffer_done = 0;
+    } else {
+        GetNextCharUndo( c );
+    }
+}
+
 boolean ScanOptionalComment( void )
 /*********************************/
 {
@@ -621,16 +633,6 @@ void SkipAhead( void )
         }
         if( c != '/' ) break;
         if( ! ScanOptionalComment() ) break;
-    }
-}
-
-static void unGetChar( int c )
-{
-    if( NextChar == rescanBuffer ) {
-        --ReScanPtr;
-        CompFlags.rescan_buffer_done = 0;
-    } else {
-        GetNextCharUndo( c );
     }
 }
 
@@ -686,17 +688,27 @@ static int doScanFloat( void )
     }
     one_case = ONE_CASE( c );
     if( one_case == ONE_CASE( 'F' ) ) {
-        NextChar();
+        c = saveNextChar();
         ConstType = TYP_FLOAT;
     } else if( one_case == ONE_CASE( 'L' ) ) {
-        NextChar();
+        c = saveNextChar();
         ConstType = TYP_LONG_DOUBLE;
     } else {
-        --TokenLen;
         ConstType = TYP_DOUBLE;
     }
-    Buffer[TokenLen] = '\0';
-    return( CurToken );
+    if( PPStateAsm && (CharSet[c] & (C_AL | C_DI)) ) {
+        for(;;) {
+            c = saveNextChar();
+            if( (CharSet[c] & (C_AL | C_DI)) == 0 ) break;
+        }
+        --TokenLen;
+        Buffer[TokenLen] = '\0';
+        return( T_BAD_TOKEN );
+    } else {
+        --TokenLen;
+        Buffer[TokenLen] = '\0';
+        return( CurToken );
+    }
 }
 
 static void willContinueStringLater( int string_type )
@@ -779,7 +791,7 @@ static int doScanName( int c, int expanding )
     MEPTR fmentry;
 
     SrcFileScanName( c );
-    if( expanding || ( PPState & PPS_NO_EXPAND ) != 0 ) {
+    if( expanding || ( PPState & PPS_NO_EXPAND ) ) {
         return( T_ID );
     }
     CurToken = idLookup( TokenLen, &fmentry );
@@ -822,6 +834,20 @@ static int scanName( int expanding )
     Buffer[1] = c;
     TokenLen = 2;
     return( doScanName( c, expanding ) );
+}
+
+static int doScanAsmToken( void )
+{
+    TokenLen = 0;
+    do {
+        Buffer[TokenLen++] = CurrChar;
+        if( CurrChar == '.' ) {
+            CurrChar = saveNextChar();
+        }
+        SrcFileScanName( CurrChar );
+    } while( CurrChar == '.' );
+    CurToken = T_ID;
+    return( CurToken );
 }
 
 static int scanWide( int expanding )    // scan something that starts with L
@@ -889,6 +915,9 @@ static int scanNum( int expanding )
     char max_digit;
 
     SrcFileCurrentLocation();
+    if( PPStateAsm )
+        return( doScanAsmToken() );
+
     U64Clear( Constant64 );
     value = 0;
     too_big = 0;
@@ -967,7 +996,7 @@ static int scanNum( int expanding )
         case '6':
             c = saveNextChar();
             if( c == '4' ) {
-                saveNextChar();
+                c = saveNextChar();
                 if( U64IsI64( Constant64 ) ) {
                     ConstType = TYP_SLONG64;
                 } else {
@@ -983,7 +1012,7 @@ static int scanNum( int expanding )
         case '1':
             c = saveNextChar();
             if( c == '6' ) {
-                saveNextChar();
+                c = saveNextChar();
                 msIntSuffix( 0x00007fff, TYP_SSHORT, TYP_USHORT, max_value );
             } else {
                 if( diagnose_lex_error( expanding ) ) {
@@ -994,7 +1023,7 @@ static int scanNum( int expanding )
         case '3':
             c = saveNextChar();
             if( c == '2' ) {
-                saveNextChar();
+                c = saveNextChar();
                 msIntSuffix( 0x7fffffff, TYP_SLONG, TYP_ULONG, max_value );
             } else {
                 if( diagnose_lex_error( expanding ) ) {
@@ -1003,7 +1032,7 @@ static int scanNum( int expanding )
             }
             break;
         case '8':
-            saveNextChar();
+            c = saveNextChar();
             msIntSuffix( 0x0000007f, TYP_SCHAR, TYP_UCHAR, max_value );
             break;
         default:
@@ -1017,12 +1046,12 @@ static int scanNum( int expanding )
         ConstType = TYP_SLONG;
         c = ONE_CASE( saveNextChar() );
         if( c == ONE_CASE( 'u' ) ) {
-            saveNextChar();
+            c = saveNextChar();
             ConstType = TYP_ULONG;
         } else if( c == ONE_CASE( 'L' ) ) {
             c = ONE_CASE( saveNextChar() );
             if( c == ONE_CASE( 'u' ) ) {
-                saveNextChar();
+                c = saveNextChar();
                 ConstType = TYP_ULONG64;
             } else {
                 ConstType = TYP_SLONG64;
@@ -1048,7 +1077,7 @@ static int scanNum( int expanding )
             case '6':
                 c = saveNextChar();
                 if( c == '4' ) {
-                    saveNextChar();
+                    c = saveNextChar();
                 } else {
                     if( diagnose_lex_error( expanding ) ) {
                         CErr1( ERR_INVALID_CONSTANT_SUFFIX );
@@ -1059,7 +1088,7 @@ static int scanNum( int expanding )
             case '1':
                 c = saveNextChar();
                 if( c == '6' ) {
-                    saveNextChar();
+                    c = saveNextChar();
                     msIntSuffix( 0x00007fff, TYP_USHORT, TYP_USHORT, &uintMax );
                 } else {
                     if( diagnose_lex_error( expanding ) ) {
@@ -1071,7 +1100,7 @@ static int scanNum( int expanding )
             case '3':
                 c = saveNextChar();
                 if( c == '2' ) {
-                    saveNextChar();
+                    c = saveNextChar();
                     msIntSuffix( 0x7fffffff, TYP_ULONG, TYP_ULONG, &uintMax );
                 } else {
                     if( diagnose_lex_error( expanding ) ) {
@@ -1081,7 +1110,7 @@ static int scanNum( int expanding )
                 }
                 break;
             case '8':
-                saveNextChar();
+                c = saveNextChar();
                 msIntSuffix( 0x0000007f, TYP_UCHAR, TYP_UCHAR, &uintMax );
                 break;
             default:
@@ -1094,7 +1123,7 @@ static int scanNum( int expanding )
         case ONE_CASE( 'L' ):
             c = ONE_CASE( saveNextChar() );
             if( c == ONE_CASE( 'L' ) ) {
-                saveNextChar();
+                c = saveNextChar();
                 ConstType = TYP_ULONG64;
             } else {
                 ConstType = TYP_ULONG;
@@ -1138,9 +1167,19 @@ static int scanNum( int expanding )
             CErr1( WARN_CONSTANT_TOO_BIG );
         }
     }
-    --TokenLen;
-    Buffer[TokenLen] = '\0';
-    return( T_CONSTANT );
+    if( PPStateAsm && (CharSet[c] & (C_AL | C_DI)) ) {
+        for(;;) {
+            c = saveNextChar();
+            if( (CharSet[c] & (C_AL | C_DI)) == 0 ) break;
+        }
+        --TokenLen;
+        Buffer[TokenLen] = '\0';
+        return( T_BAD_TOKEN );
+    } else {
+        --TokenLen;
+        Buffer[TokenLen] = '\0';
+        return( T_CONSTANT );
+    }
 }
 
 static int scanDelim1( int expanding )
@@ -1304,6 +1343,89 @@ static int scanSlash( int expanding )   // /, /=, // comment, or /*comment*/
     return( tok );
 }
 
+static int scanLT( int expanding ) // <, <=, <<, <<=, <%, <:
+{
+    int nc;
+    int tok;
+    int token_len;
+
+    expanding = expanding;
+    SrcFileCurrentLocation();
+    Buffer[0] = '<';
+    tok = T_LT;
+    token_len = 1;
+    nc = NextChar();
+    Buffer[1] = nc;
+    if( nc == '=' ) {
+        ++tok;
+        ++token_len;
+        NextChar();
+    } else if( nc == '<' ) {
+        tok += 2;
+        ++token_len;
+        if( NextChar() == '=' ) {
+            ++tok;
+            ++token_len;
+            Buffer[2] = '=';
+            NextChar();
+        }
+    } else if( nc == '%' ) {
+        tok = T_ALT_LEFT_BRACE;
+        ++token_len;
+        NextChar();
+    } else if( nc == ':' ) {
+        tok = T_ALT_LEFT_BRACKET;
+        ++token_len;
+        NextChar();
+    }
+    Buffer[ token_len ] = '\0';
+    TokenLen = token_len;
+    return( tok );
+}
+
+static int scanPercent( int expanding ) // %, %=, %>, %:, %:%:
+{
+    int nc;
+    int tok;
+    int token_len;
+
+    expanding = expanding;
+    SrcFileCurrentLocation();
+    Buffer[0] = '%';
+    tok = T_PERCENT;
+    token_len = 1;
+    nc = NextChar();
+    Buffer[1] = nc;
+    if( nc == '=' ) {
+        ++tok;
+        ++token_len;
+        NextChar();
+    } else if( nc == '>' ) {
+        tok = T_ALT_RIGHT_BRACE;
+        ++token_len;
+        NextChar();
+    } else if( nc == ':' ) {
+        ++token_len;
+        tok = T_ALT_SHARP;
+        if( NextChar() == '%' ) {
+            Buffer[2] = '%';
+            ++token_len;
+            if( NextChar() == ':' ) {
+                ++token_len;
+                tok = T_ALT_SHARP_SHARP;
+                Buffer[3] = ':';
+                NextChar();
+            } else {
+                unGetChar( CurrChar );
+                CurrChar = '%';
+            }
+        }
+    }
+    Buffer[ token_len ] = '\0';
+    TokenLen = token_len;
+    return( tok );
+}
+
 static int scanColon( int expanding )   // :, ::, or :>
 {
     int nc;
@@ -1322,6 +1444,8 @@ static int scanColon( int expanding )   // :, ::, or :>
         NextChar();
         ++token_len;
     } else if( nc == '>' ) {
+        // TODO: according to the standard, ":>" should be an
+        // alternative token (digraph) for "]" (T_RIGHT_BRACKET)...
         tok = T_SEG_OP;
         NextChar();
         ++token_len;
@@ -1374,6 +1498,9 @@ static int scanFloat( int expanding )
 {
     expanding = expanding;
     SrcFileCurrentLocation();
+    if( PPStateAsm )
+        return( doScanAsmToken() );
+
     Buffer[0] = CurrChar;
     TokenLen = 1;
     return( doScanFloat() );
@@ -1549,6 +1676,8 @@ static int (*scanFunc[])( int ) = {
     scanDelim12EQ2EQ,
     scanDelim1EQ,
     scanSlash,
+    scanLT,
+    scanPercent,
     scanColon,
     scanMinus,
     scanFloat,
@@ -1606,6 +1735,7 @@ void ScanInit( void )
     tokenSource = nextMacroToken;
     ReScanPtr = NULL;
     PPState = PPS_NORMAL;
+    PPStateAsm = FALSE;
     CompFlags.scanning_c_comment = 0;
     memset( ClassTable, SCAN_INVALID, sizeof( ClassTable ) );
     memset( &ClassTable['A'], SCAN_NAME, 26 );

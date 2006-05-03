@@ -41,7 +41,7 @@
 #include "cgdata.h"
 #include "pragdefn.h"
 #include "pdefn2.h"
-#include "asmsym.h"
+#include "asminlin.h"
 #include "fnovload.h"
 #include "cgswitch.h"
 #include "initdefs.h"
@@ -52,7 +52,6 @@
 
 
 extern  int     GetAliasInfo();
-extern  void    AsmInit(int,int,int);
 
 static  hw_reg_set      asmRegsSaved = { HW_D( HW_FULL ) };
 static  hw_reg_set      stackParms[] = { HW_D( HW_EMPTY ) };
@@ -353,7 +352,6 @@ static void assemblerInit(      // INITIALIZATION OF ASSEMBLER
     int         use32;
 
     defn = defn;
-    if( CompFlags.dll_subsequent ) return;
 #if _CPU == 386
     use32 = 1;
     cpu = 3;
@@ -374,7 +372,7 @@ static void assemblerInit(      // INITIALIZATION OF ASSEMBLER
     case FPU_NONE:      fpu = 0; break;
     default:            fpu = 1; break;
     }
-    AsmInit( cpu, fpu, use32 );
+    AsmInit( cpu, fpu, use32, 1 );
 }
 
 
@@ -427,6 +425,158 @@ static boolean GetAliasInfo(
     return retn;
 }
 
+static void GetParmInfo(
+    void )
+    {
+    struct {
+        unsigned f_pop           : 1;
+        unsigned f_reverse       : 1;
+        unsigned f_loadds        : 1;
+        unsigned f_nomemory      : 1;
+        unsigned f_list          : 1;
+    } have;
+
+    have.f_pop           = 0;
+    have.f_reverse       = 0;
+    have.f_loadds        = 0;
+    have.f_nomemory      = 0;
+    have.f_list          = 0;
+    for( ;; ) {
+        if( !have.f_pop && PragRecog( "caller" ) ) {
+            CurrInfo->_class |= CALLER_POPS;
+            have.f_pop = 1;
+        } else if( !have.f_pop && PragRecog( "routine" ) ) {
+            CurrInfo->_class &= ~ CALLER_POPS;
+            have.f_pop = 1;
+        } else if( !have.f_reverse && PragRecog( "reverse" ) ) {
+            CurrInfo->_class |= REVERSE_PARMS;
+            have.f_reverse = 1;
+        } else if( !have.f_nomemory && PragRecog( "nomemory" ) ) {
+            CurrInfo->_class |= NO_MEMORY_READ;
+            have.f_nomemory = 1;
+        } else if( !have.f_loadds && PragRecog( "loadds" ) ) {
+            CurrInfo->_class |= LOAD_DS_ON_CALL;
+            have.f_loadds = 1;
+        } else if( !have.f_list && PragSet() != T_NULL ) {
+            PragManyRegSets();
+            have.f_list = 1;
+        } else {
+            break;
+        }
+    }
+}
+
+static void GetSTRetInfo(
+    void )
+{
+    struct {
+        unsigned f_float        : 1;
+        unsigned f_struct       : 1;
+        unsigned f_allocs       : 1;
+        unsigned f_list         : 1;
+    } have;
+
+    have.f_float  = 0;
+    have.f_struct = 0;
+    have.f_allocs = 0;
+    have.f_list   = 0;
+    for( ;; ) {
+        if( !have.f_float && PragRecog( "float" ) ) {
+            have.f_float = 1;
+            CurrInfo->_class |= NO_FLOAT_REG_RETURNS;
+        } else if( !have.f_struct && PragRecog( "struct" ) ) {
+            have.f_struct = 1;
+            CurrInfo->_class |= NO_STRUCT_REG_RETURNS;
+        } else if( !have.f_allocs && PragRecog( "routine" ) ) {
+            have.f_allocs = 1;
+            CurrInfo->_class |= ROUTINE_RETURN;
+        } else if( !have.f_allocs && PragRecog( "caller" ) ) {
+            have.f_allocs = 1;
+            CurrInfo->_class &= ~ROUTINE_RETURN;
+        } else if( !have.f_list && PragSet() != T_NULL ) {
+            have.f_list = 1;
+            CurrInfo->_class |= SPECIAL_STRUCT_RETURN;
+            CurrInfo->streturn = PragRegList();
+        } else {
+            break;
+        }
+    }
+}
+
+static void GetRetInfo(
+    void )
+{
+    struct {
+        unsigned f_no8087        : 1;
+        unsigned f_list          : 1;
+        unsigned f_struct        : 1;
+    } have;
+
+    have.f_no8087  = 0;
+    have.f_list    = 0;
+    have.f_struct  = 0;
+    CurrInfo->_class &= ~ NO_8087_RETURNS;
+    for( ;; ) {
+        if( !have.f_no8087 && PragRecog( "no8087" ) ) {
+            have.f_no8087 = 1;
+            HW_CTurnOff( CurrInfo->returns, HW_FLTS );
+            CurrInfo->_class |= NO_8087_RETURNS;
+        } else if( !have.f_list && PragSet() != T_NULL ) {
+            have.f_list = 1;
+            CurrInfo->_class |= SPECIAL_RETURN;
+            CurrInfo->returns = PragRegList();
+        } else if( !have.f_struct && PragRecog( "struct" ) ) {
+            have.f_struct = 1;
+            GetSTRetInfo();
+        } else {
+            break;
+        }
+    }
+}
+
+static void GetSaveInfo(
+    void )
+{
+    hw_reg_set      modlist;
+    hw_reg_set      default_flt_n_seg;
+    hw_reg_set      flt_n_seg;
+
+    struct {
+        unsigned f_exact        : 1;
+        unsigned f_nomemory     : 1;
+        unsigned f_list         : 1;
+    } have;
+
+    have.f_exact    = 0;
+    have.f_nomemory = 0;
+    have.f_list     = 0;
+    for( ;; ) {
+        if( !have.f_exact && PragRecog( "exact" ) ) {
+            CurrInfo->_class |= MODIFY_EXACT;
+            have.f_exact = 1;
+        } else if( !have.f_nomemory && PragRecog( "nomemory" ) ) {
+            CurrInfo->_class |= NO_MEMORY_CHANGED;
+            have.f_nomemory = 1;
+        } else if( !have.f_list && PragSet() != T_NULL ) {
+            modlist = PragRegList();
+            have.f_list = 1;
+        } else {
+            break;
+        }
+    }
+    if( have.f_list ) {
+        HW_Asgn( default_flt_n_seg, DefaultInfo.save );
+        HW_CTurnOn( CurrInfo->save, HW_FULL );
+        if( !have.f_exact && !CompFlags.save_restore_segregs ) {
+            HW_CAsgn( flt_n_seg, HW_FLTS );
+            HW_CTurnOn( flt_n_seg, HW_SEGS );
+            HW_TurnOff( CurrInfo->save, flt_n_seg );
+            HW_OnlyOn( default_flt_n_seg, flt_n_seg );
+            HW_TurnOn( CurrInfo->save, default_flt_n_seg );
+        }
+        HW_TurnOff( CurrInfo->save, modlist );
+    }
+}
 
 static void doPragAux(                   // #PRAGMA AUX ...
     void )
@@ -625,8 +775,8 @@ static enum sym_type PtrType( type_flag flags )
 #define ENTRY_UINT              SYM_INT,
 #define ENTRY_SLONG             SYM_INT4,
 #define ENTRY_ULONG             SYM_INT4,
-#define ENTRY_SLONG64           SYM_INT4,       // SYM_INT8 NYI
-#define ENTRY_ULONG64           SYM_INT4,       // SYM_INT8 NYI
+#define ENTRY_SLONG64           SYM_INT8,
+#define ENTRY_ULONG64           SYM_INT8,
 #define ENTRY_FLOAT             SYM_FLOAT4,
 #define ENTRY_DOUBLE            SYM_FLOAT8,
 #define ENTRY_LONG_DOUBLE       SYM_FLOAT8,
@@ -724,19 +874,22 @@ static int insertFixups( VBUF *code_buffer, unsigned char *buff, unsigned i )
     unsigned            skip;
     int                 mutate_to_segment;
     boolean             uses_auto;
+#if _CPU == 8086
+    int                 fixup_padding;
+#endif
 
     uses_auto = FALSE;
     perform_fixups = 0;
     head = FixupHead;
     if( head != NULL ) {
         FixupHead = NULL;
-        /* sort the fixup list in increasing fix_loc's */
+        /* sort the fixup list in increasing fixup_loc's */
         for( fix = head; fix != NULL; fix = next ) {
             owner = &FixupHead;
             for( ;; ) {
                 chk = *owner;
                 if( chk == NULL ) break;
-                if( chk->fix_loc > fix->fix_loc ) break;
+                if( chk->fixup_loc > fix->fixup_loc ) break;
                 owner = &chk->next;
             }
             next = fix->next;
@@ -752,7 +905,7 @@ static int insertFixups( VBUF *code_buffer, unsigned char *buff, unsigned i )
         while( src < end ) {
             /* reserve at least ASM_BLOCK bytes in the buffer */
             VbufReqd( code_buffer, ( (dst+ASM_BLOCK) + (ASM_BLOCK-1) ) & ~(ASM_BLOCK-1) );
-            if( fix != NULL && fix->fix_loc == (src - buff) ) {
+            if( fix != NULL && fix->fixup_loc == (src - buff) ) {
                 name = fix->name;
                 if( name != NULL ) {
                     sym = ScopeASMUseSymbol( name, &uses_auto );
@@ -764,7 +917,10 @@ static int insertFixups( VBUF *code_buffer, unsigned char *buff, unsigned i )
                 skip = 0;
                 code_buffer->buf[ dst++ ] = FLOATING_FIXUP_BYTE;
                 mutate_to_segment = 0;
-                switch( fix->fix_type ) {
+#if _CPU == 8086
+                fixup_padding = 0;
+#endif
+                switch( fix->fixup_type ) {
                 case FIX_SEG:
                     if( name == NULL ) {
                         /* special case for floating point fixup */
@@ -786,6 +942,9 @@ static int insertFixups( VBUF *code_buffer, unsigned char *buff, unsigned i )
                 case FIX_RELOFF32:
                     skip = 4;
                     cg_fix = FIX_SYM_RELOFF;
+#if _CPU == 8086
+                    fixup_padding = 1;
+#endif
                     break;
                 case FIX_PTR16:
                     mutate_to_segment = 1;
@@ -800,6 +959,9 @@ static int insertFixups( VBUF *code_buffer, unsigned char *buff, unsigned i )
                 case FIX_OFF32:
                     skip = 4;
                     cg_fix = FIX_SYM_OFFSET;
+#if _CPU == 8086
+                    fixup_padding = 1;
+#endif
                     break;
                 }
                 if( skip != 0 ) {
@@ -810,6 +972,15 @@ static int insertFixups( VBUF *code_buffer, unsigned char *buff, unsigned i )
                     dst += sizeof( long );
                     src += skip;
                 }
+#if _CPU == 8086
+                if( fixup_padding ) {
+                    // add offset fixup padding to 32-bit
+                    // cg create only 16-bit offset fixup
+                    code_buffer->buf[ dst++ ] = 0;
+                    code_buffer->buf[ dst++ ] = 0;
+                    //
+                }
+#endif
                 if( mutate_to_segment ) {
                     /*
                         Since the CG escape sequences don't allow for
@@ -818,8 +989,8 @@ static int insertFixups( VBUF *code_buffer, unsigned char *buff, unsigned i )
                         mutating the fixup structure to look like a segment
                         fixup one near pointer size later.
                     */
-                    fix->fix_type = FIX_SEG;
-                    fix->fix_loc += skip;
+                    fix->fixup_type = FIX_SEG;
+                    fix->fixup_loc += skip;
                     fix->offset = 0;
                 } else {
                     head = fix;
@@ -862,19 +1033,13 @@ static void AddAFix(
 
     fix = (struct asmfixup *)CMemAlloc( sizeof( *fix ) );
     fix->external = 1;
-    fix->fix_loc = i;
+    fix->fixup_loc = i;
     fix->name = name;
     fix->offset = off;
-    fix->fix_type = type;
+    fix->fixup_type = type;
     fix->next = FixupHead;
     FixupHead = fix;
 }
-
-// WASM entry points
-extern long Address;
-extern char *CodeBuffer;
-extern void AsmLine( char * );
-extern void AsmSymFini( void );
 
 syscode_seq *AuxCodeDup(        // DUPLICATE AUX CODE
     syscode_seq *code )
@@ -1225,164 +1390,6 @@ hw_reg_set PragRegName(         // GET REGISTER NAME
         HW_CAsgn( name, HW_EMPTY );
     }
     return( name );
-}
-
-
-
-static void GetParmInfo(
-    void )
-    {
-    struct {
-        unsigned f_pop           : 1;
-        unsigned f_reverse       : 1;
-        unsigned f_loadds        : 1;
-        unsigned f_nomemory      : 1;
-        unsigned f_list          : 1;
-    } have;
-
-    have.f_pop           = 0;
-    have.f_reverse       = 0;
-    have.f_loadds        = 0;
-    have.f_nomemory      = 0;
-    have.f_list          = 0;
-    for( ;; ) {
-        if( !have.f_pop && PragRecog( "caller" ) ) {
-            CurrInfo->_class |= CALLER_POPS;
-            have.f_pop = 1;
-        } else if( !have.f_pop && PragRecog( "routine" ) ) {
-            CurrInfo->_class &= ~ CALLER_POPS;
-            have.f_pop = 1;
-        } else if( !have.f_reverse && PragRecog( "reverse" ) ) {
-            CurrInfo->_class |= REVERSE_PARMS;
-            have.f_reverse = 1;
-        } else if( !have.f_nomemory && PragRecog( "nomemory" ) ) {
-            CurrInfo->_class |= NO_MEMORY_READ;
-            have.f_nomemory = 1;
-        } else if( !have.f_loadds && PragRecog( "loadds" ) ) {
-            CurrInfo->_class |= LOAD_DS_ON_CALL;
-            have.f_loadds = 1;
-        } else if( !have.f_list && PragSet() != T_NULL ) {
-            PragManyRegSets();
-            have.f_list = 1;
-        } else {
-            break;
-        }
-    }
-}
-
-
-static void GetRetInfo(
-    void )
-{
-    struct {
-        unsigned f_no8087        : 1;
-        unsigned f_list          : 1;
-        unsigned f_struct        : 1;
-    } have;
-
-    have.f_no8087  = 0;
-    have.f_list    = 0;
-    have.f_struct  = 0;
-    CurrInfo->_class &= ~ NO_8087_RETURNS;
-    for( ;; ) {
-        if( !have.f_no8087 && PragRecog( "no8087" ) ) {
-            have.f_no8087 = 1;
-            HW_CTurnOff( CurrInfo->returns, HW_FLTS );
-            CurrInfo->_class |= NO_8087_RETURNS;
-        } else if( !have.f_list && PragSet() != T_NULL ) {
-            have.f_list = 1;
-            CurrInfo->_class |= SPECIAL_RETURN;
-            CurrInfo->returns = PragRegList();
-        } else if( !have.f_struct && PragRecog( "struct" ) ) {
-            have.f_struct = 1;
-            GetSTRetInfo();
-        } else {
-            break;
-        }
-    }
-}
-
-
-static void GetSTRetInfo(
-    void )
-{
-    struct {
-        unsigned f_float        : 1;
-        unsigned f_struct       : 1;
-        unsigned f_allocs       : 1;
-        unsigned f_list         : 1;
-    } have;
-
-    have.f_float  = 0;
-    have.f_struct = 0;
-    have.f_allocs = 0;
-    have.f_list   = 0;
-    for( ;; ) {
-        if( !have.f_float && PragRecog( "float" ) ) {
-            have.f_float = 1;
-            CurrInfo->_class |= NO_FLOAT_REG_RETURNS;
-        } else if( !have.f_struct && PragRecog( "struct" ) ) {
-            have.f_struct = 1;
-            CurrInfo->_class |= NO_STRUCT_REG_RETURNS;
-        } else if( !have.f_allocs && PragRecog( "routine" ) ) {
-            have.f_allocs = 1;
-            CurrInfo->_class |= ROUTINE_RETURN;
-        } else if( !have.f_allocs && PragRecog( "caller" ) ) {
-            have.f_allocs = 1;
-            CurrInfo->_class &= ~ROUTINE_RETURN;
-        } else if( !have.f_list && PragSet() != T_NULL ) {
-            have.f_list = 1;
-            CurrInfo->_class |= SPECIAL_STRUCT_RETURN;
-            CurrInfo->streturn = PragRegList();
-        } else {
-            break;
-        }
-    }
-}
-
-
-static void GetSaveInfo(
-    void )
-{
-    hw_reg_set      modlist;
-    hw_reg_set      default_flt_n_seg;
-    hw_reg_set      flt_n_seg;
-
-    struct {
-        unsigned f_exact        : 1;
-        unsigned f_nomemory     : 1;
-        unsigned f_list         : 1;
-    } have;
-
-    have.f_exact    = 0;
-    have.f_nomemory = 0;
-    have.f_list     = 0;
-    for( ;; ) {
-        if( !have.f_exact && PragRecog( "exact" ) ) {
-            CurrInfo->_class |= MODIFY_EXACT;
-            have.f_exact = 1;
-        } else if( !have.f_nomemory && PragRecog( "nomemory" ) ) {
-            CurrInfo->_class |= NO_MEMORY_CHANGED;
-            have.f_nomemory = 1;
-        } else if( !have.f_list && PragSet() != T_NULL ) {
-            modlist = PragRegList();
-            have.f_list = 1;
-        } else {
-            break;
-        }
-    }
-    if( have.f_list ) {
-        HW_Asgn( default_flt_n_seg, DefaultInfo.save );
-        HW_CTurnOn( CurrInfo->save, HW_FULL );
-        if( !have.f_exact && !CompFlags.save_restore_segregs ) {
-            HW_CAsgn( flt_n_seg, HW_FLTS );
-            HW_CTurnOn( flt_n_seg, HW_SEGS );
-            HW_TurnOff( CurrInfo->save, flt_n_seg );
-            HW_OnlyOn( default_flt_n_seg, flt_n_seg );
-            HW_TurnOn( CurrInfo->save, default_flt_n_seg );
-        }
-        HW_TurnOff( CurrInfo->save, modlist );
-    }
 }
 
 static boolean parmSetsIdentical( hw_reg_set *parms1, hw_reg_set *parms2 )

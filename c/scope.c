@@ -310,7 +310,7 @@ extern SCOPE    SetCurrScope(SCOPE newScope)
     g_CurrScope = newScope;
 
 #ifndef NDEBUG
-    if( PragDbgToggle.dump_scopes ) 
+    if( PragDbgToggle.dump_scopes )
     {
         printf("Set new scope to 0x%.08X\n", newScope);
         if(newScope)
@@ -744,6 +744,51 @@ static SCOPE initGlobalNamespaceScope( SCOPE scope )
     return( scope );
 }
 
+static SCOPE makeFileScope( fs_control control, SYMBOL sym )
+{
+    SCOPE scope;
+    NAME_SPACE *ns;
+
+    scope = makeScope( SCOPE_FILE );
+    ns = CarveAlloc( carveNAME_SPACE );
+    ns->sym = sym;
+    ns->scope = scope;
+    ns->last_sym = NULL;
+    ns->all = allNameSpaces;
+    ns->global_fs = FALSE;
+    ns->free = FALSE;
+    ns->unnamed = FALSE;
+    if( control & FS_GLOBAL ) {
+        ns->global_fs = TRUE;
+    } else if( control & FS_UNNAMED ) {
+        ns->unnamed = TRUE;
+        scope->in_unnamed = TRUE;
+    }
+    allNameSpaces = ns;
+    scope->owner.ns = ns;
+    return( scope );
+}
+
+static void scopeOpenMaybeNull( SCOPE scope )
+{
+    SCOPE enclosing;
+
+    enclosing = GetCurrScope();
+    scope->enclosing = enclosing;
+    if( enclosing != NULL && enclosing->in_unnamed ) {
+        scope->in_unnamed = TRUE;
+    }
+    SetCurrScope(scope);
+}
+
+static void scopeBeginFileScope( void )
+{
+    SCOPE scope;
+
+    scope = makeFileScope( FS_GLOBAL, NULL );
+    scopeOpenMaybeNull( scope );
+}
+
 static void scopeInit(          // SCOPES INITIALIZATION
     INITFINI* defn )            // - definition
 {
@@ -1128,18 +1173,6 @@ void ScopeEstablish( SCOPE scope )
     doScopeEstablish( scope, GetCurrScope() );
 }
 
-static void scopeOpenMaybeNull( SCOPE scope )
-{
-    SCOPE enclosing;
-
-    enclosing = GetCurrScope();
-    scope->enclosing = enclosing;
-    if( enclosing != NULL && enclosing->in_unnamed ) {
-        scope->in_unnamed = TRUE;
-    }
-    SetCurrScope(scope);
-}
-
 static SCOPE findFunctionScope( SCOPE scope )
 {
     for(;;) {
@@ -1392,8 +1425,8 @@ void ScopeJumpBackward( SCOPE scope )
     SetCurrScope(scope);
 }
 
-static scopeWalkSymbolNameSymbols( SYMBOL_NAME name, void *data )
-/***************************************************************/
+static void scopeWalkSymbolNameSymbols( SYMBOL_NAME name, void *data )
+/********************************************************************/
 {
     SYMBOL sym;
     void (*rtn)( SYMBOL ) = data;
@@ -1552,39 +1585,6 @@ SCOPE ScopeBegin( scope_type_t scope_type )
     scope = ScopeCreate( scope_type );
     ScopeOpen( scope );
     return( scope );
-}
-
-static SCOPE makeFileScope( fs_control control, SYMBOL sym )
-{
-    SCOPE scope;
-    NAME_SPACE *ns;
-
-    scope = makeScope( SCOPE_FILE );
-    ns = CarveAlloc( carveNAME_SPACE );
-    ns->sym = sym;
-    ns->scope = scope;
-    ns->last_sym = NULL;
-    ns->all = allNameSpaces;
-    ns->global_fs = FALSE;
-    ns->free = FALSE;
-    ns->unnamed = FALSE;
-    if( control & FS_GLOBAL ) {
-        ns->global_fs = TRUE;
-    } else if( control & FS_UNNAMED ) {
-        ns->unnamed = TRUE;
-        scope->in_unnamed = TRUE;
-    }
-    allNameSpaces = ns;
-    scope->owner.ns = ns;
-    return( scope );
-}
-
-static void scopeBeginFileScope( void )
-{
-    SCOPE scope;
-
-    scope = makeFileScope( FS_GLOBAL, NULL );
-    scopeOpenMaybeNull( scope );
 }
 
 SCOPE ScopeOpenNameSpace( char *name, SYMBOL sym )

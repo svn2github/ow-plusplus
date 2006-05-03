@@ -1316,7 +1316,7 @@ static void dwarf_block_open( SYMBOL sym )
         if( IsCppNameInterestingDebug( sym ) ) {
             name = CppNameDebug( sym );
         } else {
-            name = NULL;
+            name = "<unnamed>";
         }
         if( !InDebug ){
             dwarfLocation( sym );
@@ -1922,6 +1922,8 @@ static void dwarfBegNameSpace( SYMBOL curr )
     type_update( type, TF2_DWARF_DEF, dh );
 }
 
+static void dwarfDebugSymbol( SCOPE scope );
+
 static void dwarfNameSpace( SYMBOL curr )
 /***************************************/
 {
@@ -2058,6 +2060,8 @@ static bool dwarfUsedTypeSymbol( SCOPE scope )
     }
     return( has_changed );
 }
+
+static void dwarfPreUsedSymbol( SCOPE scope );
 
 static void dwarfPreUsedNameSpace( SYMBOL curr )
 /***************************************/

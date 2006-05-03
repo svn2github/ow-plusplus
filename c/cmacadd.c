@@ -102,7 +102,7 @@ static void macroAllocSegment(   // ALLOCATE MACRO SEGMENT
     ExtraRptIncrementCtr( macro_segments );
 }
 
-static storageInitialize(       // INITIALIZE STORAGE DATA
+static void storageInitialize(  // INITIALIZE STORAGE DATA
     void )
 {
     macroAllocSegment( HASH_TABLE_SIZE );
@@ -519,6 +519,19 @@ void MacroOverflow(             // OVERFLOW SEGMENT IF REQUIRED
     }
 }
 
+static void unlinkMacroFromTable( MEPTR fmentry, unsigned hash )
+{
+    ++undefCount;
+    RingPrune( &macroHashTable[ hash ], fmentry );
+    if(( InitialMacroFlag & MACRO_DEFINED_BEFORE_FIRST_INCLUDE ) == 0 ) {
+        // make sure we only do this *after* the first include has started
+        // processing otherwise the PCH is created in such a way that
+        // the #undef'd macro must be defined before the #include 98/07/13
+        if( fmentry->macro_flags & MACRO_DEFINED_BEFORE_FIRST_INCLUDE ) {
+            RingAppend( &beforeIncludeChecks, fmentry );
+        }
+    }
+}
 
 MEPTR MacroDefine(              // DEFINE A NEW MACRO
     MEPTR mentry,               // - scanned macro
@@ -580,7 +593,8 @@ MEPTR MacroDefine(              // DEFINE A NEW MACRO
 
 MEPTR MacroSpecialAdd(          // ADD A SPECIAL MACRO
     char *name,                 // - macro name
-    unsigned value )            // - value for special macro
+    unsigned value,             // - value for special macro
+    unsigned flags )            // - macro flags
 {
     size_t len;
     size_t reqd;
@@ -595,7 +609,12 @@ MEPTR MacroSpecialAdd(          // ADD A SPECIAL MACRO
     mentry->macro_len = reqd;
     mentry->parm_count = value;
     memcpy( mentry->macro_name, name, len + 1 );
-    return( MacroDefine( mentry, reqd, len ) );
+
+    mentry = MacroDefine( mentry, reqd, len );
+    if( mentry != NULL ) {
+        mentry->macro_flags |= flags;
+    }
+    return mentry;
 }
 
 
@@ -620,7 +639,7 @@ boolean MacroExists(        // TEST IF MACRO EXISTS
     mac = macroFind( macname, len, &hash );
     if( mac != NULL ) {
         mac->macro_flags |= MACRO_REFERENCED;
-        exists = TRUE;
+        exists = ( mac->macro_flags & MACRO_SPECIAL ) ? FALSE : TRUE;
     } else {
         exists = FALSE;
     }
@@ -638,20 +657,6 @@ boolean MacroDependsDefined // MACRO DEPENDENCY: DEFINED OR NOT
     return retn;
 }
 
-
-static void unlinkMacroFromTable( MEPTR fmentry, unsigned hash )
-{
-    ++undefCount;
-    RingPrune( &macroHashTable[ hash ], fmentry );
-    if(( InitialMacroFlag & MACRO_DEFINED_BEFORE_FIRST_INCLUDE ) == 0 ) {
-        // make sure we only do this *after* the first include has started
-        // processing otherwise the PCH is created in such a way that
-        // the #undef'd macro must be defined before the #include 98/07/13
-        if( fmentry->macro_flags & MACRO_DEFINED_BEFORE_FIRST_INCLUDE ) {
-            RingAppend( &beforeIncludeChecks, fmentry );
-        }
-    }
-}
 
 static void doMacroUndef( char *name, unsigned len, boolean quiet )
 {
