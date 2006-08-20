@@ -54,8 +54,10 @@ typedef struct reloc_list RELOC_LIST;
 typedef struct parse_tree_node *PTREE;          // defined in PTREE.H
 typedef struct rewrite_package REWRITE;         // defined in REWRITE.H
 typedef struct template_info TEMPLATE_INFO;     // defined in TEMPLATE.H
+typedef struct class_inst CLASS_INST;           // defined in TEMPLATE.H
 typedef struct template_specialization TEMPLATE_SPECIALIZATION; // defined in TEMPLATE.H
-typedef struct fn_template_defn FN_TEMPLATE_DEFN;//defined in TEMPLATE.H
+typedef struct fn_template_inst FN_TEMPLATE_INST;//defined in TEMPLATE.H
+typedef struct fn_template FN_TEMPLATE;         //defined in TEMPLATE.H
 typedef struct func_list FNOV_LIST;             // defined in FNOVLOAD.H
 typedef struct pool_con POOL_CON;               // defined in CONPOOL.H
 
@@ -782,7 +784,7 @@ PCH_struct symbol {                     // SYMBOL in symbol table
         POOL_CON*       pval;           // - SC_ENUM, const int: - pool value
         target_offset_t offset;         // - SC_MEMBER -- data offset
         TEMPLATE_INFO   *tinfo;         // - SC_CLASS_TEMPLATE -- info for it
-        FN_TEMPLATE_DEFN *defn;         // - SC_FUNCTION_TEMPLATE -- defn for it
+        FN_TEMPLATE     *defn;          // - SC_FUNCTION_TEMPLATE -- defn for it
         PTREE           defarg_info;    // - SC_DEFAULT -- defarg info
                                         //   use op=PT_TYPE,
                                         //     next is defarg expr
@@ -876,7 +878,8 @@ PCH_struct scope {
         TYPE            type;           // -- class owning SCOPE_CLASS
         unsigned        index;          // -- index for SCOPE_BLOCK
         TEMPLATE_INFO   *tinfo;         // -- SCOPE_TEMPLATE_PARM (classes)
-        FN_TEMPLATE_DEFN *defn;         // -- SCOPE_TEMPLATE_PARM (functions)
+        FN_TEMPLATE     *defn;          // -- SCOPE_TEMPLATE_PARM (functions)
+        CLASS_INST      *inst;          // -- SCOPE_TEMPLATE_INST
     } owner;
     union {
         unsigned        flags;
@@ -1256,7 +1259,7 @@ extern void ScopeEmitIndexMappings( void );
 extern void ScopeClear( SCOPE );
 extern boolean ScopeDebugable( SCOPE );
 extern void ScopeSetParmClass( SCOPE, TEMPLATE_INFO * );
-extern void ScopeSetParmFn( SCOPE, FN_TEMPLATE_DEFN * );
+extern void ScopeSetParmFn( SCOPE, FN_TEMPLATE * );
 extern void ScopeSetParmCopy( SCOPE, SCOPE );
 
 typedef enum {
@@ -1568,11 +1571,14 @@ extern TYPE MakeIndexPragma( unsigned );
 extern boolean CurrFunctionHasEllipsis( void );
 extern void TypeTraverse( type_id, void (*)( TYPE, void *), void * );
 extern boolean FunctionUsesAllTypes( SYMBOL, SCOPE, void (*)( SYMBOL ) );
-extern void ClearAllGenericBindings( void * );
-extern boolean BindFunction( SYMBOL, SYMBOL );
 extern type_flag ExplicitModifierFlags( TYPE );
 
-extern TYPE BindGenericTypes( arg_list *, SYMBOL, TOKEN_LOCN *, bgt_control * );
+extern boolean BindExplicitTemplateArguments( SCOPE decl_scope,
+                                              SCOPE param_scope,
+                                              PTREE templ_args );
+extern boolean BindGenericTypes( SCOPE param_scope, PTREE parms, PTREE args );
+extern PTREE BindClassGenericTypes( SCOPE decl_scope, PTREE parms,
+                                    PTREE args );
 
 arg_list* ArgListTempAlloc(     // ALLOCATE TEMPORARY ARG LIST
     TEMP_ARG_LIST* default_args,// - default args
@@ -1727,6 +1733,8 @@ extern TYPE TypeCache[];
 // pre-compiled header support
 TYPE TypeGetIndex( TYPE );
 TYPE TypeMapIndex( TYPE );
+void PCHWriteDeclInfo( DECL_INFO * );
+DECL_INFO *PCHReadDeclInfo();
 CLASSINFO *ClassInfoGetIndex( CLASSINFO * );
 CLASSINFO *ClassInfoMapIndex( CLASSINFO * );
 SYMBOL_NAME SymbolNameGetIndex( SYMBOL_NAME );

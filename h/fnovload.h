@@ -202,6 +202,7 @@ FNOV_RESULT FuncOverloadedLimitDiag(// FIND OVERLOADED FUNCTION FOR ARGUMENTS
     arg_list *alist,            // - arguments
     PTREE *ptlist,              // - parse tree nodes for each argument
     FNOV_CONTROL control,       // - bits to regulate overloading
+    PTREE templ_args,           // - explicit template arguments
     FNOV_DIAG *fnov_diag )      // - diagnosis information
 ;
 FNOV_RESULT FuncOverloaded(     // FIND OVERLOADED FUNCTION FOR ARGUMENTS
@@ -217,6 +218,7 @@ FNOV_RESULT FuncOverloadedDiag( // FIND OVERLOADED FUNCTION FOR ARGUMENTS
     SYMBOL sym,                 // - starting symbol
     arg_list *alist,            // - arguments
     PTREE *ptlist,              // - parse tree nodes for each argument
+    PTREE templ_args,           // - explicit template arguments
     FNOV_DIAG *fnov_diag )      // - diagnosis information
 ;
 FNOV_COARSE_RANK UdcLocate(     // SELECT A DIRECT OR COPY INITIALIZTION

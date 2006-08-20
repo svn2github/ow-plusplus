@@ -77,7 +77,6 @@ struct class_data {
     unsigned        defined : 1;        /* class has been defined */
     unsigned        local_class : 1;    /* class is being def'd in a function */
     unsigned        nested_class : 1;   /* class is being def'd in a class */
-    unsigned        allow_typedef : 1;  /* allow typedef with same name as class */
     unsigned        is_union : 1;       /* current class is a union */
     unsigned        is_explicit : 1;    /* programmer can still define members */
     unsigned        own_vfptr : 1;      /* brand new vfptr */
@@ -156,6 +155,7 @@ extern boolean ClassNeedsAssign( TYPE, boolean );
 extern boolean ClassIsDefaultCtor( SYMBOL, TYPE );
 extern boolean ClassIsDefaultCopy( SYMBOL, TYPE );
 extern boolean ClassIsDefaultAssign( SYMBOL, TYPE );
+extern void ClassProcessFunction( DECL_INFO *, boolean );
 extern SYMBOL ClassAddDefaultCtor( SCOPE );
 extern SYMBOL ClassAddDefaultCopy( SCOPE );
 extern SYMBOL ClassAddDefaultDtor( SCOPE );
@@ -163,7 +163,7 @@ extern SYMBOL ClassAddDefaultAssign( SCOPE );
 extern boolean ClassCorrupted( TYPE );
 extern TYPE ClassUnboundTemplate( char * );
 extern void ClassChangingScope( SYMBOL, SCOPE );
-extern void ClassDefineRefdDefaults( void );
+extern boolean ClassDefineRefdDefaults( void );
 extern void ClassAddFunctionMods( TYPE );
 extern boolean ClassParmIsRef( TYPE );
 extern TYPE ClassPreDefined( char *, TOKEN_LOCN * );

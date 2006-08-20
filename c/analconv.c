@@ -207,6 +207,7 @@ unsigned ConvertOvFunNode(      // CONVERT FUN (FUN IS OVERLOADED), NO FREE
                                                  , points->u.f.args
                                                  , NULL
                                                  , FNC_EXCLUDE_DEFARG
+                                                 , NULL
                                                  , NULL );
             }
             switch( ov_retn ) {

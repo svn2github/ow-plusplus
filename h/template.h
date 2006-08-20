@@ -58,10 +58,25 @@ struct template_data {
 // these structures are private to TEMPLATE.C but they are exposed
 // for debug dump routines
 
+typedef struct member_inst MEMBER_INST; // template member instantiation
+PCH_struct member_inst {
+    MEMBER_INST         *next;          // (ring)
+    DECL_INFO           *dinfo;         // member definition
+    SCOPE               scope;
+    SCOPE               class_parm_scope;
+    SCOPE               class_parm_enclosing;
+    unsigned            is_inline : 1;
+    unsigned            free : 1;       // used for precompiled headers
+};
+
 typedef struct class_inst CLASS_INST;   // class template instantiation
 PCH_struct class_inst {
     CLASS_INST          *next;          // (ring)
     SCOPE               scope;          // scope containing instantiation
+    SCOPE               inlines_scope;  // scope for instantiating inline functions
+    SCOPE               inlines_enclosing; // scope for instantiating inline functions
+    DECL_INFO           *inlines;       // ring of pending inline functions
+    MEMBER_INST         *members;       // ring of pending member functions
     TOKEN_LOCN          locn;           // location of first instantiation
     unsigned            must_process :1;// must be post-processed
     unsigned            dont_process :1;// should not be post-processed
@@ -106,13 +121,20 @@ PCH_struct template_info {
     unsigned            free : 1;       // used for precompiled headers
 };
 
-PCH_struct fn_template_defn {
-    FN_TEMPLATE_DEFN    *next;          // (ring)
+PCH_struct fn_template_inst {
+    FN_TEMPLATE_INST    *next;          // (ring)
+    SYMBOL              bound_sym;      // bound template function symbol
+    SCOPE               parm_scope;     // template parameter scope
+    SCOPE               inst_scope;     // template instantiation scope
+};
+
+PCH_struct fn_template {
+    FN_TEMPLATE         *next;          // (ring)
+    FN_TEMPLATE_INST    *instantiations;// list of instantiations
     SYMBOL              sym;            // template function
+    SCOPE               decl_scope;     // template declaration scope
     REWRITE             *defn;          // always non-NULL
-    unsigned            num_args;       // number of template arguments
-    char                **arg_names;    // argument names
-    TYPE                *type_list;     // template argument types (all generic)
+    unsigned            free : 1;       // used for precompiled headers
 };
 
 typedef enum tc_instantiate {
@@ -139,12 +161,14 @@ extern void TemplateDeclInit( TEMPLATE_DATA * );
 extern void TemplateDeclAddArgument( DECL_INFO *new_dinfo );
 extern void TemplateDeclFini( void );
 extern void TemplateFunctionCheck( SYMBOL, DECL_INFO * );
+extern void TemplateFunctionDeclaration( SYMBOL );
 extern void TemplateFunctionAttachDefn( DECL_INFO * );
-extern unsigned TemplateFunctionGenerate( SYMBOL *, arg_list *, TOKEN_LOCN *, SYMBOL *, boolean );
+extern unsigned TemplateFunctionGenerate( SYMBOL *, arg_list *, PTREE, TOKEN_LOCN *, SYMBOL *, boolean );
 extern void TemplateClassDeclaration( PTREE, SCOPE, char * );
 extern boolean TemplateClassDefinition( PTREE, SCOPE, char * );
-extern DECL_SPEC *TemplateClassInstantiation( PTREE, PTREE, tc_instantiate );
+extern TYPE TemplateClassInstantiation( PTREE, PTREE, tc_instantiate );
 extern void TemplateHandleClassMember( DECL_INFO * );
+extern void TemplateMemberAttachDefn( DECL_INFO * );
 extern void TemplateProcessInstantiations();
 extern boolean TemplateMemberCanBeIgnored( void );
 extern boolean TemplateVerifyDecl( SYMBOL );
@@ -154,7 +178,7 @@ extern void TemplateSpecializationDefn( PTREE, PTREE );
 extern SCOPE TemplateClassInstScope( TYPE );
 extern SCOPE TemplateClassParmScope( TYPE );
 extern boolean TemplateParmEqual( SYMBOL, SYMBOL );
-extern void TemplateFunctionInstantiate( SYMBOL, SYMBOL, void * );
+extern void TemplateFunctionInstantiate( FN_TEMPLATE *, FN_TEMPLATE_INST * );
 extern SYMBOL TemplateFunctionTranslate( SYMBOL, SCOPE * );
 extern tc_fn_control TemplateFunctionControl( void );
 extern TYPE TemplateUnboundInstantiate( TYPE, arg_list *, TOKEN_LOCN * );
@@ -168,8 +192,8 @@ extern void TemplateUsingDecl( SYMBOL, TOKEN_LOCN * );
 
 extern TEMPLATE_INFO *TemplateClassInfoGetIndex( TEMPLATE_INFO * );
 extern TEMPLATE_INFO *TemplateClassInfoMapIndex( TEMPLATE_INFO * );
-extern FN_TEMPLATE_DEFN *TemplateFunctionInfoGetIndex( FN_TEMPLATE_DEFN * );
-extern FN_TEMPLATE_DEFN *TemplateFunctionInfoMapIndex( FN_TEMPLATE_DEFN * );
+extern FN_TEMPLATE *TemplateFunctionInfoGetIndex( FN_TEMPLATE * );
+extern FN_TEMPLATE *TemplateFunctionInfoMapIndex( FN_TEMPLATE * );
 typedef int  (*AInstSCOPE)( SCOPE scope );
 extern int WalkTemplateInst( SYMBOL sym, AInstSCOPE fscope  );
 

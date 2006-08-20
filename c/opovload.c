@@ -740,43 +740,21 @@ static PTREE resolve_symbols(   // RESOLVE MULTIPLE OVERLOAD DEFINITIONS
     }
     switch( ovret ) {
       case FNOV_AMBIGUOUS:
-      { FNOV_LIST* amb_list;    // - ambiguity list
-        SYMBOL next;            // - next symbol
-        fun = NULL;
-        for( amb_list = NULL; ; ) {
-            next = FnovGetAmbiguousEntry( &fnov_diag, &amb_list );
-            if( next == NULL ) break;
-            if( next->name == NULL
-             && next->id != SC_MEMBER
-             && next->u.scalar_order < ( MAX_FUN_PROTOS - 2 ) ) {
-                if( fun == NULL
-                 || fun->u.scalar_order < next->u.scalar_order ) {
-                    fun = next;
-                }
+        PTreeErrorExpr( olinf->expr, ERR_OPERATOR_AMBIGUOUS_OVERLOAD );
+        for( ; ; ) {
+            SYMBOL reject = FnovNextAmbiguousEntry( &fnov_diag );
+            if( reject == NULL ) break;
+            if( reject->name == NULL ) {
+                CErr2p( INF_CONV_AMBIG_SCALAR
+                      , SymFuncArgList( reject )->type_list[0] );
             } else {
-                    fun = NULL;
-                    break;
+                InfSymbolAmbiguous( reject );
             }
         }
-        if( fun == NULL ) {
-            PTreeErrorExpr( olinf->expr, ERR_OPERATOR_AMBIGUOUS_OVERLOAD );
-            for( ; ; ) {
-                SYMBOL reject = FnovNextAmbiguousEntry( &fnov_diag );
-                if( reject == NULL ) break;
-                if( reject->name == NULL ) {
-                    CErr2p( INF_CONV_AMBIG_SCALAR
-                          , SymFuncArgList( reject )->type_list[0] );
-                } else {
-                    InfSymbolAmbiguous( reject );
-                }
-            }
-            ScopeFreeResult( olinf->result_mem );
-            ScopeFreeResult( olinf->result_nonmem );
-            ScopeFreeResult( olinf->result_nonmem_namespace );
-            break;
-        }
-        // drops thru
-      }
+        ScopeFreeResult( olinf->result_mem );
+        ScopeFreeResult( olinf->result_nonmem );
+        ScopeFreeResult( olinf->result_nonmem_namespace );
+        break;
       case FNOV_NONAMBIGUOUS :
         if( fun->id == SC_MEMBER ) {
             ExtraRptIncrementCtr( ctrResolveMember );

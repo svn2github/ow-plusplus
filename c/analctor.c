@@ -179,6 +179,7 @@ static FNOV_RESULT ctorExplicitDiag(// FIND CONSTRUCTOR FOR ARGUMENT LIST
                                        , alist
                                        , ptlist
                                        , FNC_RANKING_CTORS
+                                       , NULL
                                        , fnov_diag );
         if( ovret == FNOV_NONAMBIGUOUS ) {
             if( ScopeCheckSymbol( result, *ctor ) ) {

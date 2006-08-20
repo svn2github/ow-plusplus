@@ -4153,6 +4153,9 @@ start_opac_string:
 PTREE AnalyseNode(              // ANALYSE PTREE NODE FOR SEMANTICS
     PTREE expr )                // - current node
 {
+    if( expr->flags & PTF_ALREADY_ANALYSED ) {
+        return expr;
+    }
     CtxTokenLocn( &expr->locn );
     switch( expr->op ) {
       case PT_ID :
@@ -4168,6 +4171,8 @@ PTREE AnalyseNode(              // ANALYSE PTREE NODE FOR SEMANTICS
             switch( expr->cgop ) {
               case CO_COLON_COLON :
                 ExtraRptTabIncr( ctrOps, CO_COLON_COLON, 0 );
+                break;
+              case CO_TEMPLATE :
                 break;
               case CO_OFFSETOF :
                 ExtraRptTabIncr( ctrOps, CO_OFFSETOF, 0 );
@@ -4196,9 +4201,16 @@ PTREE AnalyseNode(              // ANALYSE PTREE NODE FOR SEMANTICS
         }
         break;
     }
+    expr->flags |= PTF_ALREADY_ANALYSED;
     return expr;
 }
 
+static PTREE clearAnalysedFlag(
+    PTREE expr )
+{
+    expr->flags &= ~PTF_ALREADY_ANALYSED;
+    return expr;
+}
 
 static PTREE run_traversals(    // ANALYZE EXPRESSION VIA TRAVERSALS
     PTREE expr )
@@ -4218,6 +4230,9 @@ static PTREE run_traversals(    // ANALYZE EXPRESSION VIA TRAVERSALS
         return PTreeErrorNode( NULL );
     }
     expr = PTreeTraversePostfix( expr, &AnalyseNode );
+    if( expr->op != PT_ERROR) {
+        expr = PTreeTraversePostfix( expr, &clearAnalysedFlag );
+    }
     if( expr->op != PT_ERROR
      && !( expr->flags & PTF_LV_CHECKED ) ) {
 //      AnalyseLvalue( PTreeRef( &expr ) );

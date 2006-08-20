@@ -161,6 +161,8 @@ pick( T_DOT_STAR,      ".*",            TC_A1 ),
   prec( NO_PREC )
 pick( T_ID,            "identifier",    TC_A1 ),
   prec( NO_PREC )
+pick( T_TEMPLATE_ID,   "identifier",    TC_A1 ),
+  prec( NO_PREC )
 pick( T_CONSTANT,      "constant",      TC_A3 ),
   prec( NO_PREC )
 pick( T_PPNUMBER,      "pp-number",     TC_A2 ),
@@ -193,6 +195,8 @@ pick( T_MACRO_SHARP,   "#",             TC_A2 ),
   prec( NO_PREC )
 pick( T_GLOBAL_ID,"::<id>",             TC_A1 ),
   prec( NO_PREC )
+pick( T_GLOBAL_TEMPLATE_ID,"::<id>",    TC_A1 ),
+  prec( NO_PREC )
 pick( T_GLOBAL_TYPE_NAME,"::<type-name>",TC_A2 ),
   prec( NO_PREC )
 pick( T_GLOBAL_TEMPLATE_NAME,"::<template-name>",           TC_A2 ),
@@ -209,6 +213,8 @@ pick( T_GLOBAL_DELETE,"::delete",       TC_A3 ),
   prec( NO_PREC )
 pick( T_SCOPED_ID,"C::<id>",            TC_A0 ),
   prec( NO_PREC )
+pick( T_SCOPED_TEMPLATE_ID,"C::<id>",   TC_A0 ),
+  prec( NO_PREC )
 pick( T_SCOPED_TYPE_NAME,"C::<type-name>",TC_A1 ),
   prec( NO_PREC )
 pick( T_SCOPED_TEMPLATE_NAME,"C::<template-name>",TC_A1 ),
@@ -222,6 +228,8 @@ pick( T_SCOPED_TILDE,"C::~",            TC_A3 ),
 pick( T_SCOPED_TIMES,"C::*",            TC_A3 ),
   prec( NO_PREC )
 pick( T_TEMPLATE_SCOPED_ID,      "T<>::<id>",           TC_A2 ),
+  prec( NO_PREC )
+pick( T_TEMPLATE_SCOPED_TEMPLATE_ID, "T<>::<id>",       TC_A2 ),
   prec( NO_PREC )
 pick( T_TEMPLATE_SCOPED_TYPE_NAME,"T<>::<type-name>",   TC_A3 ),
   prec( NO_PREC )

@@ -7455,7 +7455,7 @@ static void saveSymbol( void *e, carve_walk_base *d )
     SYMBOL_NAME save_name;
     SYM_TOKEN_LOCN *save_hdl_location;
     TEMPLATE_INFO *save_u_tinfo;
-    FN_TEMPLATE_DEFN *save_u_defn;
+    FN_TEMPLATE *save_u_defn;
     SYMBOL save_u_sym;
     TYPE save_u_type;
     NAME_SPACE *save_u_ns;
@@ -7905,7 +7905,7 @@ void ScopeSetParmClass( SCOPE parm_scope, TEMPLATE_INFO * info )
 }
 
 
-void ScopeSetParmFn( SCOPE parm_scope, FN_TEMPLATE_DEFN *defn )
+void ScopeSetParmFn( SCOPE parm_scope, FN_TEMPLATE *defn )
 /*************************************************************/
 {
     DbgAssert( parm_scope->id == SCOPE_TEMPLATE_PARM );

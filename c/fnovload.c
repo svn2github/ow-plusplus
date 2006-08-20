@@ -64,6 +64,7 @@ typedef struct                  // FNOV_INFO -- overload information
 {
     arg_list* alist;            // - argument definition
     PTREE* plist;               // - arguments used
+    PTREE templ_args;           // - explicit template arguments
     FNOV_LIST** pcandidates;    // - hdr: candidates
     FNOV_LIST** pmatch;         // - hdr: matches
     FNOV_LIST* candfunc;        // - candidate function
@@ -530,6 +531,13 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
     if(( control & FNC_NO_DEALIAS ) == 0 ) {
         sym = SymDeAlias( sym );
     }
+    if( ( info->templ_args != NULL )
+     && ! ( ( sym->id == SC_FUNCTION_TEMPLATE )
+         || ( sym->id == SC_STATIC_FUNCTION_TEMPLATE ) ) ) {
+        // ignore non-template functions when explicit template argument
+        // specification is used
+        return;
+    }
     func_args = SymFuncArgList( sym );
     if( control & FNC_RANK_RETURN ) {
         addListEntry( control, info, sym, func_args, LENT_DEFAULT );
@@ -571,6 +579,7 @@ static void buildUdcListDiag(   // BUILD FNOV_LIST FOR USER-DEFD CONVERSIONS
     info.control = FNC_RANK_RETURN;
     info.plist = NULL;
     info.alist = NULL;
+    info.templ_args = NULL;
     info.pcandidates = pcandidates;
     info.pmatch = NULL;
     info.has_template = FALSE;
@@ -587,7 +596,7 @@ void BuildUdcList(              // BUILD FNOV_LIST FOR USER-DEFD CONVERSIONS
 }
 
 static void buildOverloadListFromSym( FNOV_CONTROL control,
-    FNOV_INFO *info, SYMBOL sym )
+FNOV_INFO *info, SYMBOL sym )
 /*********************************************************/
 {
     SYMBOL  ptr;
@@ -1521,13 +1530,14 @@ static FNOV_RESULT resolveOverload( FNOV_INFO* info )
 
 static FNOV_RESULT genTemplateFunction( arg_list *alist, SYMBOL *psym,
 /********************************************************************/
-    TOKEN_LOCN *locn, SYMBOL *ambigs, boolean ok_if_no_exact_bind )
+    PTREE templ_args, TOKEN_LOCN *locn, SYMBOL *ambigs,
+    boolean ok_if_no_exact_bind )
 {
     FNOV_RESULT result;
     SYMBOL sym;
 
     sym = *psym;
-    result = TemplateFunctionGenerate( &sym, alist, locn, ambigs, ok_if_no_exact_bind );
+    result = TemplateFunctionGenerate( &sym, alist, templ_args, locn, ambigs, ok_if_no_exact_bind );
     if( result == FNOV_NONAMBIGUOUS ) {
         *psym = sym;
     }
@@ -1593,6 +1603,7 @@ static FNOV_RESULT doOverload( FNOV_INFO* info )
                     locn = extractAGoodLocn( info );
                     t_result = genTemplateFunction( info->alist
                                                   , &sym
+                                                  , info->templ_args
                                                   , locn
                                                   , ambigs
                                                   , result == FNOV_NONAMBIGUOUS );
@@ -1661,7 +1672,7 @@ FNOV_DIAG * FnovInitDiag( FNOV_DIAG *fnov_diag )
 FNOV_RESULT FuncOverloadedLimitDiag( SYMBOL *resolved,
 /****************************************************************/
 SEARCH_RESULT *result_in, SYMBOL sym, arg_list *alist, PTREE *ptlist,
-FNOV_CONTROL control, FNOV_DIAG *fnov_diag )
+FNOV_CONTROL control, PTREE templ_args, FNOV_DIAG *fnov_diag )
 // find overloaded function from sym for alist specified
 {
     FNOV_LIST   *candidates = NULL;
@@ -1673,6 +1684,7 @@ FNOV_CONTROL control, FNOV_DIAG *fnov_diag )
 
     info.alist = alist;
     info.plist = ptlist;
+    info.templ_args = templ_args;
     info.pcandidates = &candidates;
     info.pmatch = &match;
     info.control = control;
@@ -1698,12 +1710,13 @@ FNOV_CONTROL control, FNOV_DIAG *fnov_diag )
 
 FNOV_RESULT FuncOverloadedDiag( SYMBOL *resolved, SEARCH_RESULT *result,
 /***********************************************************************/
-SYMBOL sym, arg_list *alist, PTREE *ptlist, FNOV_DIAG *fnov_diag )
+SYMBOL sym, arg_list *alist, PTREE *ptlist, PTREE templ_args,
+FNOV_DIAG *fnov_diag )
 // find overloaded function from sym for alist specified
 {
     fnov_diag = FnovInitDiag( fnov_diag );
     return( FuncOverloadedLimitDiag( resolved, result, sym, alist, ptlist,
-                                     FNC_DEFAULT, fnov_diag ) );
+                                     FNC_DEFAULT, templ_args, fnov_diag ) );
 }
 
 FNOV_RESULT FuncOverloaded( SYMBOL *resolved, SEARCH_RESULT *result,
@@ -1711,7 +1724,7 @@ FNOV_RESULT FuncOverloaded( SYMBOL *resolved, SEARCH_RESULT *result,
 SYMBOL sym, arg_list *alist, PTREE *ptlist )
 // find overloaded function from sym for alist specified
 {
-    return( FuncOverloadedDiag( resolved, result, sym, alist, ptlist, NULL ) );
+    return( FuncOverloadedDiag( resolved, result, sym, alist, ptlist, NULL, NULL ) );
 }
 
 FNOV_RESULT UdcOverloadedDiag( SYMBOL *resolved, SEARCH_RESULT *result,
@@ -1733,6 +1746,7 @@ SYMBOL sym, TYPE type, type_flag this_qualifier, FNOV_DIAG *fnov_diag )
                                    , &alist
                                    , NULL
                                    , FNC_RANK_RETURN
+                                   , NULL
                                    , fnov_diag ));
 }
 
@@ -1762,6 +1776,7 @@ static FNOV_RESULT opOverloadedLimitExDiag( SYMBOL *resolved, SEARCH_RESULT *mem
 
     info.alist = alist;
     info.plist = ptlist;
+    info.templ_args = NULL;
     info.pcandidates = &candidates;
     info.pmatch = &match;
     info.control = control;
@@ -1891,6 +1906,7 @@ static FNOV_RESULT doFunctionDistinctCheck( FNOV_CONTROL control,
         info.alist = SymFuncArgList( new_sym );
     }
 
+    info.templ_args = NULL;
     info.plist = NULL;
     info.pcandidates = &candidates;
     info.pmatch = &match;

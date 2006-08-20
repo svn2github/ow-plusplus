@@ -836,6 +836,7 @@ PTREE AnalyseCall(              // ANALYSIS FOR CALL
     PTREE deref_args;           // - member pointer dereference args
     PTREE last_arg;             // - last argument
     PTREE static_fn_this;       // - "this" for a static member
+    PTREE templ_args;           // - explicit template arguments
     SYMBOL sym;                 // - function symbol
     SYMBOL caller_sym;          // - function that is doing the call
     TYPE type;                  // - temporary type
@@ -899,6 +900,21 @@ PTREE AnalyseCall(              // ANALYSIS FOR CALL
     } else {
         alist->qualifier = BaseTypeClassFlags( NodeType( this_node ) );
     }
+
+    if( NodeIsBinaryOp( left, CO_TEMPLATE ) ) {
+        DbgAssert( left->u.subtree[0]->op == PT_SYMBOL );
+
+        templ_args = left->u.subtree[1];
+
+        left->u.subtree[1] = NULL;
+        left = NodePruneTop( left );
+        *r_func = left;
+        r_func = PTreeRefLeft( expr );
+        left = *r_func;
+    } else {
+        templ_args = NULL;
+    }
+
     if( left->op == PT_SYMBOL ) {
         FNOV_RESULT ovret;
         SYMBOL orig;        // - original symbol
@@ -917,8 +933,12 @@ PTREE AnalyseCall(              // ANALYSIS FOR CALL
                                    , sym
                                    , alist
                                    , ptlist
+                                   , templ_args
                                    , &fnov_diag );
         }
+        PTreeFreeSubtrees( templ_args );
+        templ_args = NULL;
+
         switch( ovret ) {
           case FNOV_AMBIGUOUS :
             CallDiagAmbiguous( expr, diagnostic->msg_ambiguous, &fnov_diag );
@@ -1050,6 +1070,9 @@ PTREE AnalyseCall(              // ANALYSIS FOR CALL
             SymMarkRefed( sym );
         }
     } else {
+        PTreeFreeSubtrees( templ_args );
+        templ_args = NULL;
+
         if( ! membptr_deref ) {
             /* i.e, p->foo() where foo is a pointer to a function */
             NodeFreeDupedExpr( this_node );

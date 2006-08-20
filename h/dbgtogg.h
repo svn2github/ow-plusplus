@@ -72,4 +72,5 @@ toggle_pick( dump_vftables )    // - dump vftable construction
 toggle_pick( browse_emit )      // - do browse-emit dump
 toggle_pick( browse_read )      // - do browse-read dump
 toggle_pick( parser_states )    // - dump parser state numbers
+toggle_pick( member_inst )      // - print template member instantiations
 #undef toggle_pick

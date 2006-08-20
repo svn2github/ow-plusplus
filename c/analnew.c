@@ -313,6 +313,7 @@ static PTREE buildNewCall(      // BUILD CALL TO NEW OPERATOR
                            , sym
                            , alist
                            , ptlist
+                           , NULL
                            , &fnov_diag ) ;
     if( ovret == FNOV_NONAMBIGUOUS ) {
         if( ScopeCheckSymbol( result_new, sym ) ) {
