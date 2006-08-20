@@ -538,6 +538,9 @@ static boolean simpleTypeDtor(  // TEST IF DTOR OF A SIMPLE TYPE
     right = PTreeOpRight( expr );
     if( ( right->op == PT_ID )
       &&( right->cgop == CO_NAME_DTOR ) ) {
+        if( TypedefRemove( type )->id == TYP_VOID ) {
+            CErr1( ERR_DTOR_TYPE_VOID );
+        }
         retn = TRUE;
     } else {
         retn = FALSE;

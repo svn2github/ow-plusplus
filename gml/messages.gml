@@ -11946,3 +11946,13 @@ template MyTemplate< int >;
 :errgood.
 template class MyTemplate< int >;
 :eerrgood.
+
+:MSGSYM. ERR_DTOR_TYPE_VOID
+:MSGTXT. destructor for type void cannot be called
+:MSGJTXT.
+Since the
+.kw void
+type has no size and there are no values of
+.kw void
+type, one cannot destruct an instance of
+.kw void.
