@@ -107,10 +107,14 @@ static SCOPE symClassScope(     // GET SCOPE FOR CLASS CONTAINING SYMBOL
     SCOPE scope;                // - SCOPE for "sym"
 
     symGetScope( sym, scope );
-    if( scope != NULL ) {
-        if( ScopeId( scope ) == SCOPE_CLASS ) {
-            return( scope );
+    if( scope && ScopeType( scope, SCOPE_TEMPLATE_INST ) ) {
+        scope = scope->enclosing;
+        if( scope && ScopeType( scope, SCOPE_TEMPLATE_PARM ) ) {
+            scope = scope->enclosing;
         }
+    }
+    if( scope && ScopeType( scope, SCOPE_CLASS ) ) {
+        return( scope );
     }
     return( NULL );
 }
@@ -927,7 +931,8 @@ SYMBOL SymIsFunctionTemplateInst(// TEST IF SYMBOL WAS GENERATED FROM A FUNCTION
 
     if( SymIsFnTemplateMatchable( sym ) ) {
         symGetScope( sym, scope );
-        if( ScopeId( scope ) == SCOPE_FILE ) {
+        if( ScopeType( scope, SCOPE_FILE )
+         || ScopeType( scope, SCOPE_TEMPLATE_INST ) ) {
             /* get function template sym */
             sym = sym->u.alias;
             if( sym != NULL ) {

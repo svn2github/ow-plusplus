@@ -1336,7 +1336,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         bound_type = createBoundType( fn_templ->sym_type, locn );
         *templ_parm_scope = parm_scope;
     } else {
-        printf( "BindGenericTypes failed\n");
+        printf( "TODO: BindGenericTypes failed\n");
         ScopeBurn( parm_scope );
         bound_type = NULL;
     }
@@ -1372,16 +1372,15 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
     inst_scope = ScopeCreate( SCOPE_TEMPLATE_INST );
     ScopeSetEnclosing( inst_scope, parm_scope );
     new_sym = SymCreateAtLocn( bound_type
-                             , SymIsStatic( sym ) ? SC_STATIC : 0
+                             , SymIsStatic( sym ) ? SC_STATIC : SC_PUBLIC
                              , new_flags | SF_TEMPLATE_FN
                              , sym->name->name
-                             , SymScope( sym )
-                               // TODO: change SymScpope to , inst_scope
+                             , inst_scope
                              , locn );
     new_sym->u.alias = sym;
     fn_templ = sym->u.defn;
 
-    printf("buildTemplateFn\n");
+    printf("TODO: buildTemplateFn\n");
     DumpSymbol( sym );
     DumpSymbol( new_sym );
 
