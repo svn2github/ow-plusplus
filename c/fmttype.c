@@ -42,6 +42,8 @@
 #include "fmttype.h"
 #include "name.h"
 #include "initdefs.h"
+#include "ringfns.h"
+#include "template.h"
 
 typedef enum {
     LEFT, RIGHT
@@ -696,4 +698,108 @@ void FormatTypeModFlags( type_flag flags, VBUF *pvbuf )
     VbufInit( pvbuf );
     VStrNull( pvbuf );
     fmtTypeFlag( flags, pvbuf, modifierFlags );
+}
+
+void FormatPTreeList( PTREE p, VBUF *pvbuf )
+/******************************************/
+{
+    VbufInit( pvbuf );
+    VStrNull( pvbuf );
+
+    while( p != NULL ) {
+        PTREE right;
+
+        DbgAssert( ( p->op == PT_BINARY ) && ( p->cgop == CO_LIST ) );
+        right = p->u.subtree[1];
+
+        switch( right->op ) {
+        case PT_TYPE:
+        {
+            VBUF prefix, suffix;
+            FormatType( right->type, &prefix, &suffix );
+            VStrConcStr( pvbuf, prefix.buf );
+            VStrConcStr( pvbuf, suffix.buf );
+            VbufFree( &prefix );
+            VbufFree( &suffix );
+        }
+        break;
+
+        case PT_INT_CONSTANT:
+            VStrConcInteger( pvbuf, right->u.int_constant );
+            break;
+
+        case PT_SYMBOL:
+        {
+            VBUF prefix, suffix;
+            FormatType( right->u.symcg.symbol->sym_type, &prefix, &suffix );
+            VStrConcStr( pvbuf, prefix.buf );
+            VStrConcStr( pvbuf, suffix.buf );
+            VbufFree( &prefix );
+            VbufFree( &suffix );
+        }
+        break;
+
+        default:
+            DbgAssert( 0 );
+        }
+
+        VStrConcStr( pvbuf, ", " );
+        p = p->u.subtree[0];
+    }
+
+    if( VStrLen( pvbuf ) >= 2 ) {
+        VbufRemoveOffset( pvbuf, 2 );
+    }
+}
+
+void FormatTemplateInfo( TEMPLATE_INFO *tinfo, VBUF *pvbuf )
+/**********************************************************/
+{
+    TEMPLATE_SPECIALIZATION * const tprimary =
+        RingFirst( tinfo->specializations );
+    unsigned int i;
+
+    VbufInit( pvbuf );
+    VStrNull( pvbuf );
+
+    VStrConcStr( pvbuf, tinfo->sym->name->name );
+    VStrConcStr( pvbuf, "<" );
+    for( i = 0; i < tprimary->num_args; i++ ) {
+        VBUF prefix, suffix;
+
+        FormatType( tprimary->type_list[i], &prefix, &suffix );
+        VStrConcStr( pvbuf, prefix.buf );
+        VStrConcStr( pvbuf, suffix.buf );
+        VbufFree( &prefix );
+        VbufFree( &suffix );
+        VStrConcStr( pvbuf, ", " );
+    }
+
+    if( tprimary->num_args > 0 ) {
+        VbufRemoveOffset( pvbuf, 2 );
+    }
+
+    VStrConcStr( pvbuf, ">" );
+}
+
+void FormatTemplateSpecialization( TEMPLATE_SPECIALIZATION *tspec, VBUF *pvbuf)
+/*****************************************************************************/
+{
+    if( tspec->spec_args != NULL ) {
+        VBUF prefix;
+
+        VbufInit( pvbuf );
+        VStrNull( pvbuf );
+
+        VStrConcStr( pvbuf, tspec->tinfo->sym->name->name );
+        VStrConcStr( pvbuf, "<" );
+
+        FormatPTreeList( tspec->spec_args, &prefix );
+        VStrConcStr( pvbuf, prefix.buf );
+        VbufFree( &prefix );
+
+        VStrConcStr( pvbuf, ">" );
+    } else {
+        FormatTemplateInfo( tspec->tinfo, pvbuf );
+    }
 }

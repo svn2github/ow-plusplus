@@ -938,11 +938,9 @@ static TEMPLATE_SPECIALIZATION *mergeClassTemplates( TEMPLATE_DATA *data,
         tspec = RingFirst( tinfo->specializations );
         primary_specialization = TRUE;
 
-        if( data->nr_args != tspec->num_args ) {
-            CErr2p( ERR_CANT_OVERLOAD_CLASS_TEMPLATES, old_sym );
-            return NULL;
-        } else if( ! templateArgListsSame( args, tinfo ) ) {
-            CErr2p( ERR_CANT_OVERLOAD_CLASS_TEMPLATES, old_sym );
+        if( ( data->nr_args != tspec->num_args )
+         || ! templateArgListsSame( args, tinfo ) ) {
+            CErr2p( ERR_CANT_OVERLOAD_CLASS_TEMPLATES, tinfo );
             return NULL;
         }
     }
@@ -952,7 +950,7 @@ static TEMPLATE_SPECIALIZATION *mergeClassTemplates( TEMPLATE_DATA *data,
     defn = data->defn;
     if( data->defn_found ) {
         if( tspec->defn_found ) {
-            CErr2p( ERR_CANT_REDEFINE_CLASS_TEMPLATES, old_sym );
+            CErr2p( ERR_CANT_REDEFINE_CLASS_TEMPLATES, tinfo );
             RewriteFree( defn );
             data->defn = NULL;
         } else {
@@ -1326,6 +1324,13 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
 
     templ_args = NodeReverseArgs( &i, templ_args );
+
+#ifndef NDEBUG
+    printf( "TODO: BindGenericTypes\n" );
+    DumpPTree( templ_args );
+    DumpPTree( pargs );
+#endif
+
     BindExplicitTemplateArguments( decl_scope, parm_scope, templ_args );
 
     pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
@@ -1379,10 +1384,6 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
                              , locn );
     new_sym->u.alias = sym;
     fn_templ = sym->u.defn;
-
-    printf("TODO: buildTemplateFn\n");
-    DumpSymbol( sym );
-    DumpSymbol( new_sym );
 
     fn_inst = RingCarveAlloc( carveFN_TEMPLATE_INST,
                               &fn_templ->instantiations );
@@ -1465,6 +1466,11 @@ unsigned TemplateFunctionGenerate( SYMBOL *psym, arg_list *args,
         }
         if( final_fn_type != NULL ) break;
     }
+
+#ifndef NDEBUG
+    printf( "TODO: TemplateFunctionGenerate\n" );
+    DumpFullType( final_fn_type );
+#endif
     generated_fn = buildTemplateFn( final_fn_type, fn_templ, final_parm_scope,
                                     locn );
     if( generated_fn != NULL ) {
@@ -2182,6 +2188,11 @@ static TEMPLATE_SPECIALIZATION *findTemplateClassSpecialization( TEMPLATE_INFO *
     *inst_parms = NULL;
     ambiguous = FALSE;
 
+#if 0
+    printf( "TODO: findTemplateClassSpecialization %s<%s>\n",
+            tinfo->sym->name->name, FormatPTreeList( parms ) );
+#endif
+
     i = 0;
     RingIterBeg( tinfo->specializations, curr_spec ) {
         spec_list = curr_spec->spec_args;
@@ -2234,12 +2245,23 @@ static TEMPLATE_SPECIALIZATION *findTemplateClassSpecialization( TEMPLATE_INFO *
     if( candidate_list == NULL ) {
         tspec = RingFirst( tinfo->specializations );
         *inst_parms = NULL;
+
+#if 0
+        printf( "TODO: findTemplateClassSpecialization found, primary %s\n",
+                FormatTemplateSpecialization( tspec ) );
+#endif
     } else if( RingFirst( candidate_list ) == RingLast( candidate_list ) ) {
         /* exactly one matching specialization found, use it */
         candidate_iter = RingFirst( candidate_list );
         tspec = candidate_iter->tspec;
         *inst_parms = candidate_iter->inst_parms;
         RingFree( &candidate_list );
+
+#if 0
+        printf( "TODO: findTemplateClassSpecialization found, %s\n",
+                FormatTemplateSpecialization( tspec ) );
+#endif
+
     } else {
         CErr2p( ERR_TEMPLATE_SPECIALIZATION_AMBIGUOUS, tinfo->sym );
 

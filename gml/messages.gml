@@ -2307,8 +2307,8 @@ float f = 1.2e-78965;
 :eerrbad.
 
 :MSGSYM. ERR_CANT_OVERLOAD_CLASS_TEMPLATES
-:MSGTXT. class template '%S' cannot be overloaded
-:MSGJTXT. クラス・テンプレート'%S'はオーバーロードできません
+:MSGTXT. class template '%M' cannot be overloaded
+:MSGJTXT. クラス・テンプレート'%M'はオーバーロードできません
 A class template name must be unique across the entire C++ program.
 Furthermore, a class template cannot coexist with another
 class template of the same name.
@@ -2367,8 +2367,8 @@ A member function of a template class cannot be defined outside
 the class declaration unless all template arguments have been named.
 
 :MSGSYM. ERR_CANT_REDEFINE_CLASS_TEMPLATES
-:MSGTXT. class template '%S' is already defined
-:MSGJTXT. クラス・テンプレート'%S'は既に定義されています
+:MSGTXT. class template '%M' is already defined
+:MSGJTXT. クラス・テンプレート'%M'は既に定義されています
 A class template cannot have its definition repeated regardless of whether
 it is identical to the previous definition.
 

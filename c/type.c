@@ -122,8 +122,8 @@ enum {
 };
 
 enum {
-    PA_MARK_FIRST_LEVEL         = 0x01,
-    PA_NULL                     = 0x00
+    PA_NULL                     = 0x00,
+    PA_FUNCTION                 = 0x01
 };
 
 enum {
@@ -7309,10 +7309,11 @@ static void pushPrototypeAndArguments( type_bind_info *data,
     PTREE a;
     TYPE p_type;
     TYPE a_type;
+    TYPE refed_type;
 
-    for( i = 0;
-         ( p_args != NULL ) && ( a_args != NULL );
+    for( i = 0; ( p_args != NULL ) && ( a_args != NULL );
          p_args = p_args->u.subtree[0], a_args = a_args->u.subtree[0], i++ ) {
+
         p = p_args->u.subtree[1];
         a = a_args->u.subtree[1];
 
@@ -7346,7 +7347,40 @@ static void pushPrototypeAndArguments( type_bind_info *data,
 #endif
 
         if( p->op == PT_TYPE ) {
+            if( control & PA_FUNCTION ) {
+                /*
+                    has reference &?
+                         \ arg
+                    proto \     Y           N
+                    ------+------------------------
+                      Y   | strip both  strip proto
+                      N   | strip arg       _
+                */
+                refed_type = TypeReference( a_type );
+                if( refed_type != NULL ) {
+                    a_type = refed_type;
+                    refed_type = TypeReference( p_type );
+                    if( refed_type != NULL ) {
+                        p_type = refed_type;
+                    } else {
+                        // prototype had no reference so modifiers
+                        // must be removed
+                        TypeStripTdMod( a_type );
+                    }
+                } else {
+                    refed_type = TypeReference( p_type );
+                    if( refed_type != NULL ) {
+                        p_type = refed_type;
+                    }
+                }
+            }
+
             PstkPush( &(data->with_generic), PTreeType( p_type ) );
+
+            if( control & PA_FUNCTION ) {
+                PstkPush( &(data->with_generic),
+                          PTreeType( TypeGetCache( TYPC_FIRST_LEVEL ) ) );
+            }
         } else if( p->op == PT_INT_CONSTANT ) {
             PstkPush( &(data->with_generic),
                       PTreeInt64Constant( p->u.int64_constant, p->type->id ) );
@@ -7376,10 +7410,6 @@ static void pushPrototypeAndArguments( type_bind_info *data,
             DumpPTree( a );
 #endif
             DbgAssert( 0 );
-        }
-
-        if( control & PA_MARK_FIRST_LEVEL ) {
-            PstkPush( &(data->with_generic), TypeGetCache( TYPC_FIRST_LEVEL ) );
         }
     }
 }
@@ -8421,13 +8451,11 @@ PTREE BindClassGenericTypes( SCOPE decl_scope, PTREE parms, PTREE args )
     PTREE node;
     SYMBOL curr, stop;
     unsigned bind_status;
-    unsigned push_control;
     auto type_bind_info data;
 
     // DbgAssert( parms->num_args == args->num_args );
     binderInit( &data );
-    push_control = PA_NULL;
-    pushPrototypeAndArguments( &data, parms, args, push_control );
+    pushPrototypeAndArguments( &data, parms, args, PA_NULL );
     result = NULL;
     bind_status = typesBind( &data );
     if( bind_status != TB_NULL ) {
@@ -8516,7 +8544,6 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args )
 {
     SYMBOL curr, stop;
     unsigned bind_status;
-    unsigned push_control;
     boolean result;
     auto type_bind_info data;
 
@@ -8526,8 +8553,7 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args )
     binderInit( &data );
     data.parm_scope = parm_scope;
 
-    push_control = PA_NULL;
-    pushPrototypeAndArguments( &data, parms, args, push_control );
+    pushPrototypeAndArguments( &data, parms, args, PA_FUNCTION );
     result = FALSE;
     bind_status = typesBind( &data );
     if( bind_status != TB_NULL ) {
