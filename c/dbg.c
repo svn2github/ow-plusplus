@@ -409,7 +409,7 @@ void DumpCgFront(               // DUMP GENERATED CODE
     }
 }
 
-static void dumpTemplateInfo( TEMPLATE_INFO *tinfo )
+void DumpTemplateInfo( TEMPLATE_INFO *tinfo )
 {
     TEMPLATE_SPECIALIZATION *tprimary;
     VBUF prefix, suffix;
@@ -425,7 +425,7 @@ static void dumpTemplateInfo( TEMPLATE_INFO *tinfo )
           , tprimary->defn
           , tprimary->num_args
           );
-    printf( "  " );
+    printf( "      %s", tinfo->sym->name->name );
     delim = '<';
     for( i = 0; i < tprimary->num_args; ++i ) {
         FormatType( tprimary->type_list[i], &prefix, &suffix );
@@ -515,7 +515,7 @@ void DumpSymbol(                // DUMP SYMBOL ENTRY
         }
         switch( sym->id ) {
         case SC_CLASS_TEMPLATE:
-            dumpTemplateInfo( sym->u.tinfo );
+            DumpTemplateInfo( sym->u.tinfo );
             break;
         case SC_NAMESPACE:
             dumpNameSpaceInfo( sym->u.ns );
@@ -1498,6 +1498,23 @@ void DbgGenned(                 // INDICATE SYMBOL GENERATED
         }
     }
 }
+
+
+void DumpTemplateSpecialization(// DUMP A TEMPLATE SPECIALIZATION
+    TEMPLATE_SPECIALIZATION *tspec )// - template specialization
+{
+    TEMPLATE_INFO *tinfo = tspec->tinfo;
+    VBUF vbuf;                  // - variable-sized buffer
+
+    FormatTemplateSpecialization( tspec, &vbuf );
+    printf( "    TEMPLATE_SPECIALIZATION" F_BADDR
+            " tinfo"        F_BADDR
+                            F_EOL
+            , tspec, tinfo );
+    printf( "      %s\n", vbuf.buf );
+    VbufFree( &vbuf );
+}
+
 
 static void init(               // INITIALIZATION
     INITFINI* defn )            // - definition

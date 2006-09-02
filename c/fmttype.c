@@ -749,6 +749,7 @@ void FormatPTreeList( PTREE p, VBUF *pvbuf )
 
     if( VStrLen( pvbuf ) >= 2 ) {
         VbufRemoveOffset( pvbuf, 2 );
+        VStrConcStr( pvbuf, "" );
     }
 }
 
@@ -777,6 +778,7 @@ void FormatTemplateInfo( TEMPLATE_INFO *tinfo, VBUF *pvbuf )
 
     if( tprimary->num_args > 0 ) {
         VbufRemoveOffset( pvbuf, 2 );
+        VStrConcStr( pvbuf, "" );
     }
 
     VStrConcStr( pvbuf, ">" );

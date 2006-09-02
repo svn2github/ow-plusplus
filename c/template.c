@@ -49,6 +49,7 @@
 #ifndef NDEBUG
 #include "pragdefn.h"
 #include "dbg.h"
+#include "fmttype.h"
 #endif
 
 #define BLOCK_TEMPLATE_INFO     16
@@ -1326,9 +1327,11 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     templ_args = NodeReverseArgs( &i, templ_args );
 
 #ifndef NDEBUG
-    printf( "TODO: BindGenericTypes\n" );
-    DumpPTree( templ_args );
-    DumpPTree( pargs );
+    if( PragDbgToggle.templ_function ) {
+        printf( "attemptGen for\n" );
+        DumpPTree( templ_args );
+        DumpPTree( pargs );
+    }
 #endif
 
     BindExplicitTemplateArguments( decl_scope, parm_scope, templ_args );
@@ -1341,7 +1344,9 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         bound_type = createBoundType( fn_templ->sym_type, locn );
         *templ_parm_scope = parm_scope;
     } else {
-        printf( "TODO: BindGenericTypes failed\n");
+        if( PragDbgToggle.templ_function ) {
+            printf( "attemptGen: BindGenericTypes failed\n");
+        }
         ScopeBurn( parm_scope );
         bound_type = NULL;
     }
@@ -1468,8 +1473,10 @@ unsigned TemplateFunctionGenerate( SYMBOL *psym, arg_list *args,
     }
 
 #ifndef NDEBUG
-    printf( "TODO: TemplateFunctionGenerate\n" );
-    DumpFullType( final_fn_type );
+    if( PragDbgToggle.templ_function ) {
+        printf( "TemplateFunctionGenerate for\n" );
+        DumpFullType( final_fn_type );
+    }
 #endif
     generated_fn = buildTemplateFn( final_fn_type, fn_templ, final_parm_scope,
                                     locn );
@@ -2164,7 +2171,9 @@ static TYPE instantiateUnboundClass( TEMPLATE_INFO *tinfo,
     return( new_type );
 }
 
-static TEMPLATE_SPECIALIZATION *findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms, PTREE *inst_parms )
+static TEMPLATE_SPECIALIZATION *
+findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
+                                 PTREE *inst_parms )
 {
     struct candidate_ring {
         struct candidate_ring *next;
@@ -2188,9 +2197,14 @@ static TEMPLATE_SPECIALIZATION *findTemplateClassSpecialization( TEMPLATE_INFO *
     *inst_parms = NULL;
     ambiguous = FALSE;
 
-#if 0
-    printf( "TODO: findTemplateClassSpecialization %s<%s>\n",
-            tinfo->sym->name->name, FormatPTreeList( parms ) );
+#ifndef NDEBUG
+    if( PragDbgToggle.templ_spec ) {
+        VBUF vbuf;
+
+        FormatPTreeList( parms, &vbuf );
+        printf( "try to find template class specialisation for %s<%s>\n",
+                tinfo->sym->name->name, vbuf.buf );
+    }
 #endif
 
     i = 0;
@@ -2202,6 +2216,16 @@ static TEMPLATE_SPECIALIZATION *findTemplateClassSpecialization( TEMPLATE_INFO *
             bindings = BindClassGenericTypes( curr_spec->decl_scope,
                                               spec_list, parms );
             if( bindings != NULL ) {
+#ifndef NDEBUG
+                if( PragDbgToggle.templ_spec ) {
+                    VBUF vbuf;
+
+                    FormatPTreeList( spec_list, &vbuf );
+                    printf( "found specialisation candidate %s<%s>\n",
+                            tinfo->sym->name->name, vbuf.buf );
+                }
+#endif
+
                 /* we have found a matching specialization use partial
                  * ordering rules to determine which one to use. */
                 if( candidate_list != NULL ) {
@@ -2246,9 +2270,11 @@ static TEMPLATE_SPECIALIZATION *findTemplateClassSpecialization( TEMPLATE_INFO *
         tspec = RingFirst( tinfo->specializations );
         *inst_parms = NULL;
 
-#if 0
-        printf( "TODO: findTemplateClassSpecialization found, primary %s\n",
-                FormatTemplateSpecialization( tspec ) );
+#ifndef NDEBUG
+        if( PragDbgToggle.templ_spec ) {
+            printf( "chose primary template\n" );
+            DumpTemplateInfo( tinfo );
+        }
 #endif
     } else if( RingFirst( candidate_list ) == RingLast( candidate_list ) ) {
         /* exactly one matching specialization found, use it */
@@ -2257,9 +2283,11 @@ static TEMPLATE_SPECIALIZATION *findTemplateClassSpecialization( TEMPLATE_INFO *
         *inst_parms = candidate_iter->inst_parms;
         RingFree( &candidate_list );
 
-#if 0
-        printf( "TODO: findTemplateClassSpecialization found, %s\n",
-                FormatTemplateSpecialization( tspec ) );
+#ifndef NDEBUG
+        if( PragDbgToggle.templ_spec ) {
+            printf( "chose template specialisation\n" );
+            DumpTemplateSpecialization( tspec );
+        }
 #endif
 
     } else {

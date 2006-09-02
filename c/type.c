@@ -8533,7 +8533,7 @@ PTREE BindClassGenericTypes( SCOPE decl_scope, PTREE parms, PTREE args )
             }
         }
     }
-    //clearGenericBindings( decl_scope, &data.bindings );
+    clearGenericBindings( decl_scope, &data.bindings );
 
     binderFini( &data );
     return( result );
