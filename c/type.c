@@ -154,7 +154,6 @@ enum {
 typedef struct {
     PSTK_CTL    with_generic;
     PSTK_CTL    without_generic;
-    PSTK_CTL    bindings;
     SCOPE       parm_scope;
 } type_bind_info;
 
@@ -7500,20 +7499,9 @@ boolean FunctionUsesAllTypes( SYMBOL sym, SCOPE scope, void (*diag)( SYMBOL ) )
     return( markAllUnused( scope, diag ) );
 }
 
-void clearGenericBindings( SCOPE decl_scope, PSTK_CTL *stk )
+void ClearGenericBindings( SCOPE decl_scope )
 {
-    PTREE *top;
     SYMBOL stop, curr;
-
-    if( stk != NULL ) {
-        for(;;) {
-            top = PstkPop( stk );
-            if( top == NULL ) break;
-            if( *top == NULL ) continue;
-
-            PTreeFreeSubtrees( *top );
-        }
-    }
 
     if( decl_scope != NULL ) {
         stop = ScopeOrderedStart( decl_scope );
@@ -7766,45 +7754,39 @@ static unsigned typesBind( type_bind_info *data )
         } else if( ( *u_top )->op == PT_ID ) {
             /* TODO: check type */
             if( ( *b_top )->op == PT_INT_CONSTANT ) {
-                if( data->parm_scope == NULL ) {
-                    PTREE binding =
-                        PTreeBinary( CO_STORAGE,
-                                     PTreeId( ( *u_top )->u.id.name ),
-                                     PTreeInt64Constant( ( *b_top )->u.int64_constant,
-                                                         ( *b_top )->type->id ) );
-                    PstkPush( &(data->bindings), binding );
-                } else {
-                    SYMBOL sym =
-                        ScopeYYMember( data->parm_scope,
-                                       ( *u_top )->u.id.name )->name_syms;
+                SYMBOL sym = ScopeYYMember( data->parm_scope,
+                                            ( *u_top )->u.id.name )->name_syms;
 
-                    if( sym->id == SC_NULL ) {
-                        sym->id = SC_STATIC;
-                        DgStoreConstScalar( *b_top, ( *b_top )->type, sym );
-                    }
+                if( sym->id == SC_NULL ) {
+                    sym->id = SC_STATIC;
+                    DgStoreConstScalar( *b_top, ( *b_top )->type, sym );
+                }
 
-                    if( sym->u.sval != ( *b_top )->u.int_constant ) {
-                        // already bound to different value
-                        PTreeFree( *b_top );
-                        PTreeFree( *u_top );
-                        return( TB_NULL );
-                    }
+                if( sym->u.sval != ( *b_top )->u.int_constant ) {
+                    // already bound to different value
+                    PTreeFree( *b_top );
+                    PTreeFree( *u_top );
+                    return( TB_NULL );
                 }
 
                 PTreeFree( *b_top );
                 PTreeFree( *u_top );
                 continue;
             } else if( ( *b_top )->op == PT_ID ) {
-                if( data->parm_scope == NULL ) {
-                    PTREE binding =
-                        PTreeBinary( CO_STORAGE,
-                                     PTreeId( ( *u_top )->u.id.name ),
-                                     PTreeId( ( *b_top )->u.id.name ) );
-                    PstkPush( &(data->bindings), binding );
-                } else {
-                    SYMBOL sym = ScopeYYMember( data->parm_scope,
-                                                ( *u_top )->u.id.name )->name_syms;
-                    DumpSymbol( sym );
+                SYMBOL sym = ScopeYYMember( data->parm_scope,
+                                            ( *u_top )->u.id.name )->name_syms;
+
+                // using SC_NULL here is a bit dirty...
+                if( ( sym->id == SC_NULL ) && ( sym->u.sval == 0 ) ) {
+                    sym->u.sval = (target_int) ( *b_top )->u.id.name;
+                }
+
+                if( ( sym->id != SC_NULL )
+                 || ( sym->u.sval != (target_int) ( *b_top )->u.id.name ) ) {
+                    // already bound to different value
+                    PTreeFree( *b_top );
+                    PTreeFree( *u_top );
+                    return( TB_NULL );
                 }
 
                 PTreeFree( *b_top );
@@ -7814,6 +7796,7 @@ static unsigned typesBind( type_bind_info *data )
             PTreeFree( *b_top );
             PTreeFree( *u_top );
             return( TB_NULL );
+
         } else if( ( ( *u_top )->op != PT_TYPE )
                 || ( ( *b_top )->op != PT_TYPE ) ) {
             PTreeFree( *b_top );
@@ -8282,7 +8265,7 @@ static boolean performBinding( VSTK_CTL *stk, TOKEN_LOCN *locn )
     return( type_is_OK );
 }
 
-/* static */ TYPE createBoundType( TYPE unbound_type, TOKEN_LOCN *locn )
+TYPE CreateBoundType( TYPE unbound_type, TOKEN_LOCN *locn )
 {
     TYPE bound_type;
     auto VSTK_CTL bind_stack;
@@ -8301,7 +8284,6 @@ static void binderInit( type_bind_info *data )
 {
     PstkOpen( &(data->with_generic) );
     PstkOpen( &(data->without_generic) );
-    PstkOpen( &(data->bindings) );
     data->parm_scope = NULL;
 }
 
@@ -8323,7 +8305,6 @@ static void binderFini( type_bind_info *data )
 
     PstkClose( &(data->with_generic) );
     PstkClose( &(data->without_generic) );
-    PstkClose( &(data->bindings) );
     data->parm_scope = NULL;
 }
 
@@ -8448,102 +8429,6 @@ boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
     return TRUE;
 }
 
-PTREE BindClassGenericTypes( SCOPE decl_scope, PTREE parms, PTREE args )
-/**************************************************************************/
-{
-    PTREE result;
-    PTREE item;
-    PTREE node;
-    SYMBOL curr, stop;
-    unsigned bind_status;
-    auto type_bind_info data;
-
-    // DbgAssert( parms->num_args == args->num_args );
-    binderInit( &data );
-    pushPrototypeAndArguments( &data, parms, args, PA_NULL );
-    result = NULL;
-    bind_status = typesBind( &data );
-    if( bind_status != TB_NULL ) {
-        node = result = PTreeBinary( CO_LIST, NULL, NULL );
-
-        if( decl_scope != NULL ) {
-            stop = ScopeOrderedStart( decl_scope );
-            curr = NULL;
-            for(;;) {
-                curr = ScopeOrderedNext( stop, curr );
-                if( curr == NULL ) break;
-
-                if( ( curr->sym_type->id == TYP_TYPEDEF )
-                 && ( curr->sym_type->of->id == TYP_GENERIC ) ) {
-                    node = node->u.subtree[0] =
-                        PTreeBinary( CO_LIST, NULL,
-                                     PTreeType( curr->sym_type->of->of ) );
-                } else {
-                    PSTK_ITER iter;
-
-                    node = node->u.subtree[0] =
-                        PTreeBinary( CO_LIST, NULL, NULL );
-
-                    if( ! PstkIterDnOpen( &iter, &data.bindings ) ) {
-                        for( ; ; ) {
-                            item = PstkIterDnNext( &iter );
-                            if( NULL == item ) break;
-
-                            DbgAssert( item->cgop == CO_STORAGE );
-                            DbgAssert( item->u.subtree[0]->op == PT_ID );
-                            DbgAssert( ( item->u.subtree[1]->op == PT_INT_CONSTANT ) ||
-                                       ( item->u.subtree[1]->op == PT_ID ) );
-
-                            if( ( item->u.subtree[1] != NULL )
-                             && ( item->u.subtree[0]->u.id.name == curr->name->name ) ) {
-
-                                if( node->u.subtree[1] != NULL ) {
-                                    if( ( node->u.subtree[1]->op == PT_INT_CONSTANT )
-                                     && ( item->u.subtree[1]->op == PT_INT_CONSTANT ) ) {
-                                        if( I64Cmp( &node->u.subtree[1]->u.int64_constant,
-                                                    &item->u.subtree[1]->u.int64_constant ) ) {
-                                            /* we have deduced different
-                                             * values for the same template
-                                             * parameter => therefore deduction
-                                             * failed */
-                                            bind_status = TB_NULL;
-                                        }
-                                    } else if( ( node->u.subtree[1]->op == PT_ID )
-                                               && ( item->u.subtree[1]->op == PT_ID ) ) {
-                                        if( node->u.subtree[1]->u.id.name != item->u.subtree[1]->u.id.name ) {
-                                            bind_status = TB_NULL;
-                                        }
-                                    } else {
-                                        bind_status = TB_NULL;
-                                    }
-                                } else {
-                                    node->u.subtree[1] = item->u.subtree[1];
-                                    item->u.subtree[1] = NULL;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if( result->u.subtree[0] != NULL ) {
-                node = result;
-                result = result->u.subtree[0];
-                PTreeFree( node );
-            }
-
-            if( bind_status == TB_NULL ) {
-                PTreeFreeSubtrees( result );
-                result = NULL;
-            }
-        }
-    }
-    clearGenericBindings( decl_scope, &data.bindings );
-
-    binderFini( &data );
-    return( result );
-}
-
 boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
                           boolean is_function )
 /*******************************************************************/
@@ -8581,14 +8466,13 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
                     curr->sym_type->of = curr->sym_type->of->of;
                 }
             } else if( curr->id == SC_NULL ) {
-                printf( "TODO\n" );
-                result = FALSE;
+                result = curr->u.sval != 0;
             }
         }
     }
 
     if( !result ) {
-        clearGenericBindings( parm_scope->enclosing, NULL );
+        ClearGenericBindings( parm_scope->enclosing );
     }
 
     binderFini( &data );

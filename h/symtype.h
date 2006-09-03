@@ -1573,12 +1573,12 @@ extern void TypeTraverse( type_id, void (*)( TYPE, void *), void * );
 extern boolean FunctionUsesAllTypes( SYMBOL, SCOPE, void (*)( SYMBOL ) );
 extern type_flag ExplicitModifierFlags( TYPE );
 
+extern TYPE CreateBoundType( TYPE unbound_type, TOKEN_LOCN *locn );
+extern void ClearGenericBindings( SCOPE decl_scope );
 extern boolean BindExplicitTemplateArguments( SCOPE param_scope,
                                               PTREE templ_args );
 extern boolean BindGenericTypes( SCOPE param_scope, PTREE parms, PTREE args,
                                  boolean is_function );
-extern PTREE BindClassGenericTypes( SCOPE decl_scope, PTREE parms,
-                                    PTREE args );
 
 arg_list* ArgListTempAlloc(     // ALLOCATE TEMPORARY ARG LIST
     TEMP_ARG_LIST* default_args,// - default args

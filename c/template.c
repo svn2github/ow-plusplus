@@ -737,7 +737,6 @@ static TEMPLATE_SPECIALIZATION *findMatchingTemplateSpecialization(
 static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
                                            TEMPLATE_SPECIALIZATION *tspec )
 {
-    PTREE bindings;
     TEMPLATE_SPECIALIZATION *curr_spec;
     SYMBOL stop, curr;
     TYPE type;
@@ -784,7 +783,9 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
             tspec->ordering[ i / 8 ] &= ~ ( 1 << ( i & 7 ) );
             i++;
         } else {
+            SCOPE parm_scope;
             unsigned char mask;
+            boolean binding_ok;
 
             if( ( nr_specs - 2 ) & 128 ) {
                 /* grow the bitmap as needed */
@@ -798,29 +799,72 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
                 CMemFree( old_mem );
             }
 
-            bindings =
-                BindClassGenericTypes( tspec->decl_scope, tspec->spec_args,
-                                       curr_spec->spec_args );
+            parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
+            ScopeSetEnclosing( parm_scope, tspec->decl_scope );
+            BindExplicitTemplateArguments( parm_scope, NULL );
+
+            binding_ok =
+                BindGenericTypes( parm_scope, tspec->spec_args,
+                                  curr_spec->spec_args, FALSE );
+#ifndef NDEBUG
+            if( PragDbgToggle.templ_spec && binding_ok ) {
+                VBUF vbuf1, vbuf2;
+
+                FormatPTreeList( curr_spec->spec_args, &vbuf1 );
+                FormatPTreeList( tspec->spec_args, &vbuf2 );
+                printf( "%s<%s> is at least as specialised as %s<%s>\n",
+                        tinfo->sym->name->name, vbuf1.buf,
+                        tinfo->sym->name->name, vbuf2.buf );
+                VbufFree( &vbuf1 );
+                VbufFree( &vbuf2 );
+            }
+#endif
+
             /* curr_spec is at least as specialized as tspec if (
              * bindings != NULL)
              */
             mask = 1 << ( ( nr_specs - 2 ) & 7 );
             curr_spec->ordering[ ( nr_specs - 2 ) / 8 ] &= ~ mask;
             curr_spec->ordering[ ( nr_specs - 2 ) / 8 ] |=
-                ( bindings != NULL ) ? mask : 0;
-            PTreeFreeSubtrees( bindings );
+                binding_ok ? mask : 0;
 
-            bindings =
-                BindClassGenericTypes( curr_spec->decl_scope,
-                                       curr_spec->spec_args,
-                                       tspec->spec_args );
+            if( binding_ok ) {
+                ClearGenericBindings( parm_scope->enclosing );
+            }
+            ScopeBurn( parm_scope );
+
+            parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
+            ScopeSetEnclosing( parm_scope, curr_spec->decl_scope );
+            BindExplicitTemplateArguments( parm_scope, NULL );
+
+            binding_ok =
+                BindGenericTypes( parm_scope, curr_spec->spec_args,
+                                  tspec->spec_args, FALSE );
+#ifndef NDEBUG
+            if( PragDbgToggle.templ_spec && binding_ok ) {
+                VBUF vbuf1, vbuf2;
+
+                FormatPTreeList( tspec->spec_args, &vbuf1 );
+                FormatPTreeList( curr_spec->spec_args, &vbuf2 );
+                printf( "%s<%s> is at least as specialised as %s<%s>\n",
+                        tinfo->sym->name->name, vbuf1.buf,
+                        tinfo->sym->name->name, vbuf2.buf );
+                VbufFree( &vbuf1 );
+                VbufFree( &vbuf2 );
+            }
+#endif
+
             /* tspec is at least as specialized as curr_spec if (
              * bindings != NULL)
              */
             mask = 1 << ( i & 7 );
             tspec->ordering[ i / 8 ] &= ~ mask;
-            tspec->ordering[ i / 8 ] |= ( bindings != NULL ) ? mask : 0;
-            PTreeFreeSubtrees( bindings );
+            tspec->ordering[ i / 8 ] |= binding_ok ? mask : 0;
+
+            if( binding_ok ) {
+                ClearGenericBindings( parm_scope->enclosing );
+            }
+            ScopeBurn( parm_scope );
 
             i++;
         }
@@ -1345,11 +1389,8 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
     if( BindGenericTypes( parm_scope, pparms, pargs, TRUE ) ) {
-        TYPE createBoundType( TYPE unbound_type, TOKEN_LOCN *locn );
-        void clearGenericBindings( SCOPE decl_scope, void *stk );
-
-        bound_type = createBoundType( fn_templ->sym_type, locn );
-        clearGenericBindings( parm_scope->enclosing, NULL );
+        bound_type = CreateBoundType( fn_templ->sym_type, locn );
+        ClearGenericBindings( parm_scope->enclosing );
         *templ_parm_scope = parm_scope;
     } else {
         if( PragDbgToggle.templ_function ) {
@@ -2223,8 +2264,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 
             if( BindGenericTypes( parm_scope, spec_list, parms, FALSE ) ) {
 
-                void clearGenericBindings( SCOPE decl_scope, void *stk );
-                clearGenericBindings( parm_scope->enclosing, NULL );
+                ClearGenericBindings( parm_scope->enclosing );
 
 #ifndef NDEBUG
                 if( PragDbgToggle.templ_spec ) {
