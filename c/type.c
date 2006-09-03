@@ -7500,34 +7500,6 @@ boolean FunctionUsesAllTypes( SYMBOL sym, SCOPE scope, void (*diag)( SYMBOL ) )
     return( markAllUnused( scope, diag ) );
 }
 
-#if 0
-static void clearGenericBindings( PSTK_CTL *stk )
-{
-    TYPE *top;
-    TYPE bound_type;
-
-    for(;;) {
-        top = PstkPop( stk );
-        if( top == NULL ) break;
-        if( *top == NULL ) continue;
-        bound_type = *top;
-#ifndef NDEBUG
-        switch( bound_type->id ) {
-        case TYP_GENERIC:
-        case TYP_CLASS:
-            if( bound_type->of != NULL ) {
-                break;
-            }
-            /* fall through */
-        default:
-            CFatal( "bound generic type corrupted" );
-        }
-#endif
-        bound_type->of = NULL;
-    }
-}
-#endif
-
 void clearGenericBindings( SCOPE decl_scope, PSTK_CTL *stk )
 {
     PTREE *top;
@@ -7802,10 +7774,21 @@ static unsigned typesBind( type_bind_info *data )
                                                          ( *b_top )->type->id ) );
                     PstkPush( &(data->bindings), binding );
                 } else {
-                    SYMBOL sym = ScopeYYMember( data->parm_scope,
-                                                ( *u_top )->u.id.name )->name_syms;
-                    sym->id = SC_STATIC;
-                    DgStoreConstScalar( *b_top, ( *b_top )->type, sym );
+                    SYMBOL sym =
+                        ScopeYYMember( data->parm_scope,
+                                       ( *u_top )->u.id.name )->name_syms;
+
+                    if( sym->id == SC_NULL ) {
+                        sym->id = SC_STATIC;
+                        DgStoreConstScalar( *b_top, ( *b_top )->type, sym );
+                    }
+
+                    if( sym->u.sval != ( *b_top )->u.int_constant ) {
+                        // already bound to different value
+                        PTreeFree( *b_top );
+                        PTreeFree( *u_top );
+                        return( TB_NULL );
+                    }
                 }
 
                 PTreeFree( *b_top );
