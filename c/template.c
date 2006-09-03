@@ -1329,9 +1329,14 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
-        printf( "attemptGen for\n" );
-        DumpPTree( templ_args );
-        DumpPTree( pargs );
+        VBUF vbuf1, vbuf2;
+
+        FormatPTreeList( templ_args, &vbuf1 );
+        FormatPTreeList( pargs, &vbuf2 );
+        printf( "attemptGen for %s<%s>(%s)\n",
+                fn_templ->name->name, vbuf1.buf, vbuf2.buf );
+        VbufFree( &vbuf1 );
+        VbufFree( &vbuf2 );
     }
 #endif
 
@@ -1341,8 +1346,10 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     if( BindGenericTypes( parm_scope, pparms, pargs, TRUE ) ) {
         TYPE createBoundType( TYPE unbound_type, TOKEN_LOCN *locn );
+        void clearGenericBindings( SCOPE decl_scope, void *stk );
 
         bound_type = createBoundType( fn_templ->sym_type, locn );
+        clearGenericBindings( parm_scope->enclosing, NULL );
         *templ_parm_scope = parm_scope;
     } else {
         if( PragDbgToggle.templ_function ) {
@@ -2215,6 +2222,10 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
             BindExplicitTemplateArguments( parm_scope, NULL );
 
             if( BindGenericTypes( parm_scope, spec_list, parms, FALSE ) ) {
+
+                void clearGenericBindings( SCOPE decl_scope, void *stk );
+                clearGenericBindings( parm_scope->enclosing, NULL );
+
 #ifndef NDEBUG
                 if( PragDbgToggle.templ_spec ) {
                     VBUF vbuf;

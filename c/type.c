@@ -7522,7 +7522,7 @@ static void clearGenericBindings( PSTK_CTL *stk )
 }
 #endif
 
-static void clearGenericBindings( SCOPE decl_scope, PSTK_CTL *stk )
+void clearGenericBindings( SCOPE decl_scope, PSTK_CTL *stk )
 {
     PTREE *top;
     SYMBOL stop, curr;
@@ -8278,7 +8278,12 @@ static boolean performBinding( VSTK_CTL *stk, TOKEN_LOCN *locn )
             new_type = old_type->of;
             break;
         }
-        DbgAssert( new_type != NULL );
+        if( new_type == NULL ) {
+#ifndef NDEBUG
+            DumpType( old_type );
+#endif
+            CFatal( "unable to perform binding" );
+        }
         *link_type = new_type;
     }
     return( type_is_OK );
@@ -8589,7 +8594,9 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
         }
     }
 
-    clearGenericBindings( parm_scope->enclosing, &data.bindings );
+    if( !result ) {
+        clearGenericBindings( parm_scope->enclosing, NULL );
+    }
 
     binderFini( &data );
     return( result );
