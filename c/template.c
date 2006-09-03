@@ -1364,7 +1364,6 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     }
 
     pargs = NodeReverseArgs( &num_args, pargs );
-    
 
     parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
     ScopeSetEnclosing( parm_scope, decl_scope );
@@ -1399,6 +1398,9 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         ScopeBurn( parm_scope );
         bound_type = NULL;
     }
+
+    PTreeFreeSubtrees( pparms );
+    PTreeFreeSubtrees( pargs );
 
     popInstContext();
     return( bound_type );
@@ -1724,7 +1726,7 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms )
     parms = NodeReverseArgs( &num_parms, parms );
     something_went_wrong = FALSE;
     tprimary = RingFirst( tinfo->specializations );
- 
+
     if( tprimary->corrupted ) {
         something_went_wrong = TRUE;
     }
@@ -2426,9 +2428,7 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
                 type_instantiated =
                     instantiateClass( tinfo, parms, tspec, parm_scope,
                                       &(tid->locn), control );
-                if( parm_scope != NULL ) {
-                    PTreeFreeSubtrees( parms );
-                }
+                NodeFreeDupedExpr( parms );
             }
         }
     } else {
