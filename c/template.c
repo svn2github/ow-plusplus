@@ -1323,6 +1323,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     
 
     parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
+    ScopeSetEnclosing( parm_scope, decl_scope );
 
     templ_args = NodeReverseArgs( &i, templ_args );
 
@@ -1334,11 +1335,11 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     }
 #endif
 
-    BindExplicitTemplateArguments( decl_scope, parm_scope, templ_args );
+    BindExplicitTemplateArguments( parm_scope, templ_args );
 
     pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
-    if( BindGenericTypes( parm_scope, pparms, pargs ) ) {
+    if( BindGenericTypes( parm_scope, pparms, pargs, TRUE ) ) {
         TYPE createBoundType( TYPE unbound_type, TOKEN_LOCN *locn );
 
         bound_type = createBoundType( fn_templ->sym_type, locn );
@@ -1349,12 +1350,6 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         }
         ScopeBurn( parm_scope );
         bound_type = NULL;
-    }
-
-    {
-        void clearGenericBindings( SCOPE decl_scope, void *stk );
-
-        clearGenericBindings( decl_scope, NULL );
     }
 
     popInstContext();
@@ -2178,7 +2173,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
     struct candidate_ring {
         struct candidate_ring *next;
         TEMPLATE_SPECIALIZATION *tspec;
-        PTREE inst_parms;
+        SCOPE parm_scope;
         unsigned idx;
     } *candidate_list;
     struct candidate_ring *candidate_iter;
@@ -2204,6 +2199,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
         FormatPTreeList( parms, &vbuf );
         printf( "try to find template class specialisation for %s<%s>\n",
                 tinfo->sym->name->name, vbuf.buf );
+        VbufFree( &vbuf );
     }
 #endif
 
@@ -2211,11 +2207,14 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
     RingIterBeg( tinfo->specializations, curr_spec ) {
         spec_list = curr_spec->spec_args;
         if( spec_list != NULL ) {
-            PTREE bindings;
+            SCOPE parm_scope;
 
-            bindings = BindClassGenericTypes( curr_spec->decl_scope,
-                                              spec_list, parms );
-            if( bindings != NULL ) {
+            parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
+            ScopeSetEnclosing( parm_scope, curr_spec->decl_scope );
+
+            BindExplicitTemplateArguments( parm_scope, NULL );
+
+            if( BindGenericTypes( parm_scope, spec_list, parms, FALSE ) ) {
 #ifndef NDEBUG
                 if( PragDbgToggle.templ_spec ) {
                     VBUF vbuf;
@@ -2223,10 +2222,11 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
                     FormatPTreeList( spec_list, &vbuf );
                     printf( "found specialisation candidate %s<%s>\n",
                             tinfo->sym->name->name, vbuf.buf );
+                    VbufFree( &vbuf );
                 }
 #endif
 
-                /* we have found a matching specialization use partial
+                /* we have found a matching specialization, use partial
                  * ordering rules to determine which one to use. */
                 if( candidate_list != NULL ) {
                     RingIterBegSafe( candidate_list, candidate_iter ) {
@@ -2240,33 +2240,38 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 
                         if( curr_at_least_as_specialized
                          && ! candidate_at_least_as_specialized ) {
-                            PTreeFreeSubtrees( candidate_iter->inst_parms );
+                            ScopeBurn( candidate_iter->parm_scope );
                             RingPrune( &candidate_list, candidate_iter );
                         } else if( candidate_at_least_as_specialized
                                 && ! curr_at_least_as_specialized ) {
-                            PTreeFreeSubtrees( bindings );
-                            bindings = NULL;
+                            ScopeBurn( parm_scope );
+                            parm_scope = NULL;
                             break;
                         }
                     } RingIterEndSafe( candidate_iter )
                 }
 
-                if( bindings != NULL ) {
+                if( parm_scope != NULL ) {
                     candidate_iter =
                         RingAlloc( &candidate_list,
                                    sizeof( struct candidate_ring ) );
                     candidate_iter->tspec = curr_spec;
-                    candidate_iter->inst_parms = bindings;
+                    candidate_iter->parm_scope = parm_scope;
                     candidate_iter->idx = i;
                 }
+            }
+            else
+            {
+                ScopeBurn( parm_scope );
+                parm_scope = NULL;
             }
 
             i++;
         }
     } RingIterEnd( curr_spec );
 
-    /* no matching specialization found, use primary template */
     if( candidate_list == NULL ) {
+        /* no matching specialization found, use primary template */
         tspec = RingFirst( tinfo->specializations );
         *inst_parms = NULL;
 
@@ -2278,15 +2283,53 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 #endif
     } else if( RingFirst( candidate_list ) == RingLast( candidate_list ) ) {
         /* exactly one matching specialization found, use it */
+        PTREE node, bindings;
+        SYMBOL curr, stop;
+
         candidate_iter = RingFirst( candidate_list );
         tspec = candidate_iter->tspec;
-        *inst_parms = candidate_iter->inst_parms;
+
+        node = bindings = PTreeBinary( CO_LIST, NULL, NULL );
+
+        stop = ScopeOrderedStart( candidate_iter->parm_scope );
+        curr = NULL;
+        for(;;) {
+            curr = ScopeOrderedNext( stop, curr );
+            if( curr == NULL ) break;
+
+            if( ( curr->sym_type->id == TYP_TYPEDEF ) ) {
+                node = node->u.subtree[0] =
+                    PTreeBinary( CO_LIST, NULL,
+                                 PTreeType( curr->sym_type->of ) );
+            } else {
+                node = node->u.subtree[0] =
+                    PTreeBinary( CO_LIST, NULL,
+                                 PTreeIntConstant( curr->u.sval,
+                                                   curr->sym_type->id ) );
+            }
+        }
+
+        if( bindings->u.subtree[0] != NULL ) {
+            node = bindings;
+            bindings = bindings->u.subtree[0];
+            PTreeFree( node );
+        }
+
+        *inst_parms = bindings;
+
+        ScopeBurn( candidate_iter->parm_scope );
         RingFree( &candidate_list );
 
 #ifndef NDEBUG
         if( PragDbgToggle.templ_spec ) {
+            VBUF vbuf;
+
             printf( "chose template specialisation\n" );
             DumpTemplateSpecialization( tspec );
+
+            FormatPTreeList( bindings, &vbuf );
+            printf( "with bindings: <%s>\n", vbuf.buf );
+            VbufFree( &vbuf );
         }
 #endif
 
@@ -2297,7 +2340,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
         RingIterBeg( candidate_list, candidate_iter ) {
             AddNoteMessage( INF_CANDIATE_DEFINITION,
                             &candidate_iter->tspec->locn );
-            PTreeFreeSubtrees( candidate_iter->inst_parms );
+            ScopeBurn( candidate_iter->parm_scope );
         } RingIterEnd( candidate_iter )
 
         tspec = tprimary;

@@ -1573,10 +1573,10 @@ extern void TypeTraverse( type_id, void (*)( TYPE, void *), void * );
 extern boolean FunctionUsesAllTypes( SYMBOL, SCOPE, void (*)( SYMBOL ) );
 extern type_flag ExplicitModifierFlags( TYPE );
 
-extern boolean BindExplicitTemplateArguments( SCOPE decl_scope,
-                                              SCOPE param_scope,
+extern boolean BindExplicitTemplateArguments( SCOPE param_scope,
                                               PTREE templ_args );
-extern boolean BindGenericTypes( SCOPE param_scope, PTREE parms, PTREE args );
+extern boolean BindGenericTypes( SCOPE param_scope, PTREE parms, PTREE args,
+                                 boolean is_function );
 extern PTREE BindClassGenericTypes( SCOPE decl_scope, PTREE parms,
                                     PTREE args );
 

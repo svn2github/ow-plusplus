@@ -706,7 +706,7 @@ void FormatPTreeList( PTREE p, VBUF *pvbuf )
     VbufInit( pvbuf );
     VStrNull( pvbuf );
 
-    while( p != NULL ) {
+    while( ( p != NULL ) && ( p->u.subtree[1] != NULL ) ) {
         PTREE right;
 
         DbgAssert( ( p->op == PT_BINARY ) && ( p->cgop == CO_LIST ) );

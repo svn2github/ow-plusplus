@@ -7522,7 +7522,7 @@ static void clearGenericBindings( PSTK_CTL *stk )
 }
 #endif
 
-/* static */ void clearGenericBindings( SCOPE decl_scope, PSTK_CTL *stk )
+static void clearGenericBindings( SCOPE decl_scope, PSTK_CTL *stk )
 {
     PTREE *top;
     SYMBOL stop, curr;
@@ -7783,8 +7783,10 @@ static unsigned typesBind( type_bind_info *data )
                 } else {
                     SYMBOL sym = ScopeYYMember( data->parm_scope,
                                                 ( *u_top )->u.id.name )->name_syms;
-                    DumpSymbol( sym );
+                    sym->id = SC_STATIC;
+                    DgStoreConstScalar( *b_top, ( *b_top )->type, sym );
                 }
+
                 PTreeFree( *b_top );
                 PTreeFree( *u_top );
                 continue;
@@ -8381,15 +8383,20 @@ static void injectTemplateParm( SCOPE scope, PTREE parm, char *name )
     }
 }
 
-boolean BindExplicitTemplateArguments( SCOPE decl_scope, SCOPE parm_scope,
-                                       PTREE templ_args )
-/**************************************************************************/
+boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
+/*************************************************************************/
 {
+    SCOPE decl_scope;
     SYMBOL curr, stop;
     PTREE node;
     PTREE parm;
     TYPE typ;
     char *name;
+
+    decl_scope = parm_scope->enclosing;
+    if( ( decl_scope == NULL ) && ( templ_args == NULL ) ) {
+        return TRUE;
+    }
 
     node = templ_args;
     stop = ScopeOrderedStart( decl_scope );
@@ -8539,7 +8546,8 @@ PTREE BindClassGenericTypes( SCOPE decl_scope, PTREE parms, PTREE args )
     return( result );
 }
 
-boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args )
+boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
+                          boolean is_function )
 /*******************************************************************/
 {
     SYMBOL curr, stop;
@@ -8553,7 +8561,8 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args )
     binderInit( &data );
     data.parm_scope = parm_scope;
 
-    pushPrototypeAndArguments( &data, parms, args, PA_FUNCTION );
+    pushPrototypeAndArguments( &data, parms, args,
+                               is_function ? PA_FUNCTION : PA_NULL );
     result = FALSE;
     bind_status = typesBind( &data );
     if( bind_status != TB_NULL ) {
@@ -8574,17 +8583,13 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args )
                     curr->sym_type->of = curr->sym_type->of->of;
                 }
             } else if( curr->id == SC_NULL ) {
+                printf( "TODO\n" );
                 result = FALSE;
             }
         }
-        if( bind_status & TB_NEEDS_TRIVIAL ) {
-            //control = BGT_TRIVIAL;
-        }
-        if( bind_status & TB_NEEDS_DERIVED ) {
-            //control = BGT_DERIVED;
-        }
     }
-    //clearGenericBindings( decl_scope, &data.bindings );
+
+    clearGenericBindings( parm_scope->enclosing, &data.bindings );
 
     binderFini( &data );
     return( result );
