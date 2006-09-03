@@ -799,7 +799,7 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
                 CMemFree( old_mem );
             }
 
-            parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
+            parm_scope = ScopeCreate( SCOPE_TEMPLATE_SPEC_PARM );
             ScopeSetEnclosing( parm_scope, tspec->decl_scope );
             BindExplicitTemplateArguments( parm_scope, NULL );
 
@@ -833,7 +833,7 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
             }
             ScopeBurn( parm_scope );
 
-            parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
+            parm_scope = ScopeCreate( SCOPE_TEMPLATE_SPEC_PARM );
             ScopeSetEnclosing( parm_scope, curr_spec->decl_scope );
             BindExplicitTemplateArguments( parm_scope, NULL );
 
@@ -2107,7 +2107,8 @@ static void injectTemplateParms( TEMPLATE_SPECIALIZATION *tspec, SCOPE scope,
 }
 
 static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
-                              TEMPLATE_SPECIALIZATION *tspec, PTREE spec_parms,
+                              TEMPLATE_SPECIALIZATION *tspec,
+                              SCOPE spec_parm_scope,
                               TOKEN_LOCN *locn, tc_instantiate control )
 {
     boolean nothing_to_do;
@@ -2117,7 +2118,6 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
     SCOPE save_scope;
     SCOPE inst_scope;
     SCOPE parm_scope;
-    SCOPE spec_parm_scope;
     CLASS_INST *curr_instantiation;
 
     curr_instantiation = NULL;
@@ -2138,7 +2138,9 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
             }
         }
         if( nothing_to_do ) {
-            NodeFreeDupedExpr( spec_parms );
+            if( spec_parm_scope != NULL ) {
+                ScopeBurn( spec_parm_scope );
+            }
             return( already_instantiated );
         }
     }
@@ -2147,13 +2149,13 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
     if( already_instantiated != NULL ) {
         inst_scope = curr_instantiation->scope;
         parm_scope = inst_scope->enclosing;
-        if( ! ScopeType( parm_scope, SCOPE_TEMPLATE_PARM ) ) {
-            DbgAssert( ScopeType( parm_scope, SCOPE_TEMPLATE_SPEC_PARM ) );
-            spec_parm_scope = parm_scope;
-            parm_scope = spec_parm_scope->enclosing;
-            ScopeClear( spec_parm_scope );
-        } else {
-            spec_parm_scope = NULL;
+
+        DbgAssert( ( ScopeType( parm_scope, SCOPE_TEMPLATE_PARM )
+                  && ( spec_parm_scope == NULL ) )
+                || ( ScopeType( parm_scope, SCOPE_TEMPLATE_SPEC_PARM )
+                  && ( spec_parm_scope != NULL ) ) );
+        if( ScopeType( parm_scope, SCOPE_TEMPLATE_SPEC_PARM ) ) {
+            parm_scope = parm_scope->enclosing;
         }
         ScopeClear( parm_scope );
         ScopeSetParmClass( parm_scope, tinfo );
@@ -2162,7 +2164,7 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
         SetCurrScope( file_scope );
         parm_scope = ScopeBegin( SCOPE_TEMPLATE_PARM );
         ScopeSetParmClass( parm_scope, tinfo );
-        if( tspec->spec_args != NULL ) {
+        if( spec_parm_scope != NULL ) {
             /*
              * In the case of a template specialization we have to use
              * two different parameter scopes:
@@ -2173,9 +2175,8 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
              * SCOPE_TEMPLATE_SPEC_PARM is used for the template parms
              * for the template specialization
              */
-            spec_parm_scope = ScopeBegin( SCOPE_TEMPLATE_SPEC_PARM );
-        } else {
-            spec_parm_scope = NULL;
+            ScopeSetEnclosing( spec_parm_scope, parm_scope );
+            SetCurrScope( spec_parm_scope );
         }
         inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
         curr_instantiation = newClassInstantiation( tspec, inst_scope,
@@ -2183,12 +2184,10 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
         curr_instantiation->locn = *locn;
         curr_instantiation->locn_set = TRUE;
     }
+
     injectTemplateParms( tspec, parm_scope, parms, spec_parm_scope != NULL );
-    if( spec_parm_scope != NULL ) {
-        injectTemplateParms( tspec, spec_parm_scope, spec_parms, FALSE );
-    }
-    NodeFreeDupedExpr( spec_parms );
     new_type = doParseClassTemplate( tspec, tspec->defn, locn, control );
+
     SetCurrScope( save_scope );
     return( new_type );
 }
@@ -2216,7 +2215,7 @@ static TYPE instantiateUnboundClass( TEMPLATE_INFO *tinfo,
 
 static TEMPLATE_SPECIALIZATION *
 findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
-                                 PTREE *inst_parms )
+                                 SCOPE *parm_scope )
 {
     struct candidate_ring {
         struct candidate_ring *next;
@@ -2237,7 +2236,6 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
     candidate_list = NULL;
     tprimary = RingFirst( tinfo->specializations );
     num_args = tprimary->num_args;
-    *inst_parms = NULL;
     ambiguous = FALSE;
 
 #ifndef NDEBUG
@@ -2257,7 +2255,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
         if( spec_list != NULL ) {
             SCOPE parm_scope;
 
-            parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
+            parm_scope = ScopeCreate( SCOPE_TEMPLATE_SPEC_PARM );
             ScopeSetEnclosing( parm_scope, curr_spec->decl_scope );
 
             BindExplicitTemplateArguments( parm_scope, NULL );
@@ -2324,7 +2322,6 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
     if( candidate_list == NULL ) {
         /* no matching specialization found, use primary template */
         tspec = RingFirst( tinfo->specializations );
-        *inst_parms = NULL;
 
 #ifndef NDEBUG
         if( PragDbgToggle.templ_spec ) {
@@ -2334,53 +2331,17 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 #endif
     } else if( RingFirst( candidate_list ) == RingLast( candidate_list ) ) {
         /* exactly one matching specialization found, use it */
-        PTREE node, bindings;
-        SYMBOL curr, stop;
 
         candidate_iter = RingFirst( candidate_list );
         tspec = candidate_iter->tspec;
+        *parm_scope = candidate_iter->parm_scope;
 
-        node = bindings = PTreeBinary( CO_LIST, NULL, NULL );
-
-        stop = ScopeOrderedStart( candidate_iter->parm_scope );
-        curr = NULL;
-        for(;;) {
-            curr = ScopeOrderedNext( stop, curr );
-            if( curr == NULL ) break;
-
-            if( ( curr->sym_type->id == TYP_TYPEDEF ) ) {
-                node = node->u.subtree[0] =
-                    PTreeBinary( CO_LIST, NULL,
-                                 PTreeType( curr->sym_type->of ) );
-            } else {
-                node = node->u.subtree[0] =
-                    PTreeBinary( CO_LIST, NULL,
-                                 PTreeIntConstant( curr->u.sval,
-                                                   curr->sym_type->id ) );
-            }
-        }
-
-        if( bindings->u.subtree[0] != NULL ) {
-            node = bindings;
-            bindings = bindings->u.subtree[0];
-            PTreeFree( node );
-        }
-
-        *inst_parms = bindings;
-
-        ScopeBurn( candidate_iter->parm_scope );
         RingFree( &candidate_list );
 
 #ifndef NDEBUG
         if( PragDbgToggle.templ_spec ) {
-            VBUF vbuf;
-
             printf( "chose template specialisation\n" );
             DumpTemplateSpecialization( tspec );
-
-            FormatPTreeList( bindings, &vbuf );
-            printf( "with bindings: <%s>\n", vbuf.buf );
-            VbufFree( &vbuf );
         }
 #endif
 
@@ -2395,7 +2356,6 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
         } RingIterEnd( candidate_iter )
 
         tspec = tprimary;
-        *inst_parms = NULL;
     }
 
     return tspec;
@@ -2407,7 +2367,7 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
     SYMBOL class_template;
     char *template_name;
     TYPE type_instantiated;
-    PTREE spec_parms;
+    SCOPE parm_scope;
     TEMPLATE_INFO *tinfo;
     TEMPLATE_SPECIALIZATION *tprimary;
     TEMPLATE_SPECIALIZATION *tspec;
@@ -2459,16 +2419,14 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
 
                 NodeFreeDupedExpr( parms );
             } else {
-                spec_parms = NULL;
+                parm_scope = NULL;
                 tspec = findTemplateClassSpecialization( tinfo, parms,
-                                                         &spec_parms );
+                                                         &parm_scope );
 
                 type_instantiated =
-                    instantiateClass( tinfo, parms,
-                                      tspec, ( spec_parms == NULL ) ? parms : spec_parms,
+                    instantiateClass( tinfo, parms, tspec, parm_scope,
                                       &(tid->locn), control );
-
-                if( spec_parms != NULL ) {
+                if( parm_scope != NULL ) {
                     PTreeFreeSubtrees( parms );
                 }
             }
@@ -2569,7 +2527,7 @@ static TYPE makeBoundClass( SCOPE scope, char *name, SCOPE parm_scope,
         tinfo = class_template->u.tinfo;
         tspec = RingFirst( tinfo->specializations );
         type_instantiated =
-            instantiateClass( tinfo, parms, tspec, parms, locn, TCI_NULL );
+            instantiateClass( tinfo, parms, tspec, NULL, locn, TCI_NULL );
     }
     return( type_instantiated );
 }

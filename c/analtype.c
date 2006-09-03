@@ -125,6 +125,10 @@ static TYPE getThisBaseType( SYMBOL sym )
     if( sym != NULL ) {
         scope = SymScope( sym );
         if( scope != NULL ) {
+            if( ScopeType( scope, SCOPE_TEMPLATE_INST ) ) {
+                // skip the template function scopes
+                scope = scope->enclosing->enclosing;
+            }
             class_type = ScopeClass( scope );
             if( class_type != NULL ) {
                 if( sym->id != SC_STATIC ) {
