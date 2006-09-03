@@ -42,6 +42,7 @@
 #include "pcheader.h"
 #include "stats.h"
 #include "class.h"
+#include "template.h"
 
 
 typedef enum                    // Used to control scalar operand types
@@ -471,6 +472,14 @@ static boolean symInResult( SYMBOL sym, SEARCH_RESULT *result )
     RingIterBeg( result->sym_name->name_syms, curr ) {
         if( curr == sym ) {
             return TRUE;
+        } else if( curr->id == SC_FUNCTION_TEMPLATE ) {
+            FN_TEMPLATE_INST *fn_inst;
+
+            RingIterBeg( curr->u.defn->instantiations, fn_inst ) {
+                if( fn_inst->bound_sym == sym ) {
+                    return TRUE;
+                }
+            } RingIterEnd( fn_inst )
         }
     } RingIterEnd( curr )
     RingIterBeg( result->region, ptr ) {
@@ -502,7 +511,7 @@ static PTREE transform_to_call( // TRANSFORM NODE TO FUNCTION CALL
 
 static PTREE transform_naked(   // TRANSFORM TO CALL TO NON-MEMBER FUNCTION
     OLINF* olinf,
-    SYMBOL fun )              // - overload information
+    SYMBOL fun )                // - overload information
 {
     CGOP cgop;                  // - expression operator
     PTREE param;                // - parameters node

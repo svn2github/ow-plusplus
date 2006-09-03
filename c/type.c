@@ -7373,6 +7373,12 @@ static void pushPrototypeAndArguments( type_bind_info *data,
                         p_type = refed_type;
                     }
                 }
+
+                // if we follow the WP, this should not be here but
+                // the WP breaks working code with string literals; we
+                // might want to special case string literals (decay
+                // to char *) and remove this line
+                a_type = adjustParmType( a_type );
             }
 
             PstkPush( &(data->with_generic), PTreeType( p_type ) );
@@ -7829,7 +7835,7 @@ static unsigned typesBind( type_bind_info *data )
                 || ( ( *b_top )->op != PT_TYPE ) ) {
             PTreeFree( *b_top );
             PTreeFree( *u_top );
-            DbgAssert( 0 );
+            CFatal( "typesBind failed" );
         }
 
         b_type = ( *b_top )->type;
