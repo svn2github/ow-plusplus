@@ -7394,7 +7394,7 @@ static void pushPrototypeAndArguments( type_bind_info *data,
 #ifndef NDEBUG
             DumpPTree( p );
 #endif
-            DbgAssert( 0 );
+            CFatal( "pushPrototypeAndArguments" );
         }
 
         if( a->op == PT_TYPE ) {
@@ -7409,7 +7409,7 @@ static void pushPrototypeAndArguments( type_bind_info *data,
 #ifndef NDEBUG
             DumpPTree( a );
 #endif
-            DbgAssert( 0 );
+            CFatal( "pushPrototypeAndArguments" );
         }
     }
 }
@@ -7685,16 +7685,16 @@ static unsigned handle1stLevelPtr( type_bind_info *data, TYPE b_ptr, TYPE u_ptr 
             */
             // allow trivial conversion
             if( d_flags & ~TF1_CV_MASK ) {
-                PstkPush( &(data->without_generic), b_type );
-                PstkPush( &(data->with_generic), u_type );
+                PstkPush( &(data->without_generic), PTreeType( b_type ) );
+                PstkPush( &(data->with_generic), PTreeType( u_type ) );
                 return( TB_NULL );
             }
             status |= TB_NEEDS_TRIVIAL;
             u_flags &= ~d_flags;
         }
         if( ! modifiersMatch( b_flags, u_flags, b_base, u_base ) ) {
-            PstkPush( &(data->without_generic), b_type );
-            PstkPush( &(data->with_generic), u_type );
+            PstkPush( &(data->without_generic), PTreeType( b_type ) );
+            PstkPush( &(data->with_generic), PTreeType( u_type ) );
             return( TB_NULL );
         }
         b_type = b_unmod_type;
@@ -7709,8 +7709,8 @@ static unsigned handle1stLevelPtr( type_bind_info *data, TYPE b_ptr, TYPE u_ptr 
             }
         }
     }
-    PstkPush( &(data->without_generic), b_type );
-    PstkPush( &(data->with_generic), u_type );
+    PstkPush( &(data->without_generic), PTreeType( b_type ) );
+    PstkPush( &(data->with_generic), PTreeType( u_type ) );
     return( status );
 }
 
@@ -7746,6 +7746,8 @@ static unsigned typesBind( type_bind_info *data )
 
     status = TB_BINDS;
     for(;;) {
+        flags.arg_1st_level = FALSE;
+
         b_top = PstkPop( &(data->without_generic) );
         u_top = PstkPop( &(data->with_generic) );
         if( b_top == NULL || u_top == NULL ) {
@@ -7756,6 +7758,19 @@ static unsigned typesBind( type_bind_info *data )
                 PTreeFree( *u_top );
             }
             break;
+        }
+
+        if( ( ( *u_top )->op == PT_TYPE )
+         && ( *u_top )->type == TypeGetCache( TYPC_FIRST_LEVEL ) ) {
+            flags.arg_1st_level = TRUE;
+            PTreeFree( *u_top );
+            u_top = PstkPop( &(data->with_generic) );
+            if( u_top == NULL ) {
+                if( b_top != NULL ) {
+                    PTreeFree( *b_top );
+                }
+                break;
+            }
         }
 
         if( ( *u_top )->op == PT_INT_CONSTANT ) {
@@ -7829,17 +7844,6 @@ static unsigned typesBind( type_bind_info *data )
 
         if( b_unmod_type == NULL ) {
             return( TB_NULL );
-        }
-
-        flags.arg_1st_level = FALSE;
-        if( u_type == TypeGetCache( TYPC_FIRST_LEVEL ) ) {
-            flags.arg_1st_level = TRUE;
-            u_top = PstkPop( &(data->with_generic) );
-            if( u_top == NULL ) {
-                break;
-            }
-            u_type = ( *u_top )->type;
-            PTreeFree( *u_top );
         }
         if( u_type == NULL ) {
             return( TB_NULL );
