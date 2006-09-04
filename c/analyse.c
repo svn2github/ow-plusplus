@@ -2612,6 +2612,7 @@ PTREE AnalyseOperator(          // ANALYSE AN OPERATOR
     OPR_RTN_CODE action_code;   // - code for actions
     TEMP_TYPE temp_class;       // - SC_... for next temporary
     OPAC *ap;                   // - actions pointer
+    PTREE templ;
 
     {   boolean opsok;          // - indicates analysis ok
         PTREE on_left;          // - operand on left
@@ -2620,10 +2621,17 @@ PTREE AnalyseOperator(          // ANALYSE AN OPERATOR
         PTO_FLAG flags;         // - flags for operator
         flags = PTreeOpFlags( expr );
         orig = expr;
+        templ = NULL;
 //      addr_left = &orig->u.subtree[0];
         opsok = TRUE;
         ExtraRptTabIncr( ctrOps, orig->cgop, 0 );
         on_left = orig->u.subtree[0];
+        if( ( on_left != NULL ) && ( on_left->cgop == CO_TEMPLATE ) ) {
+            // remove template parameters
+            templ = on_left;
+            on_left = orig->u.subtree[0] = on_left->u.subtree[0];
+            templ->u.subtree[0] = NULL;
+        }
         if( flags & PTO_UNARY ) {
             if( orig->cgop == CO_ADDR_OF
              || orig->cgop == CO_INDIRECT ) {
@@ -3694,6 +3702,12 @@ start_opac_string:
                 exprError( expr, ERR_NOT_A_FUNCTION );
                 break;
             }
+            if( templ != NULL ) {
+                // re-insert template parameters
+                templ->u.subtree[0] = expr->u.subtree[0];
+                expr->u.subtree[0] = templ;
+                templ = NULL;
+            }
             expr = AnalyseCall( expr, &diagCall );
             if( expr->op == PT_ERROR ) break;
             continue;
@@ -4145,6 +4159,9 @@ start_opac_string:
       default :
         expr->flags |= PTF_LV_CHECKED;
         break;
+    }
+    if( templ != NULL ) {
+        PTreeFreeSubtrees( templ );
     }
     return expr;
 }
