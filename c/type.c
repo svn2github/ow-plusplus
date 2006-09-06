@@ -154,6 +154,7 @@ enum {
 typedef struct {
     PSTK_CTL    with_generic;
     PSTK_CTL    without_generic;
+    PSTK_CTL   *bindings;
     SCOPE       parm_scope;
 } type_bind_info;
 
@@ -7499,23 +7500,32 @@ boolean FunctionUsesAllTypes( SYMBOL sym, SCOPE scope, void (*diag)( SYMBOL ) )
     return( markAllUnused( scope, diag ) );
 }
 
-void ClearGenericBindings( SCOPE decl_scope )
+void ClearGenericBindings( void *binding_handle )
 {
-    SYMBOL stop, curr;
+    PSTK_CTL *stk = (PSTK_CTL *) binding_handle;
+    TYPE *top;
+    TYPE bound_type;
 
-    if( decl_scope != NULL ) {
-        stop = ScopeOrderedStart( decl_scope );
-        curr = NULL;
-        for(;;) {
-            curr = ScopeOrderedNext( stop, curr );
-            if( curr == NULL ) break;
-
-            if( ( curr->sym_type->id == TYP_TYPEDEF )
-                && ( curr->sym_type->of->id == TYP_GENERIC ) ) {
-                curr->sym_type->of->of = NULL;
+    for(;;) {
+        top = PstkPop( stk );
+        if( top == NULL ) break;
+        if( *top == NULL ) continue;
+        bound_type = *top;
+        switch( bound_type->id ) {
+        case TYP_GENERIC:
+        case TYP_CLASS:
+            if( bound_type->of != NULL ) {
+                bound_type->of = NULL;
             }
+            break;
+#ifndef NDEBUG
+        default:
+            CFatal( "bound generic type corrupted" );
+#endif
         }
     }
+
+    free( binding_handle );
 }
 
 boolean TypeBasesEqual( type_flag flags, void *base1, void *base2 )
@@ -7948,6 +7958,7 @@ static unsigned typesBind( type_bind_info *data )
                 continue;
             }
             /* bind the generic type */
+            PstkPush( data->bindings, u_unmod_type );
             u_unmod_type->of = g_type;
             continue;
         }
@@ -7984,6 +7995,7 @@ static unsigned typesBind( type_bind_info *data )
                     return( TB_NULL );
                 }
             }
+            PstkPush( data->bindings, u_unmod_type );
             u_unmod_type->of = b_unmod_type;
             break;
         case TYP_POINTER:
@@ -8284,6 +8296,8 @@ static void binderInit( type_bind_info *data )
 {
     PstkOpen( &(data->with_generic) );
     PstkOpen( &(data->without_generic) );
+    data->bindings = (PSTK_CTL *) malloc( sizeof( PSTK_CTL ) );
+    PstkOpen( data->bindings );
     data->parm_scope = NULL;
 }
 
@@ -8429,9 +8443,9 @@ boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
     return TRUE;
 }
 
-boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
-                          boolean is_function )
-/*******************************************************************/
+void *BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
+                        boolean is_function )
+/****************************************************************/
 {
     SYMBOL curr, stop;
     unsigned bind_status;
@@ -8471,12 +8485,12 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
         }
     }
 
-    if( !result ) {
-        ClearGenericBindings( parm_scope->enclosing );
+    if( ! result ) {
+        ClearGenericBindings( data.bindings );
     }
 
     binderFini( &data );
-    return( result );
+    return( result ? data.bindings : NULL );
 }
 
 static void initBasicTypes( void )

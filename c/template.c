@@ -785,7 +785,7 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
         } else {
             SCOPE parm_scope;
             unsigned char mask;
-            boolean binding_ok;
+            void *binding_handle;
 
             if( ( nr_specs - 2 ) & 128 ) {
                 /* grow the bitmap as needed */
@@ -803,11 +803,11 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
             ScopeSetEnclosing( parm_scope, tspec->decl_scope );
             BindExplicitTemplateArguments( parm_scope, NULL );
 
-            binding_ok =
+            binding_handle =
                 BindGenericTypes( parm_scope, tspec->spec_args,
                                   curr_spec->spec_args, FALSE );
 #ifndef NDEBUG
-            if( PragDbgToggle.templ_spec && binding_ok ) {
+            if( PragDbgToggle.templ_spec && binding_handle ) {
                 VBUF vbuf1, vbuf2;
 
                 FormatPTreeList( curr_spec->spec_args, &vbuf1 );
@@ -826,10 +826,10 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
             mask = 1 << ( ( nr_specs - 2 ) & 7 );
             curr_spec->ordering[ ( nr_specs - 2 ) / 8 ] &= ~ mask;
             curr_spec->ordering[ ( nr_specs - 2 ) / 8 ] |=
-                binding_ok ? mask : 0;
+                binding_handle ? mask : 0;
 
-            if( binding_ok ) {
-                ClearGenericBindings( parm_scope->enclosing );
+            if( binding_handle ) {
+                ClearGenericBindings( binding_handle );
             }
             ScopeBurn( parm_scope );
 
@@ -837,11 +837,11 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
             ScopeSetEnclosing( parm_scope, curr_spec->decl_scope );
             BindExplicitTemplateArguments( parm_scope, NULL );
 
-            binding_ok =
+            binding_handle =
                 BindGenericTypes( parm_scope, curr_spec->spec_args,
                                   tspec->spec_args, FALSE );
 #ifndef NDEBUG
-            if( PragDbgToggle.templ_spec && binding_ok ) {
+            if( PragDbgToggle.templ_spec && binding_handle ) {
                 VBUF vbuf1, vbuf2;
 
                 FormatPTreeList( tspec->spec_args, &vbuf1 );
@@ -859,10 +859,10 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
              */
             mask = 1 << ( i & 7 );
             tspec->ordering[ i / 8 ] &= ~ mask;
-            tspec->ordering[ i / 8 ] |= binding_ok ? mask : 0;
+            tspec->ordering[ i / 8 ] |= binding_handle ? mask : 0;
 
-            if( binding_ok ) {
-                ClearGenericBindings( parm_scope->enclosing );
+            if( binding_handle ) {
+                ClearGenericBindings( binding_handle );
             }
             ScopeBurn( parm_scope );
 
@@ -1338,6 +1338,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     SCOPE parm_scope;
     arg_list *parms;
     PTREE pparms, pargs;
+    void *binding_handle;
     unsigned i;
     unsigned num_parms, num_args;
 
@@ -1378,6 +1379,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         FormatPTreeList( pargs, &vbuf2 );
         printf( "attemptGen for %s<%s>(%s)\n",
                 fn_templ->name->name, vbuf1.buf, vbuf2.buf );
+        DumpFullType( fn_type );
         VbufFree( &vbuf1 );
         VbufFree( &vbuf2 );
     }
@@ -1387,9 +1389,10 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
-    if( BindGenericTypes( parm_scope, pparms, pargs, TRUE ) ) {
+    binding_handle = BindGenericTypes( parm_scope, pparms, pargs, TRUE );
+    if( binding_handle ) {
         bound_type = CreateBoundType( fn_templ->sym_type, locn );
-        ClearGenericBindings( parm_scope->enclosing );
+        ClearGenericBindings( binding_handle );
         *templ_parm_scope = parm_scope;
     } else {
         if( PragDbgToggle.templ_function ) {
@@ -2241,7 +2244,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
     ambiguous = FALSE;
 
 #ifndef NDEBUG
-    if( PragDbgToggle.templ_spec ) {
+    if( PragDbgToggle.templ_spec && ( tinfo->nr_specs > 1 )) {
         VBUF vbuf;
 
         FormatPTreeList( parms, &vbuf );
@@ -2256,18 +2259,20 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
         spec_list = curr_spec->spec_args;
         if( spec_list != NULL ) {
             SCOPE parm_scope;
+            void *binding_handle;
 
             parm_scope = ScopeCreate( SCOPE_TEMPLATE_SPEC_PARM );
             ScopeSetEnclosing( parm_scope, curr_spec->decl_scope );
 
             BindExplicitTemplateArguments( parm_scope, NULL );
 
-            if( BindGenericTypes( parm_scope, spec_list, parms, FALSE ) ) {
-
-                ClearGenericBindings( parm_scope->enclosing );
+            binding_handle = BindGenericTypes( parm_scope, spec_list,
+                                               parms, FALSE );
+            if( binding_handle ) {
+                ClearGenericBindings( binding_handle );
 
 #ifndef NDEBUG
-                if( PragDbgToggle.templ_spec ) {
+                if( PragDbgToggle.templ_spec && ( tinfo->nr_specs > 1 )) {
                     VBUF vbuf;
 
                     FormatPTreeList( spec_list, &vbuf );
@@ -2326,7 +2331,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
         tspec = RingFirst( tinfo->specializations );
 
 #ifndef NDEBUG
-        if( PragDbgToggle.templ_spec ) {
+        if( PragDbgToggle.templ_spec && ( tinfo->nr_specs > 1 )) {
             printf( "chose primary template\n" );
             DumpTemplateInfo( tinfo );
         }
@@ -2341,7 +2346,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
         RingFree( &candidate_list );
 
 #ifndef NDEBUG
-        if( PragDbgToggle.templ_spec ) {
+        if( PragDbgToggle.templ_spec && ( tinfo->nr_specs > 1 )) {
             printf( "chose template specialisation\n" );
             DumpTemplateSpecialization( tspec );
         }
