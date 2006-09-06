@@ -2528,6 +2528,7 @@ static TYPE makeBoundClass( SCOPE scope, char *name, SCOPE parm_scope,
         tspec = RingFirst( tinfo->specializations );
         type_instantiated =
             instantiateClass( tinfo, parms, tspec, NULL, locn, TCI_NULL );
+        PTreeFreeSubtrees( parms );
     }
     return( type_instantiated );
 }
