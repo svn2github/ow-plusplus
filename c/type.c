@@ -7506,6 +7506,8 @@ void ClearGenericBindings( void *binding_handle )
     TYPE *top;
     TYPE bound_type;
 
+    DbgAssert( stk != NULL );
+
     for(;;) {
         top = PstkPop( stk );
         if( top == NULL ) break;
@@ -7525,6 +7527,7 @@ void ClearGenericBindings( void *binding_handle )
         }
     }
 
+    PstkClose( stk );
     free( binding_handle );
 }
 
