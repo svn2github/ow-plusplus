@@ -1443,6 +1443,7 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
     fn_inst->bound_sym = new_sym;
     fn_inst->parm_scope = parm_scope;
     fn_inst->inst_scope = inst_scope;
+    fn_inst->processed = FALSE;
 
     return new_sym;
 }
@@ -2782,14 +2783,23 @@ static void processFunctionTemplateInstantiations( void )
 {
     FN_TEMPLATE *curr_defn;
     FN_TEMPLATE_INST *curr_inst;
+    boolean keep_going;
 
-    RingIterBeg( allFunctionTemplates, curr_defn ) {
-        RingIterBeg( curr_defn->instantiations, curr_inst ) {
+    do {
+        keep_going = FALSE;
 
-            TemplateFunctionInstantiate( curr_defn, curr_inst );
+        RingIterBeg( allFunctionTemplates, curr_defn ) {
+            RingIterBeg( curr_defn->instantiations, curr_inst ) {
 
-        } RingIterEnd( curr_inst )
-    } RingIterEnd( curr_defn )
+                if( ! curr_inst->processed ) {
+                    keep_going = TRUE;
+                    curr_inst->processed = TRUE;
+                    TemplateFunctionInstantiate( curr_defn, curr_inst );
+                }
+
+            } RingIterEnd( curr_inst )
+        } RingIterEnd( curr_defn )
+    } while( keep_going );
 }
 
 static void freeDefns( void )

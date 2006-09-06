@@ -126,6 +126,7 @@ PCH_struct fn_template_inst {
     SYMBOL              bound_sym;      // bound template function symbol
     SCOPE               parm_scope;     // template parameter scope
     SCOPE               inst_scope;     // template instantiation scope
+    unsigned            processed : 1;  // already processed instantiation
 };
 
 PCH_struct fn_template {
