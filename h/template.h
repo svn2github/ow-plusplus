@@ -164,7 +164,7 @@ extern void TemplateDeclFini( void );
 extern void TemplateFunctionCheck( SYMBOL, DECL_INFO * );
 extern void TemplateFunctionDeclaration( SYMBOL );
 extern void TemplateFunctionAttachDefn( DECL_INFO * );
-extern unsigned TemplateFunctionGenerate( SYMBOL *, arg_list *, PTREE, TOKEN_LOCN *, SYMBOL *, boolean );
+extern SYMBOL TemplateFunctionGenerate( SYMBOL, arg_list *, PTREE, TOKEN_LOCN * );
 extern void TemplateClassDeclaration( PTREE, SCOPE, char * );
 extern boolean TemplateClassDefinition( PTREE, SCOPE, char * );
 extern TYPE TemplateClassInstantiation( PTREE, PTREE, tc_instantiate );

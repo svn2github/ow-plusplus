@@ -805,7 +805,7 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
 
             binding_handle =
                 BindGenericTypes( parm_scope, tspec->spec_args,
-                                  curr_spec->spec_args, FALSE );
+                                  curr_spec->spec_args, FALSE, 0 );
 #ifndef NDEBUG
             if( PragDbgToggle.templ_spec && binding_handle ) {
                 VBUF vbuf1, vbuf2;
@@ -829,7 +829,7 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
                 binding_handle ? mask : 0;
 
             if( binding_handle ) {
-                ClearGenericBindings( binding_handle );
+                ClearGenericBindings( binding_handle, parm_scope->enclosing );
             }
             ScopeBurn( parm_scope );
 
@@ -839,7 +839,7 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
 
             binding_handle =
                 BindGenericTypes( parm_scope, curr_spec->spec_args,
-                                  tspec->spec_args, FALSE );
+                                  tspec->spec_args, FALSE, 0 );
 #ifndef NDEBUG
             if( PragDbgToggle.templ_spec && binding_handle ) {
                 VBUF vbuf1, vbuf2;
@@ -862,7 +862,7 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
             tspec->ordering[ i / 8 ] |= binding_handle ? mask : 0;
 
             if( binding_handle ) {
-                ClearGenericBindings( binding_handle );
+                ClearGenericBindings( binding_handle, parm_scope->enclosing );
             }
             ScopeBurn( parm_scope );
 
@@ -1313,20 +1313,6 @@ void TemplateFunctionAttachDefn( DECL_INFO *dinfo )
     FreeDeclInfo( dinfo );
 }
 
-#ifndef NDEBUG
-static void verifySyms( SYMBOL syms )
-{
-    SYMBOL check;
-
-    RingIterBeg( syms, check ) {
-        if( SymIsFunctionTemplateModel( check ) ) {
-            return;
-        }
-    } RingIterEnd( check )
-    CFatal( "trying to generate a template function without any templates" );
-}
-#endif
-
 static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
                         TOKEN_LOCN *locn, SCOPE *templ_parm_scope,
                         bgt_control *pcontrol )
@@ -1340,7 +1326,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     PTREE pparms, pargs;
     void *binding_handle;
     unsigned i;
-    unsigned num_parms, num_args;
+    unsigned num_parms, num_args, num_explicit;
 
     fn_type = FunctionDeclarationType( fn_templ->sym_type );
     if( fn_type == NULL || ! TypeHasNumArgs( fn_type, args->num_args ) ) {
@@ -1369,7 +1355,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
     ScopeSetEnclosing( parm_scope, decl_scope );
 
-    templ_args = NodeReverseArgs( &i, templ_args );
+    templ_args = NodeReverseArgs( &num_explicit, templ_args );
 
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
@@ -1389,10 +1375,11 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
-    binding_handle = BindGenericTypes( parm_scope, pparms, pargs, TRUE );
+    binding_handle = BindGenericTypes( parm_scope, pparms, pargs, TRUE,
+                                       num_explicit );
     if( binding_handle ) {
         bound_type = CreateBoundType( fn_templ->sym_type, locn );
-        ClearGenericBindings( binding_handle );
+        ClearGenericBindings( binding_handle, parm_scope->enclosing );
         *templ_parm_scope = parm_scope;
     } else {
         if( PragDbgToggle.templ_function ) {
@@ -1448,92 +1435,31 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
     return new_sym;
 }
 
-unsigned TemplateFunctionGenerate( SYMBOL *psym, arg_list *args,
-/********************************************************************************/
-                                   PTREE templ_args, TOKEN_LOCN *locn,
-                                   SYMBOL *ambigs, boolean no_trivials )
+SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
+                                 PTREE templ_args, TOKEN_LOCN *locn )
+/*******************************************************************/
 {
-    SYMBOL generated_fn;
-    SYMBOL syms;
-    SYMBOL sym;
-    SYMBOL fn_templ;
+    TYPE fn_type;
     SCOPE parm_scope;
-    bgt_control bind_control;
+    SYMBOL generated_fn;
     bgt_control control;
-    unsigned i;
-    TYPE check_fn_type;
-    TYPE final_fn_type;
-    SCOPE final_parm_scope;
-    auto TYPE fn_types[BGT_MAX][2];
-    auto SYMBOL fn_templs[BGT_MAX][2];
-    auto SCOPE fn_scopes[BGT_MAX][2];
 
-#ifndef NDEBUG
-    verifySyms( *psym );
-    ambigs[0] = (SYMBOL)-1;
-    ambigs[1] = (SYMBOL)-1;
-#endif
-    syms = *psym;
-    if( ! ScopeType( SymScope( syms ), SCOPE_FILE )
-     && ! ScopeType( SymScope( syms ), SCOPE_CLASS ) ) {
-        return( FNOV_NO_MATCH );
-    }
-    bind_control = BGT_EXACT;
-    if( ! no_trivials ) {
-        bind_control = BGT_TRIVIAL;
-    }
-    fn_types[BGT_EXACT][0] = NULL;      /* exact match function types */
-    fn_types[BGT_EXACT][1] = NULL;
-    fn_types[BGT_TRIVIAL][0] = NULL;    /* trivial conversion function types */
-    fn_types[BGT_TRIVIAL][1] = NULL;
-    fn_types[BGT_DERIVED][0] = NULL;    /* derived class conversion function types */
-    fn_types[BGT_DERIVED][1] = NULL;
-    RingIterBeg( syms, sym ) {
-        if( SymIsFunctionTemplateModel( sym ) ) {
-            control = bind_control;
-            check_fn_type = attemptGen( args, sym, templ_args, locn, &parm_scope, &control );
-            if( check_fn_type != NULL ) {
-                fn_types[control][1] = fn_types[control][0];
-                fn_types[control][0] = check_fn_type;
-                fn_templs[control][1] = fn_templs[control][0];
-                fn_templs[control][0] = sym;
-                fn_scopes[control][1] = fn_scopes[control][0];
-                fn_scopes[control][0] = parm_scope;
-                if( fn_types[BGT_EXACT][1] != NULL ) {
-                    /* two exact matches! */
-                    ambigs[0] = fn_templs[BGT_EXACT][0];
-                    ambigs[1] = fn_templs[BGT_EXACT][1];
-                    return( FNOV_AMBIGUOUS );
-                }
-            }
-        }
-    } RingIterEnd( sym )
-    for( i = BGT_EXACT; i < BGT_MAX; ++i ) {
-        fn_templ = fn_templs[ i ][0];
-        final_fn_type = fn_types[ i ][0];
-        final_parm_scope = fn_scopes[ i ][0];
-        if( fn_types[ i ][1] != NULL ) {
-            /* two matches for a type of conversion! */
-            ambigs[0] = fn_templs[i][0];
-            ambigs[1] = fn_templs[i][1];
-            return( FNOV_AMBIGUOUS );
-        }
-        if( final_fn_type != NULL ) break;
-    }
+    control = BGT_TRIVIAL;
+    fn_type = attemptGen( args, sym, templ_args, locn, &parm_scope, &control );
 
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
         printf( "TemplateFunctionGenerate for\n" );
-        DumpFullType( final_fn_type );
+        DumpFullType( fn_type );
     }
 #endif
-    generated_fn = buildTemplateFn( final_fn_type, fn_templ, final_parm_scope,
-                                    locn );
-    if( generated_fn != NULL ) {
-        *psym = generated_fn;
-        return( FNOV_NONAMBIGUOUS );
+    if( fn_type != NULL ) {
+        generated_fn = buildTemplateFn( fn_type, sym, parm_scope, locn );
+        if( generated_fn != NULL ) {
+            return generated_fn;
+        }
     }
-    return( FNOV_NO_MATCH );
+    return NULL;
 }
 
 static void commonTemplateClass( TEMPLATE_DATA *data, PTREE id, SCOPE scope, char *name )
@@ -2268,9 +2194,9 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
             BindExplicitTemplateArguments( parm_scope, NULL );
 
             binding_handle = BindGenericTypes( parm_scope, spec_list,
-                                               parms, FALSE );
+                                               parms, FALSE, 0 );
             if( binding_handle ) {
-                ClearGenericBindings( binding_handle );
+                ClearGenericBindings( binding_handle, parm_scope->enclosing );
 
 #ifndef NDEBUG
                 if( PragDbgToggle.templ_spec && ( tinfo->nr_specs > 1 )) {
@@ -2791,7 +2717,9 @@ static void processFunctionTemplateInstantiations( void )
         RingIterBeg( allFunctionTemplates, curr_defn ) {
             RingIterBeg( curr_defn->instantiations, curr_inst ) {
 
-                if( ! curr_inst->processed ) {
+                if( ! curr_inst->processed
+                 && ( curr_inst->bound_sym->flag & SF_REFERENCED ) ) {
+
                     keep_going = TRUE;
                     curr_inst->processed = TRUE;
                     TemplateFunctionInstantiate( curr_defn, curr_inst );

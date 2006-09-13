@@ -1574,11 +1574,12 @@ extern boolean FunctionUsesAllTypes( SYMBOL, SCOPE, void (*)( SYMBOL ) );
 extern type_flag ExplicitModifierFlags( TYPE );
 
 extern TYPE CreateBoundType( TYPE unbound_type, TOKEN_LOCN *locn );
-extern void ClearGenericBindings( void *binding_handle );
+extern void ClearGenericBindings( void *binding_handle, SCOPE decl_scope );
 extern boolean BindExplicitTemplateArguments( SCOPE param_scope,
                                               PTREE templ_args );
 extern void *BindGenericTypes( SCOPE param_scope, PTREE parms, PTREE args,
-                               boolean is_function );
+                               boolean is_function,
+                               unsigned int explicit_args );
 
 arg_list* ArgListTempAlloc(     // ALLOCATE TEMPORARY ARG LIST
     TEMP_ARG_LIST* default_args,// - default args

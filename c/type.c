@@ -156,6 +156,7 @@ typedef struct {
     PSTK_CTL    without_generic;
     PSTK_CTL   *bindings;
     SCOPE       parm_scope;
+    unsigned    num_explicit;
 } type_bind_info;
 
 // masking
@@ -7500,11 +7501,12 @@ boolean FunctionUsesAllTypes( SYMBOL sym, SCOPE scope, void (*diag)( SYMBOL ) )
     return( markAllUnused( scope, diag ) );
 }
 
-void ClearGenericBindings( void *binding_handle )
+void ClearGenericBindings( void *binding_handle, SCOPE decl_scope )
 {
     PSTK_CTL *stk = (PSTK_CTL *) binding_handle;
     TYPE *top;
     TYPE bound_type;
+    SYMBOL stop, curr;
 
     DbgAssert( stk != NULL );
 
@@ -7528,7 +7530,23 @@ void ClearGenericBindings( void *binding_handle )
     }
 
     PstkClose( stk );
-    free( binding_handle );
+    CMemFree( binding_handle );
+
+    if( decl_scope != NULL ) {
+        stop = ScopeOrderedStart( decl_scope );
+        curr = NULL;
+        for(;;) {
+            curr = ScopeOrderedNext( stop, curr );
+            if( curr == NULL ) break;
+
+            if( curr->sym_type->id == TYP_TYPEDEF ) {
+                bound_type = curr->sym_type->of;
+                if( bound_type->id == TYP_GENERIC ) {
+                    bound_type->of = NULL;
+                }
+            }
+        }
+    }
 }
 
 boolean TypeBasesEqual( type_flag flags, void *base1, void *base2 )
@@ -7866,6 +7884,9 @@ static unsigned typesBind( type_bind_info *data )
         if( ( b_unmod_type->id != u_unmod_type->id )
          || ( u_unmod_type->id == TYP_GENERIC) ) {
             if( u_unmod_type->id != TYP_GENERIC ) {
+                if( flags.arg_1st_level ) {
+                    continue;
+                }
                 return( TB_NULL );
             }
             /* we don't want any extra mem-model flags */
@@ -7935,6 +7956,11 @@ static unsigned typesBind( type_bind_info *data )
             match = u_unmod_type->of;
             if( match != NULL ) {
                 /* generic type was bound; check the bound type */
+                if( flags.arg_1st_level
+                 && ( u_unmod_type->u.g.index <= data->num_explicit ) ) {
+                    /* but don't care if it was an explicit specification */
+                    continue;
+                }
                 t_unmod_type = TypeModExtract( match, &t_flags, &t_base,
                                                TC1_NOT_ENUM_CHAR );
                 if( ! TypeCompareExclude( b_unmod_type, t_unmod_type,
@@ -8295,13 +8321,14 @@ TYPE CreateBoundType( TYPE unbound_type, TOKEN_LOCN *locn )
     return( bound_type );
 }
 
-static void binderInit( type_bind_info *data )
+static void binderInit( type_bind_info *data, unsigned num_explicit )
 {
     PstkOpen( &(data->with_generic) );
     PstkOpen( &(data->without_generic) );
-    data->bindings = (PSTK_CTL *) malloc( sizeof( PSTK_CTL ) );
+    data->bindings = (PSTK_CTL *) CMemAlloc( sizeof( PSTK_CTL ) );
     PstkOpen( data->bindings );
     data->parm_scope = NULL;
+    data->num_explicit = num_explicit;
 }
 
 static void binderFini( type_bind_info *data )
@@ -8447,8 +8474,8 @@ boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
 }
 
 void *BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
-                        boolean is_function )
-/****************************************************************/
+                        boolean is_function, unsigned int explicit_args )
+/***********************************************************************/
 {
     SYMBOL curr, stop;
     unsigned bind_status;
@@ -8458,7 +8485,7 @@ void *BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
     // DbgAssert( parms->num_args == args->num_args );
     DbgAssert( parm_scope != NULL );
 
-    binderInit( &data );
+    binderInit( &data, explicit_args );
     data.parm_scope = parm_scope;
 
     pushPrototypeAndArguments( &data, parms, args,
@@ -8489,7 +8516,7 @@ void *BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
     }
 
     if( ! result ) {
-        ClearGenericBindings( data.bindings );
+        ClearGenericBindings( data.bindings, parm_scope->enclosing );
     }
 
     binderFini( &data );
