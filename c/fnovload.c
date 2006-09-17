@@ -537,7 +537,7 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
         SYMBOL result;
         TOKEN_LOCN *locn;
 
-        locn = NULL; // TODO: find a good location
+        locn = &sym->locn->tl;
         result = TemplateFunctionGenerate( sym, info->alist,
                                            info->templ_args, locn );
         if( result != NULL ) {
