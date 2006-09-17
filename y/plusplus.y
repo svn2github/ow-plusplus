@@ -2922,6 +2922,7 @@ typename-specifier
     : typename-special nested-name-specifier Y_TEMPLATE_SCOPED_TYPE_NAME
     {
         $$ = sendType( $3 );
+        PTreeFreeSubtrees( $2 );
     }
     | typename-special Y_SCOPED_TYPE_NAME
     {
@@ -3218,6 +3219,12 @@ brace-start
 
 typename-special
     : typename-special-init Y_TYPENAME
+    {
+        if( ! IsTemplateInstantiationActive() ) {
+            SetErrLoc( &yylp[2] );
+            CErr1( ERR_TYPENAME_OUTSIDE_TEMPLATE );
+        }
+    }
     ;
 
 typename-special-init

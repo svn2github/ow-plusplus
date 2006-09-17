@@ -165,6 +165,12 @@ static void popInstContext( void )
     StackPop( &(activeInstantiations.inst_stack) );
 }
 
+boolean IsTemplateInstantiationActive( void )
+/*******************************************/
+{
+    return templateData.curr_depth > 0;
+}
+
 static TYPE extractTemplateClass( TEMPLATE_CONTEXT *ctx )
 {
     SYMBOL sym;
@@ -1585,7 +1591,7 @@ static PTREE templateParmSimpleEnough( TYPE arg_type, PTREE parm )
             }
         } else if( MemberPtrType( arg_type ) != NULL ) {
             /* TODO: handle member function pointers */
-            DbgAssert( 0 );
+            CFatal( "not yet implemented" );
         }
         break;
     case PT_BINARY:

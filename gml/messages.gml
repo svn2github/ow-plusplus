@@ -11956,3 +11956,10 @@ type has no size and there are no values of
 .kw void
 type, one cannot destruct an instance of
 .kw void.
+
+:MSGSYM. ERR_TYPENAME_OUTSIDE_TEMPLATE
+:MSGTXT. 'typename' keyword used outside template
+:MSGJTXT.
+The
+.kw typename
+keyword is only allowed inside templates.

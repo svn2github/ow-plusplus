@@ -158,6 +158,7 @@ typedef enum tc_fn_control {
     TCF_NULL            = 0x00
 } tc_fn_control;
 
+extern boolean IsTemplateInstantiationActive( void );
 extern void TemplateDeclInit( TEMPLATE_DATA * );
 extern void TemplateDeclAddArgument( DECL_INFO *new_dinfo );
 extern void TemplateDeclFini( void );
@@ -170,7 +171,7 @@ extern boolean TemplateClassDefinition( PTREE, SCOPE, char * );
 extern TYPE TemplateClassInstantiation( PTREE, PTREE, tc_instantiate );
 extern void TemplateHandleClassMember( DECL_INFO * );
 extern void TemplateMemberAttachDefn( DECL_INFO * );
-extern void TemplateProcessInstantiations();
+extern void TemplateProcessInstantiations( void );
 extern boolean TemplateMemberCanBeIgnored( void );
 extern boolean TemplateVerifyDecl( SYMBOL );
 extern void TemplateSpecificDefnStart( PTREE, PTREE );
