@@ -92,6 +92,12 @@ TYPE SymClass(                  // GET TYPE FOR CLASS CONTAINING A SYMBOL
     SYMBOL sym )                // - the symbol
 {
     SCOPE scope;                // - SCOPE for "sym"
+    SYMBOL templ_sym;
+
+    templ_sym = SymIsFunctionTemplateInst( sym );
+    if( templ_sym != NULL ) {
+        sym = templ_sym;
+    }
 
     symGetScope( sym, scope );
     if( scope == NULL ) {
@@ -105,14 +111,14 @@ static SCOPE symClassScope(     // GET SCOPE FOR CLASS CONTAINING SYMBOL
     SYMBOL sym )
 {
     SCOPE scope;                // - SCOPE for "sym"
+    SYMBOL templ_sym;
+
+    templ_sym = SymIsFunctionTemplateInst( sym );
+    if( templ_sym != NULL ) {
+        sym = templ_sym;
+    }
 
     symGetScope( sym, scope );
-    if( scope && ScopeType( scope, SCOPE_TEMPLATE_INST ) ) {
-        scope = scope->enclosing;
-        if( scope && ScopeType( scope, SCOPE_TEMPLATE_PARM ) ) {
-            scope = scope->enclosing;
-        }
-    }
     if( scope && ScopeType( scope, SCOPE_CLASS ) ) {
         return( scope );
     }

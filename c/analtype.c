@@ -127,7 +127,13 @@ static TYPE getThisBaseType( SYMBOL sym )
         if( scope != NULL ) {
             if( ScopeType( scope, SCOPE_TEMPLATE_INST ) ) {
                 // skip the template function scopes
-                scope = scope->enclosing->enclosing;
+                scope = scope->enclosing;
+                if( ScopeType( scope, SCOPE_TEMPLATE_PARM ) ) {
+                    scope = scope->enclosing;
+                    if( ScopeType( scope, SCOPE_TEMPLATE_DECL ) ) {
+                        scope = scope->enclosing;
+                    }
+                }
             }
             class_type = ScopeClass( scope );
             if( class_type != NULL ) {

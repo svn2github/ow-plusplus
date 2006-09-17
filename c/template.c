@@ -1335,9 +1335,10 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     unsigned num_parms, num_args;
     int num_explicit;
 
+    num_args = ( args != NULL ) ? args->num_args : 0;
     fn_type = FunctionDeclarationType( fn_templ->sym_type );
     if( ( fn_type == NULL )
-     || ! TypeHasNumArgs( fn_type, args->num_args ) ) {
+     || ! TypeHasNumArgs( fn_type, num_args ) ) {
         return( NULL );
     }
 
@@ -1354,7 +1355,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     pparms = NodeReverseArgs( &num_parms, pparms );
 
     pargs = NULL;
-    for( i = 0; i < args->num_args; i++ ) {
+    for( i = 0; i < num_args; i++ ) {
         PTREE arg = PTreeType( args->type_list[i] );
         pargs = PTreeBinary( CO_LIST, pargs, arg );
     }
@@ -1424,20 +1425,26 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
     FN_TEMPLATE *fn_templ;
     FN_TEMPLATE_INST *fn_inst;
     symbol_flag new_flags;
+    symbol_class new_class;
 
     if( bound_type == NULL ) {
         return( NULL );
     }
     if( ScopeType( SymScope( sym ), SCOPE_CLASS ) ) {
         new_flags = ( sym->flag & SF_ACCESS );
+        new_class = SC_MEMBER;
     } else {
         new_flags = ( sym->flag & SF_PLUSPLUS );
+        new_class = SC_PUBLIC;
+    }
+    if( SymIsStatic( sym ) ) {
+        new_class = SC_STATIC;
     }
 
     inst_scope = ScopeCreate( SCOPE_TEMPLATE_INST );
     ScopeSetEnclosing( inst_scope, parm_scope );
     new_sym = SymCreateAtLocn( bound_type
-                             , SymIsStatic( sym ) ? SC_STATIC : SC_PUBLIC
+                             , new_class
                              , new_flags | SF_TEMPLATE_FN
                              , sym->name->name
                              , inst_scope
