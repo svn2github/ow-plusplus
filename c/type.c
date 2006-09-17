@@ -4256,8 +4256,13 @@ DECL_SPEC *PTypeClassInstantiation( TYPE typ, PTREE id )
 {
     DECL_SPEC *spec;
 
-    spec = PTypeActualTypeName( typ, id );
-    spec->class_instantiation = TRUE;
+    if( typ != NULL ) {
+        spec = PTypeActualTypeName( typ, id );
+        spec->class_instantiation = TRUE;
+    } else {
+        spec = NULL;
+    }
+    
     return( spec );
 }
 
