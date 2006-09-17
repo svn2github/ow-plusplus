@@ -1326,7 +1326,8 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     PTREE pparms, pargs;
     void *binding_handle;
     unsigned i;
-    unsigned num_parms, num_args, num_explicit;
+    unsigned num_parms, num_args;
+    int num_explicit;
 
     fn_type = FunctionDeclarationType( fn_templ->sym_type );
     if( fn_type == NULL || ! TypeHasNumArgs( fn_type, args->num_args ) ) {
@@ -1355,8 +1356,6 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
     ScopeSetEnclosing( parm_scope, decl_scope );
 
-    templ_args = NodeReverseArgs( &num_explicit, templ_args );
-
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
         VBUF vbuf1, vbuf2;
@@ -1371,7 +1370,8 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     }
 #endif
 
-    BindExplicitTemplateArguments( parm_scope, templ_args );
+    num_explicit = BindExplicitTemplateArguments( parm_scope, templ_args );
+    DbgAssert( num_explicit >= 0 );
 
     pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
@@ -1391,6 +1391,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     PTreeFreeSubtrees( pparms );
     PTreeFreeSubtrees( pargs );
+    PTreeFreeSubtrees( templ_args );
 
     popInstContext();
     return( bound_type );

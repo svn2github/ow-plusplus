@@ -2890,6 +2890,7 @@ template-typename-key
 template-id
     : Y_TEMPLATE_ID lt-special template-argument-list-opt Y_GT_SPECIAL
     {
+        $3 = NodeReverseArgs( NULL, $3 );
         $3->flags |= PTF_ALREADY_ANALYSED;
         $$ = PTreeBinary( CO_TEMPLATE, $1, $3 );
     }

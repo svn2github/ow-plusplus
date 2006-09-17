@@ -141,7 +141,9 @@ PTREE NodeReverseArgs(          // REVERSE CALL ARGUMENTS
          , last = arg
          , arg = right
        );
-    *arg_count = count;
+    if( arg_count != NULL ) {
+        *arg_count = count;
+    }
     return( last );
 }
 
@@ -936,8 +938,6 @@ PTREE AnalyseCall(              // ANALYSIS FOR CALL
                                    , templ_args
                                    , &fnov_diag );
         }
-        PTreeFreeSubtrees( templ_args );
-        templ_args = NULL;
 
         switch( ovret ) {
           case FNOV_AMBIGUOUS :
@@ -1070,9 +1070,6 @@ PTREE AnalyseCall(              // ANALYSIS FOR CALL
             SymMarkRefed( sym );
         }
     } else {
-        PTreeFreeSubtrees( templ_args );
-        templ_args = NULL;
-
         if( ! membptr_deref ) {
             /* i.e, p->foo() where foo is a pointer to a function */
             NodeFreeDupedExpr( this_node );

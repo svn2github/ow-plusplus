@@ -28,6 +28,7 @@ YYDRIVER: driver code to make use of YACC generated parser tables and support
 #include "codegen.h"
 #include "namspace.h"
 #include "memmgr.h"
+#include "cgfront.h"
 #ifndef NDEBUG
 #include "pragdefn.h"
 #endif

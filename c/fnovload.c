@@ -515,23 +515,6 @@ static boolean isSimpleCandidate( TYPE type, int num_args )
     return( FALSE );
 }
 
-static TOKEN_LOCN *extractAGoodLocn( FNOV_INFO* info )
-/****************************************************/
-{
-    TOKEN_LOCN *locn;
-    PTREE *plist;
-
-    plist = info->plist;
-    /* simple for now; but who knows? */
-    if( plist == NULL ) {
-        // NYI: what location do we give to a "return foo;" when there is
-        // more than one foo (currently a NULL locn because there are no args)
-        return( NULL );
-    }
-    locn = &((*plist)->locn);
-    return( locn );
-}
-
 static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
 /****************************************************************************/
 {
@@ -554,7 +537,7 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
         SYMBOL result;
         TOKEN_LOCN *locn;
 
-        locn = extractAGoodLocn( info );
+        locn = NULL; // TODO: find a good location
         result = TemplateFunctionGenerate( sym, info->alist,
                                            info->templ_args, locn );
         if( result != NULL ) {

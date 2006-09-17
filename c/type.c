@@ -8406,8 +8406,8 @@ static void injectTemplateParm( SCOPE scope, PTREE parm, char *name )
     }
 }
 
-boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
-/*************************************************************************/
+int BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
+/*********************************************************************/
 {
     SCOPE decl_scope;
     SYMBOL curr, stop;
@@ -8415,10 +8415,12 @@ boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
     PTREE parm;
     TYPE typ;
     char *name;
+    int num_explicit;
 
+    num_explicit = 0;
     decl_scope = parm_scope->enclosing;
     if( ( decl_scope == NULL ) && ( templ_args == NULL ) ) {
-        return TRUE;
+        return num_explicit;
     }
 
     node = templ_args;
@@ -8436,6 +8438,7 @@ boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
 
             // TODO: check template parameter type
             injectTemplateParm( parm_scope, parm, name );
+            num_explicit++;
 
             if( parm->op == PT_TYPE ) {
                 DbgAssert( curr->sym_type->id == TYP_TYPEDEF );
@@ -8467,10 +8470,10 @@ boolean BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
     }
 
     if( node != NULL ) {
-        return FALSE;
+        return -1;
     }
 
-    return TRUE;
+    return num_explicit;
 }
 
 void *BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
