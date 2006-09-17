@@ -1330,10 +1330,12 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     int num_explicit;
 
     fn_type = FunctionDeclarationType( fn_templ->sym_type );
-    if( fn_type == NULL || ! TypeHasNumArgs( fn_type, args->num_args ) ) {
+    if( ( fn_type == NULL )
+     || ! TypeHasNumArgs( fn_type, args->num_args ) ) {
         return( NULL );
     }
 
+    bound_type = NULL;
     decl_scope = fn_templ->u.defn->decl_scope;
     parms = fn_type->u.f.args;
 
@@ -1371,29 +1373,40 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 #endif
 
     num_explicit = BindExplicitTemplateArguments( parm_scope, templ_args );
-    DbgAssert( num_explicit >= 0 );
+    if( num_explicit >= 0 ) {
+        pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
-    pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
-
-    binding_handle = BindGenericTypes( parm_scope, pparms, pargs, TRUE,
-                                       num_explicit );
-    if( binding_handle ) {
-        bound_type = CreateBoundType( fn_templ->sym_type, locn );
-        ClearGenericBindings( binding_handle, parm_scope->enclosing );
-        *templ_parm_scope = parm_scope;
-    } else {
-        if( PragDbgToggle.templ_function ) {
-            printf( "attemptGen: BindGenericTypes failed\n");
+        binding_handle = BindGenericTypes( parm_scope, pparms, pargs, TRUE,
+                                           num_explicit );
+        if( binding_handle ) {
+            bound_type = CreateBoundType( fn_templ->sym_type, locn );
+            ClearGenericBindings( binding_handle, parm_scope->enclosing );
+            *templ_parm_scope = parm_scope;
+        } else {
+#ifndef NDEBUG
+            if( PragDbgToggle.templ_function ) {
+                printf( "attemptGen: BindGenericTypes failed\n" );
+            }
+#endif
         }
+
+        popInstContext();
+    } else {
+#ifndef NDEBUG
+        if( PragDbgToggle.templ_function ) {
+            printf( "attemptGen: BindExplicitTemplateArguments failed\n" );
+        }
+#endif
+    }
+
+    if( bound_type == NULL ) {
         ScopeBurn( parm_scope );
-        bound_type = NULL;
     }
 
     PTreeFreeSubtrees( pparms );
     PTreeFreeSubtrees( pargs );
     PTreeFreeSubtrees( templ_args );
 
-    popInstContext();
     return( bound_type );
 }
 

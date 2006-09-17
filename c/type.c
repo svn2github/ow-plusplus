@@ -8416,8 +8416,10 @@ int BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
     TYPE typ;
     char *name;
     int num_explicit;
+    boolean something_went_wrong;
 
     num_explicit = 0;
+    something_went_wrong = FALSE;
     decl_scope = parm_scope->enclosing;
     if( ( decl_scope == NULL ) && ( templ_args == NULL ) ) {
         return num_explicit;
@@ -8434,22 +8436,36 @@ int BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
 
         name = curr->name->name;
         if( ( node != NULL ) && ( node->u.subtree[1] != NULL ) ) {
+            // inject an explicitly specified parameter
             parm = node->u.subtree[1];
+
+            if( parm->op == PT_TYPE ) {
+                // type parameter
+                if( ( curr->sym_type->id != TYP_TYPEDEF )
+                 || ( curr->sym_type->of->id != TYP_GENERIC ) ) {
+                    something_went_wrong = TRUE;
+                    break;
+                }
+                
+                typ = parm->type;
+                curr->sym_type->of->of = typ;
+            } else if( parm->op == PT_INT_CONSTANT ) {
+                // non-type parameter (integral constant)
+                if( ! IntegralType( curr->sym_type ) ) {
+                    something_went_wrong = TRUE;
+                    break;
+                }
+            } else if( parm->op == PT_SYMBOL ) {
+                // non-type parameter (symbol)
+            }
 
             // TODO: check template parameter type
             injectTemplateParm( parm_scope, parm, name );
             num_explicit++;
 
-            if( parm->op == PT_TYPE ) {
-                DbgAssert( curr->sym_type->id == TYP_TYPEDEF );
-                DbgAssert( curr->sym_type->of->id == TYP_GENERIC );
-
-                typ = parm->type;
-                curr->sym_type->of->of = typ;
-            }
-
             node = node->u.subtree[0];
         } else {
+            // no more explicit parameters
             if( name == NULL ) {
                 name = NameDummy();
             }
@@ -8462,14 +8478,14 @@ int BindExplicitTemplateArguments( SCOPE parm_scope, PTREE templ_args )
                              templateArgSym( SC_NULL, typ ),
                              name );
             } else {
-                DbgAssert( 0 );
+                CFatal( "not yet implemented" );
             }
 
             node = NULL;
         }
     }
 
-    if( node != NULL ) {
+    if( something_went_wrong || ( node != NULL ) ) {
         return -1;
     }
 
