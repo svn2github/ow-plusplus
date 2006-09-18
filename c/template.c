@@ -2736,25 +2736,20 @@ static void processFunctionTemplateInstantiations( void )
 {
     FN_TEMPLATE *curr_defn;
     FN_TEMPLATE_INST *curr_inst;
-    boolean keep_going;
 
-    do {
-        keep_going = FALSE;
+    RingIterBeg( allFunctionTemplates, curr_defn ) {
+        RingIterBeg( curr_defn->instantiations, curr_inst ) {
 
-        RingIterBeg( allFunctionTemplates, curr_defn ) {
-            RingIterBeg( curr_defn->instantiations, curr_inst ) {
+            if( ! curr_inst->processed
+             && ( curr_inst->bound_sym->flag & SF_REFERENCED ) ) {
 
-                if( ! curr_inst->processed
-                 && ( curr_inst->bound_sym->flag & SF_REFERENCED ) ) {
+                templateData.keep_going = TRUE;
+                curr_inst->processed = TRUE;
+                TemplateFunctionInstantiate( curr_defn, curr_inst );
+            }
 
-                    keep_going = TRUE;
-                    curr_inst->processed = TRUE;
-                    TemplateFunctionInstantiate( curr_defn, curr_inst );
-                }
-
-            } RingIterEnd( curr_inst )
-        } RingIterEnd( curr_defn )
-    } while( keep_going );
+        } RingIterEnd( curr_inst )
+    } RingIterEnd( curr_defn )
 }
 
 static void freeDefns( void )
@@ -2806,31 +2801,6 @@ static void freeDefns( void )
         curr_fn->defn = NULL;
         RewriteFree( r );
     } RingIterEnd( curr_fn )
-}
-
-static void initLastSym( NAME_SPACE *ns, void *data )
-{
-    data = data;
-    DbgAssert( data == NULL );
-    ns->last_sym = ScopeOrderedLast( ns->scope );
-}
-
-static void finishUpNameSpace( NAME_SPACE *ns, void *data )
-{
-    SYMBOL last_sym;
-    SYMBOL curr_last;
-
-    data = data;
-    DbgAssert( data == NULL );
-    last_sym = ns->last_sym;
-    curr_last = ScopeOrderedLast( ns->scope );
-    if( curr_last != last_sym ) {
-        // could generate more symbols by processing these ones
-        //processNewFileSyms( ns, last_sym, curr_last );
-        // ScopeOrderedLast( ns->scope ) may different than 'curr_last'
-        ns->last_sym = curr_last;
-        templateData.keep_going = TRUE;
-    }
 }
 
 static void processInstantiationInlines( CLASS_INST *instance )
@@ -2947,16 +2917,15 @@ void TemplateProcessInstantiations( void )
     TOKEN_LOCN *locn;
     auto TEMPLATE_CONTEXT context;
 
-    /* NYI: only define extra members that are required */
-    ScopeWalkAllNameSpaces( initLastSym, NULL );
-    // instantiate any template functions (first pass)
-    processFunctionTemplateInstantiations();
     for(;;) {
         verifyOKToProceed( NULL );
 
         CtxSetContext( CTX_FUNC_GEN );
         templateData.keep_going = ClassDefineRefdDefaults();
         CtxSetContext( CTX_SOURCE );
+
+        // instantiate any template functions
+        processFunctionTemplateInstantiations();
 
         // instantiate extra class members
         templateData.extra_members = TRUE;
@@ -2998,8 +2967,6 @@ void TemplateProcessInstantiations( void )
             } RingIterEnd( tspec )
         } RingIterEnd( curr_tinfo )
         templateData.extra_members = FALSE;
-        // instantiate any template functions (delta from previous pass)
-        ScopeWalkAllNameSpaces( finishUpNameSpace, NULL );
         if( ! templateData.keep_going ) break;
     }
     templateData.extra_members = FALSE;

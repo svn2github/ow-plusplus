@@ -753,7 +753,6 @@ static SCOPE makeFileScope( fs_control control, SYMBOL sym )
     ns = CarveAlloc( carveNAME_SPACE );
     ns->sym = sym;
     ns->scope = scope;
-    ns->last_sym = NULL;
     ns->all = allNameSpaces;
     ns->global_fs = FALSE;
     ns->free = FALSE;
@@ -7316,7 +7315,6 @@ static void saveNameSpace( void *e, carve_walk_base *d )
     ns->scope = ScopeGetIndex( save_scope );
     save_all = ns->all;
     ns->all = NameSpaceGetIndex( save_all );
-    DbgAssert( ns->last_sym == NULL );
     PCHWriteCVIndex( d->index );
     PCHWrite( ns, sizeof( *ns ) );
     ns->sym = save_sym;
@@ -7702,8 +7700,6 @@ static void readNameSpaces( void )
         ns->sym = SymbolMapIndex( pch->sym );
         ns->scope = ScopeMapIndex( pch->scope );
         ns->all = NameSpaceMapIndex( pch->all );
-        DbgAssert( pch->last_sym == NULL );
-        ns->last_sym = NULL;
         ns->flags = pch->flags;
     }
 }

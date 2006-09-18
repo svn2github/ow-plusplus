@@ -827,7 +827,6 @@ PCH_struct sym_region {                 // list of symbols from same SYMBOL_NAME
 PCH_struct name_space {
     SYMBOL              sym;            // - sym of namespace
     SCOPE               scope;          // - scope of namespace
-    SYMBOL              last_sym;       // - scope's last sym (see TEMPLATE.C)
     NAME_SPACE          *all;           // - link together all namespaces
     union {
         unsigned flags;
