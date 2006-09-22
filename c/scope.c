@@ -287,6 +287,7 @@ struct qualify_stack {
     QUALIFICATION       *next;
     SCOPE               reset;
     SCOPE               access;
+    SCOPE               enclosing;
 };
 
 SCOPE g_CurrScope;
@@ -1855,20 +1856,11 @@ boolean ScopeType( SCOPE scope, scope_type_t scope_type )
 boolean ScopeEquivalent( SCOPE scope, scope_type_t scope_type )
 /*************************************************************/
 {
-    boolean status;
+    if( scope_type == SCOPE_FILE ) {
+        scope = ScopeNearestNonTemplate( scope );
+    }
 
-    status = ScopeType( scope, scope_type );
-    if( status ) {
-        return( status );
-    }
-    switch( scope_type ) {
-    case SCOPE_FILE:
-        if( scope->id == SCOPE_TEMPLATE_INST ) {
-            return( TRUE );
-        }
-        break;
-    }
-    return( FALSE );
+    return( ScopeType( scope, scope_type ) );
 }
 
 char *ScopeUnnamedNamespaceName( TOKEN_LOCN *locn )
@@ -6709,9 +6701,16 @@ void ScopeQualifyPush( SCOPE scope, SCOPE access )
     QUALIFICATION *qual;
 
     qual = CarveAlloc( carveQUALIFICATION );
-    qual->reset = GetCurrScope();
     qual->access = access;
-    SetCurrScope(scope);
+    qual->reset = GetCurrScope();
+    if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) ) {
+        // need to keep the TEMPLATE_DECL scope at the top
+        qual->enclosing = GetCurrScope()->enclosing;
+        ScopeSetEnclosing( GetCurrScope(), scope );
+    } else {
+        qual->enclosing = NULL;
+        SetCurrScope(scope);
+    }
     ParsePushQualification( qual );
 }
 
@@ -6724,7 +6723,10 @@ SCOPE ScopeQualifyPop( void )
     scope_popped = GetCurrScope();
     qual = ParsePopQualification();
     if( qual != NULL ) {
-        SetCurrScope(qual->reset);
+        if( qual->enclosing != NULL ) {
+            ScopeSetEnclosing( qual->reset, qual->enclosing );
+        }
+        SetCurrScope( qual->reset );
         CarveFree( carveQUALIFICATION, qual );
     }
     return( scope_popped );
@@ -6736,6 +6738,22 @@ SCOPE ScopeEnclosingId( SCOPE scope, scope_type_t id )
     for(;;) {
         if( scope == NULL ) break;
         if( scope->id == id ) break;
+        scope = scope->enclosing;
+    }
+    return( scope );
+}
+
+SCOPE ScopeNearestNonTemplate( SCOPE scope )
+/******************************************/
+{
+    for(;;) {
+        if( scope == NULL ) break;
+        if( ( scope->id != SCOPE_TEMPLATE_DECL )
+         && ( scope->id != SCOPE_TEMPLATE_INST )
+         && ( scope->id != SCOPE_TEMPLATE_PARM )
+         && ( scope->id != SCOPE_TEMPLATE_SPEC_PARM ) ) {
+            break;
+        }
         scope = scope->enclosing;
     }
     return( scope );

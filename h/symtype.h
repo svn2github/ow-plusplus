@@ -1243,6 +1243,7 @@ extern SYMBOL ScopeOrderedNext( SYMBOL, SYMBOL );
 extern SYMBOL ScopeOrderedFirst( SCOPE );
 extern SYMBOL ScopeOrderedLast( SCOPE );
 extern SCOPE ScopeEnclosingId( SCOPE, scope_type_t );
+extern SCOPE ScopeNearestNonTemplate( SCOPE );
 extern SCOPE ScopeNearestNonClass( SCOPE );
 extern SCOPE ScopeNearestFile( SCOPE );
 extern SCOPE ScopeNearestFileOrClass( SCOPE );

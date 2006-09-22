@@ -1443,6 +1443,7 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
 
     inst_scope = ScopeCreate( SCOPE_TEMPLATE_INST );
     ScopeSetEnclosing( inst_scope, parm_scope );
+    ScopeSetEnclosing( parm_scope, SymScope( sym ) );
     new_sym = SymCreateAtLocn( bound_type
                              , new_class
                              , new_flags | SF_TEMPLATE_FN

@@ -5367,7 +5367,7 @@ static PTREE verifyQualifiedId( DECL_SPEC *dspec, PTREE id, SCOPE *scope,
         }
         if( ! ScopeEquivalent( GetCurrScope(), SCOPE_FILE ) ) {
             flag.not_OK = TRUE;
-            class_type = ScopeClass( GetCurrScope() );
+            class_type = ScopeClass( ScopeNearestNonTemplate( GetCurrScope() ) );
             if( class_type != NULL ) {
                 /* we're in a class scope */
                 if( dspec->specifier & STY_FRIEND ) {
@@ -6501,10 +6501,9 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
                 if( check_sym != NULL && check_sym->id == SC_DEFAULT ) {
                     CErr2p( ERR_NOT_A_MEMBER, sym );
                 }
-                if( ! ScopeEnclosed( GetCurrScope(), scope ) ) {
-                    if( ScopeEnclosingId( scope, SCOPE_TEMPLATE_INST ) == NULL ) {
-                        CErr1( ERR_CURRSCOPE_DOESNT_ENCLOSE );
-                    }
+                if( ! ScopeEnclosed( ScopeNearestNonTemplate( GetCurrScope() ),
+                                     scope ) ) {
+                    CErr1( ERR_CURRSCOPE_DOESNT_ENCLOSE );
                 }
             }
         }
