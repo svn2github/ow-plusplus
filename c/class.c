@@ -3252,7 +3252,7 @@ static boolean verifyMemberInit( PTREE id, SCOPE scope )
     SYMBOL sym;
 
     name = id->u.id.name;
-    result = ScopeContainsMember( scope, name );
+    result = ScopeContainsMember( ScopeNearestNonTemplate( scope ), name );
     if( result == NULL ) {
         CErr2p( ERR_NOT_MEMBER_MEMBER_INIT, name );
         return( TRUE );

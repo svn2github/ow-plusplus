@@ -2392,7 +2392,7 @@ void CtorPrologue(              // GENERATE PROLOGUE FOR CTOR
     if( SymClassCorrupted( ctor ) ) {
         return;
     }
-    scope = SymScope( ctor );
+    scope = ScopeNearestNonTemplate( SymScope( ctor ) );
     initCtorPrologue( &data, mem_init, scope );
     class_type = ScopeClass( scope );
     if( TypeReallyDtorable( class_type ) ) {
