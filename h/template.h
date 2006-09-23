@@ -89,6 +89,7 @@ PCH_struct class_inst {
 typedef struct template_member TEMPLATE_MEMBER; // class template member
 PCH_struct template_member {
     TEMPLATE_MEMBER     *next;          // (ring)
+    SCOPE               scope;          // scope for member definition
     REWRITE             *defn;          // member definition
     char                **arg_names;    // argument names
 };

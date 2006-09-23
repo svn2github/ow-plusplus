@@ -5365,8 +5365,7 @@ static PTREE verifyQualifiedId( DECL_SPEC *dspec, PTREE id, SCOPE *scope,
             *pinfo |= IDI_CLASS_TEMPLATE_MEMBER;
             return( id );
         }
-        if( ! ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST )
-         && ! ScopeEquivalent( GetCurrScope(), SCOPE_FILE ) ) {
+        if( ! ScopeEquivalent( GetCurrScope(), SCOPE_FILE ) ) {
             flag.not_OK = TRUE;
             class_type = ScopeClass( ScopeNearestNonTemplate( GetCurrScope() ) );
             if( class_type != NULL ) {

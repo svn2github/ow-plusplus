@@ -1038,6 +1038,7 @@ static void addMemberEntry( TEMPLATE_SPECIALIZATION *tspec, REWRITE *r,
 
     extra_defn = RingCarveAlloc( carveTEMPLATE_MEMBER
                                , &(tspec->member_defns) );
+    extra_defn->scope = GetCurrScope();
     extra_defn->defn = r;
     extra_defn->arg_names = arg_names;
 }
@@ -2535,24 +2536,6 @@ void TemplateHandleClassMember( DECL_INFO *dinfo )
     FreeDeclInfo( dinfo );
 }
 
-static boolean sameParmArgNames( SCOPE parm_scope, char **arg_names )
-{
-    SYMBOL curr;
-    SYMBOL stop;
-
-    curr = NULL;
-    stop = ScopeOrderedStart( parm_scope );
-    for(;;) {
-        curr = ScopeOrderedNext( stop, curr );
-        if( curr == NULL ) break;
-        if( curr->name->name != *arg_names ) {
-            return( FALSE );
-        }
-        ++arg_names;
-    }
-    return( TRUE );
-}
-
 void TemplateMemberAttachDefn( DECL_INFO *dinfo )
 {
     CLASS_INST *instance;
@@ -2580,9 +2563,7 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
                                TEMPLATE_MEMBER *member )
 {
     SCOPE save_scope;
-    SCOPE file_scope;
     SCOPE inst_scope;
-    SCOPE class_inst_scope;
     SCOPE class_parm_scope;
     SCOPE save_parm_enclosing;
     SCOPE parm_scope;
@@ -2592,41 +2573,34 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
 
     save_scope = GetCurrScope();
     save_parm_enclosing = NULL;
-    class_inst_scope = instance->scope;
-    class_parm_scope = class_inst_scope->enclosing;
+    class_parm_scope = instance->scope->enclosing;
     member_arg_names = member->arg_names;
-    if( tspec->arg_names != member_arg_names ||
-        ! sameParmArgNames( class_parm_scope, member_arg_names ) ) {
-        file_scope = SymScope( tinfo->sym );
 
-        if( ScopeType( class_parm_scope, SCOPE_TEMPLATE_SPEC_PARM ) ) {
-            save_parm_enclosing =
-                ScopeSetEnclosing( class_parm_scope->enclosing, file_scope );
-            SetCurrScope( class_parm_scope->enclosing );
-        } else {
-            SetCurrScope( file_scope );
-        }
-        parm_scope = ScopeBegin( ScopeId( class_parm_scope ) );
-        copyWithNewNames( class_parm_scope, member_arg_names );
-        if( ScopeType( parm_scope, SCOPE_TEMPLATE_PARM ) ) {
-            ScopeSetParmClass( parm_scope, tinfo );
-        }
-        ScopeEstablishEnclosing( class_inst_scope, parm_scope );
+    if( ScopeType( class_parm_scope, SCOPE_TEMPLATE_SPEC_PARM ) ) {
+        save_parm_enclosing =
+            ScopeSetEnclosing( class_parm_scope->enclosing,
+                               member->scope );
+        SetCurrScope( class_parm_scope->enclosing );
     } else {
-        /* template instantiation parms are identical to class instantiation */
-        parm_scope = class_parm_scope;
-        SetCurrScope( parm_scope );
+        SetCurrScope( member->scope );
     }
+    parm_scope = ScopeBegin( ScopeId( class_parm_scope ) );
+    copyWithNewNames( class_parm_scope, member_arg_names );
+    if( ScopeType( parm_scope, SCOPE_TEMPLATE_PARM ) ) {
+        ScopeSetParmClass( parm_scope, tinfo );
+    }
+
     inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
     inst_scope->owner.inst = instance;
     locn = NULL;
     if( instance->locn_set ) {
         locn = &(instance->locn);
     }
+
     pushInstContext( &context, TCTX_MEMBER_DEFN, locn, NULL );
     ParseClassMemberInstantiation( member->defn );
     popInstContext();
-    ScopeSetEnclosing( class_inst_scope, class_parm_scope );
+
     if( save_parm_enclosing != NULL ) {
         ScopeSetEnclosing( class_parm_scope->enclosing, save_parm_enclosing );
     }
