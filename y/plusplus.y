@@ -775,7 +775,6 @@ postfix-expression-before-dot
     {
         PTREE AnalyseNode( PTREE );
         boolean AnalyseLvalue( PTREE * );
-        void DumpPTree( PTREE );
 
         $1 = PTreeTraversePostfix( $1, &AnalyseNode );
         if( ! ( $1->flags & PTF_LV_CHECKED ) ) {
@@ -786,12 +785,6 @@ postfix-expression-before-dot
             TYPE cls = TypedefModifierRemove( $1->type );
             if( cls->id == TYP_CLASS ) {
                 setTypeMember( state, cls->u.c.scope );
-            } else {
-                // TODO
-                printf("%s:%d\n", __FILE__, __LINE__);
-#ifndef NDEBUG
-                DumpPTree( $1 );
-#endif
             }
         }
         $$ = PTreeBinary( CO_DOT, $1, NULL );
@@ -803,8 +796,8 @@ postfix-expression-before-arrow
     : postfix-expression
     {
         PTREE AnalyseNode( PTREE );
+        boolean AnalyseLvalue( PTREE * );
         PTREE OverloadOperator( PTREE );
-        void DumpPTree( PTREE );
 
         $1 = PTreeTraversePostfix( $1, &AnalyseNode );
         if( ! ( $1->flags & PTF_LV_CHECKED ) ) {
@@ -820,16 +813,7 @@ postfix-expression-before-arrow
                 cls = TypedefModifierRemove( cls->of );
                 if( cls->id == TYP_CLASS ) {
                     setTypeMember( state, cls->u.c.scope );
-                } else {
-                    // TODO
-                    //DumpPTree( $$ );
                 }
-            } else {
-                // TODO
-                printf("%s:%d\n", __FILE__, __LINE__);
-#ifndef NDEBUG
-                DumpPTree( $$ );
-#endif
             }
         }
     }
@@ -1513,9 +1497,9 @@ enumerator
 elaborated-type-specifier
     : class-key elaborated-type-name
     {
+        ClassName( $2, CLASS_REFERENCE );
         $$ = ClassRefDef();
         GStackPop( &(state->gstack) );
-        PTreeFreeSubtrees( $2 );
     }
     | Y_ENUM make-id
     {
@@ -3201,7 +3185,11 @@ basic-type-specifier
     ;
 
 elaborated-type-name
-    : Y_GLOBAL_TYPE_NAME
+    : Y_GLOBAL_ID
+    | Y_GLOBAL_TEMPLATE_ID
+    | Y_GLOBAL_TYPE_NAME
+    | Y_SCOPED_ID
+    | Y_SCOPED_TEMPLATE_ID
     | Y_SCOPED_TYPE_NAME
     ;
 
