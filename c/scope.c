@@ -299,6 +299,7 @@ SYMBOL PCHDebugSym;
 
 static char bool_zapped_char;
 static char static_assert_zapped_char;
+static char decltype_zapped_char;
 
 extern SCOPE    GetCurrScope(void)
 {
@@ -795,6 +796,7 @@ static void scopeInit(          // SCOPES INITIALIZATION
     defn = defn;
     DbgStmt( bool_zapped_char = '\0' );
     DbgStmt( static_assert_zapped_char = '\0' );
+    DbgStmt( decltype_zapped_char = '\0' );
     PCHActivate();
     carveSYM_REGION = CarveCreate( sizeof( SYM_REGION ), BLOCK_SYM_REGION );
     carveUSING_NS = CarveCreate( sizeof( USING_NS ), BLOCK_USING_NS );
@@ -836,6 +838,7 @@ static void scopeInit(          // SCOPES INITIALIZATION
     injectBool();
     if( ! CompFlags.enable_std0x ) {
         static_assert_zapped_char = KwDisable( T_STATIC_ASSERT );
+        decltype_zapped_char = KwDisable( T_DECLTYPE );
     }
     ExtraRptRegisterCtr( &syms_defined, "symbols defined" );
     ExtraRptRegisterCtr( &scopes_alloced, "scopes allocated" );

@@ -283,6 +283,7 @@ Modified        By              Reason
 %token Y_PURE_FUNCTION_SPECIAL
 
 /*** special function names ***/
+%token Y_DECLTYPE
 %token Y___OFFSETOF
 %token Y___TYPEOF
 %token Y___BUILTIN_ISFLOAT
@@ -1416,8 +1417,6 @@ type-specifier
     | elaborated-type-specifier
     | typename-specifier
     /* cv-qualifier */
-    /* extension */
-    | typeof-specifier
     ;
 
 simple-type-specifier
@@ -1425,6 +1424,11 @@ simple-type-specifier
     { $$ = sendType( $1 ); }
     | qualified-type-specifier
     | basic-type-specifier
+    /* see N1978 -- Decltype (Revision 5) */
+    | Y_DECLTYPE Y_LEFT_PAREN expression Y_RIGHT_PAREN
+    { $$ = PTypeExpr( $3 ); }
+    /* extension */
+    | typeof-specifier
     ;
 
 /* non-standard */
