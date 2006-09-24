@@ -11963,3 +11963,28 @@ type, one cannot destruct an instance of
 The
 .kw typename
 keyword is only allowed inside templates.
+
+:MSGSYM. ERR_DECL_DEFAULT_INT
+:MSGTXT. declaration of '%N' with no type
+:MSGJTXT.
+:errbad.
+auto T;
+:eerrbad.
+
+:MSGSYM. ERR_FUNCTION_BAD_RETURN
+:MSGTXT. '%N' does not have a return type specified
+:MSGJTXT.
+In C++, functions must have an explicit return type specified,
+default int type is no longer assumed.
+:errbad.
+f ();
+:eerrbad.
+
+:MSGSYM. ERR_MAIN_MUST_RETURN_INT
+:MSGTXT. 'main' must return 'int'
+:MSGJTXT.
+The "main" function shall have a return type of type int.
+:errbad.
+void main()
+{ }
+:eerrbad.

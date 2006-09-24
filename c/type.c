@@ -3174,9 +3174,6 @@ static void checkOperator( TYPE return_type, int status, char *name )
     if( status & SM_NOT_A_FUNCTION ) {
         CErr2p( ERR_OPERATOR_BAD_DECL, name );
     }
-    if( return_type == TypeGetCache( TYPC_DEFAULT_INT ) ) {
-        CErr2p( WARN_OPERATOR_BAD_RETURN, name );
-    }
 }
 
 static void checkUsefulParms( int status, DECL_INFO *dinfo )
@@ -4383,16 +4380,11 @@ TYPE MakePragmaModifier( AUX_INFO *pragma )
 TYPE DefaultIntType( TYPE type )
 /******************************/
 {
+    TypeStrip( type, ( 1 << TYP_MODIFIER ) );
     if( type == TypeGetCache( TYPC_DEFAULT_INT ) ) {
         return( type );
     }
-    if( type->id != TYP_SINT ) {
-        return( NULL );
-    }
-    if(( type->flag & TF1_DEFAULT ) == 0 ) {
-        return( NULL );
-    }
-    return( type );
+    return( NULL );
 }
 
 TYPE CleanIntType( TYPE type )
@@ -6476,11 +6468,7 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
     boolean is_redefined;
     boolean is_block_sym;
 
-    scope = insert_scope;
-    if( ScopeType( scope, SCOPE_TEMPLATE_DECL )
-     || ScopeType( scope, SCOPE_TEMPLATE_INST ) ) {
-        scope = ScopeNearestFileOrClass( scope );
-    }
+    scope = ScopeNearestNonTemplate( insert_scope );
     verifySpecialFunction( scope, dinfo );
     complainAboutMemInit( dinfo );
     sym = dinfo->sym;
