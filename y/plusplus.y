@@ -578,6 +578,9 @@ goal-symbol
     }
     | /* nothing */
     {
+        if( CurToken != T_EOF ) {
+            CErr1( ERR_SYNTAX );
+        }
         what = P_DIAGNOSED;
     }
     ;
