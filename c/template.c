@@ -50,6 +50,7 @@
 #include "pragdefn.h"
 #include "dbg.h"
 #include "fmttype.h"
+#include "fmtsym.h"
 #endif
 
 #define BLOCK_TEMPLATE_INFO     16
@@ -1374,9 +1375,13 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         FormatPTreeList( pargs, &vbuf2 );
         printf( "attemptGen for %s<%s>(%s)\n",
                 fn_templ->name->name, vbuf1.buf, vbuf2.buf );
-        DumpFullType( fn_type );
         VbufFree( &vbuf1 );
         VbufFree( &vbuf2 );
+        FormatSym( fn_templ, &vbuf1 );
+        printf( "  symbol: %s ", vbuf1.buf );
+        DbgDumpTokenLocn( fn_templ->locn );
+        printf( "\n" );
+        VbufFree( &vbuf1 );
     }
 #endif
 
@@ -1480,8 +1485,14 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
 
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
-        printf( "TemplateFunctionGenerate for\n" );
-        DumpFullType( fn_type );
+        VBUF vbuf1, vbuf2, vbuf3;
+        FormatType( fn_type, &vbuf1, &vbuf2 );
+        FormatTemplateParmScope( &vbuf3, parm_scope );
+        printf( "TemplateFunctionGenerate: %s%s%s%s\n",
+                vbuf1.buf, sym->name->name, vbuf3.buf, vbuf2.buf );
+        VbufFree( &vbuf1 );
+        VbufFree( &vbuf2 );
+        VbufFree( &vbuf3 );
     }
 #endif
     if( fn_type != NULL ) {
@@ -2730,6 +2741,25 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     SetCurrScope( fn_inst->inst_scope );
     DbgAssert( parm_scope->enclosing == SymScope( fn_sym ) );
     ScopeSetParmFn( parm_scope, fn_sym->u.defn );
+
+#ifndef NDEBUG
+    if( PragDbgToggle.templ_function ) {
+        VBUF vbuf1, vbuf2, vbuf3;
+        FormatType( bound_sym->sym_type, &vbuf1, &vbuf2 );
+        FormatTemplateParmScope( &vbuf3, parm_scope );
+        printf( "TemplateFunctionInstantiate: %s%s%s%s\n",
+                vbuf1.buf, fn_sym->name->name, vbuf3.buf, vbuf2.buf );
+        VbufFree( &vbuf1 );
+        VbufFree( &vbuf2 );
+        VbufFree( &vbuf3 );
+
+        FormatSym( fn_sym, &vbuf1 );
+        printf( "  symbol: %s ", vbuf1.buf );
+        DbgDumpTokenLocn( fn_sym->locn );
+        printf( "\n" );
+        VbufFree( &vbuf1 );
+    }
+#endif
 
     bound_sym->flag |= SF_TEMPLATE_FN;
     bound_sym->u.alias = fn_sym;
