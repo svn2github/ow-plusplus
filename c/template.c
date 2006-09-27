@@ -2554,6 +2554,24 @@ void TemplateMemberAttachDefn( DECL_INFO *dinfo )
     member->class_parm_enclosing = member->class_parm_scope->enclosing;
 }
 
+static boolean sameParmArgNames( SCOPE parm_scope, char **arg_names )
+{
+    SYMBOL curr;
+    SYMBOL stop;
+
+    curr = NULL;
+    stop = ScopeOrderedStart( parm_scope );
+    for(;;) {
+        curr = ScopeOrderedNext( stop, curr );
+        if( curr == NULL ) break;
+        if( curr->name->name != *arg_names ) {
+            return( FALSE );
+        }
+        ++arg_names;
+    }
+    return( TRUE );
+}
+
 /*
  * real instantiation of the template member takes place in
  * TemplateProcessInstantiations (but only if the symbol has been
@@ -2578,18 +2596,34 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
     class_parm_scope = instance->scope->enclosing;
     member_arg_names = member->arg_names;
 
-    if( ScopeType( class_parm_scope, SCOPE_TEMPLATE_SPEC_PARM ) ) {
-        save_parm_enclosing =
-            ScopeSetEnclosing( class_parm_scope->enclosing,
-                               member->scope );
-        SetCurrScope( class_parm_scope->enclosing );
+    DbgAssert( ScopeType( class_parm_scope, SCOPE_TEMPLATE_SPEC_PARM )
+            || ScopeType( class_parm_scope, SCOPE_TEMPLATE_PARM ) );
+
+    // we might be able to re-use the classes template-parm scope in
+    // some cases
+    if( ( ScopeType( class_parm_scope, SCOPE_TEMPLATE_SPEC_PARM )
+       && ( class_parm_scope->enclosing->enclosing != member->scope ) )
+     || ( ScopeType( class_parm_scope, SCOPE_TEMPLATE_PARM )
+       && ( class_parm_scope->enclosing != member->scope ) )
+     || ( tspec->arg_names != member_arg_names )
+     || ! sameParmArgNames( class_parm_scope, member_arg_names ) ) {
+        if( ScopeType( class_parm_scope, SCOPE_TEMPLATE_SPEC_PARM ) ) {
+            save_parm_enclosing =
+                ScopeSetEnclosing( class_parm_scope->enclosing,
+                                   member->scope );
+            SetCurrScope( class_parm_scope->enclosing );
+        } else {
+            SetCurrScope( member->scope );
+        }
+        parm_scope = ScopeBegin( ScopeId( class_parm_scope ) );
+        copyWithNewNames( class_parm_scope, member_arg_names );
+        if( ScopeType( parm_scope, SCOPE_TEMPLATE_PARM ) ) {
+            ScopeSetParmClass( parm_scope, tinfo );
+        }
+        ScopeSetEnclosing( instance->scope, parm_scope );
     } else {
-        SetCurrScope( member->scope );
-    }
-    parm_scope = ScopeBegin( ScopeId( class_parm_scope ) );
-    copyWithNewNames( class_parm_scope, member_arg_names );
-    if( ScopeType( parm_scope, SCOPE_TEMPLATE_PARM ) ) {
-        ScopeSetParmClass( parm_scope, tinfo );
+        parm_scope = class_parm_scope;
+        SetCurrScope( parm_scope );
     }
 
     inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
@@ -2603,6 +2637,7 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
     ParseClassMemberInstantiation( member->defn );
     popInstContext();
 
+    ScopeSetEnclosing( instance->scope, class_parm_scope );
     if( save_parm_enclosing != NULL ) {
         ScopeSetEnclosing( class_parm_scope->enclosing, save_parm_enclosing );
     }
