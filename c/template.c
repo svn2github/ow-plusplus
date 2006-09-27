@@ -1407,6 +1407,8 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 #endif
     }
 
+    ScopeSetEnclosing( parm_scope, NULL );
+
     if( bound_type == NULL ) {
         ScopeBurn( parm_scope );
     }
@@ -2691,7 +2693,7 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     save_scope = GetCurrScope();
     parm_scope = fn_inst->parm_scope;
     SetCurrScope( fn_inst->inst_scope );
-    ScopeSetEnclosing( parm_scope, SymScope( fn_sym ) );
+    DbgAssert( parm_scope->enclosing == SymScope( fn_sym ) );
     ScopeSetParmFn( parm_scope, fn_sym->u.defn );
 
     bound_sym->flag |= SF_TEMPLATE_FN;
@@ -2703,7 +2705,7 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     popInstContext();
     templateData.translate_fn = save_fn;
 
-    ScopeSetEnclosing( parm_scope, NULL );
+    ScopeSetParmFn( parm_scope, NULL );
     SetCurrScope( save_scope );
 }
 
