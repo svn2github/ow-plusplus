@@ -718,6 +718,10 @@ nested-name-specifier
 scoped-nested-name-specifier
     : template-scoped-template-type
     | template-scoped-template-type scoped-nested-name-specifier
+    {
+        PTreeFreeSubtrees( $1 );
+        $$ = $2;
+    }
     ;
 
 /* non-standard */
@@ -1426,7 +1430,6 @@ qualified-type-specifier
     { $$ = sendType( $1 ); }
     | nested-name-specifier
     {
-        /* TODO: instantiate template */
         $$ = PTypeClassInstantiation( state->class_colon, $1 );
     }
     | nested-name-specifier Y_TEMPLATE_SCOPED_TYPE_NAME
@@ -2663,7 +2666,6 @@ qualified-class-type
     { $$ = sendClass( $1 ); }
     | nested-name-specifier
     {
-        /* TODO: instantiate template */
         $$ = PTypeClassInstantiation( state->class_colon, $1 );
     }
     ;
