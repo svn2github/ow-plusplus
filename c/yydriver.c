@@ -2161,6 +2161,18 @@ static void genIdSyntaxError( int msg )
     CErr2p( msg, id->u.id.name );
 }
 
+static void genScopedIdSyntaxError( int msg )
+{
+    PTREE id;
+    VBUF vbuf;
+
+    id = yylval.tree;
+    SetErrLoc( &(id->locn) );
+    FormatPTreeId( id, &vbuf );
+    CErr2p( msg, vbuf.buf );
+    VbufFree( &vbuf );
+}
+
 static void syntaxError( void )
 {
     if( CurToken == T_EOF ) {
@@ -2170,14 +2182,25 @@ static void syntaxError( void )
     } else {
         switch( currToken ) {
         case Y_ID:
-        case Y_TEMPLATE_ID:
             genIdSyntaxError( ERR_SYNTAX_UNDECLARED_ID );
+            break;
+        case Y_GLOBAL_ID:
+        case Y_SCOPED_ID:
+            genScopedIdSyntaxError( ERR_SYNTAX_UNDECLARED_ID );
             break;
         case Y_TYPE_NAME:
             genIdSyntaxError( ERR_SYNTAX_TYPE_NAME );
             break;
+        case Y_GLOBAL_TYPE_NAME:
+        case Y_SCOPED_TYPE_NAME:
+            genScopedIdSyntaxError( ERR_SYNTAX_UNDECLARED_ID );
+            break;
         case Y_TEMPLATE_NAME:
             genIdSyntaxError( ERR_SYNTAX_TEMPLATE_NAME );
+            break;
+        case Y_GLOBAL_TEMPLATE_NAME:
+        case Y_SCOPED_TEMPLATE_NAME:
+            genScopedIdSyntaxError( ERR_SYNTAX_UNDECLARED_ID );
             break;
         default:
             CErr1( ERR_SYNTAX );

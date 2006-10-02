@@ -753,6 +753,30 @@ void FormatPTreeList( PTREE p, VBUF *pvbuf )
     }
 }
 
+static VBUF *vbuf_FormatPTreeId;
+static PTREE traverse_FormatPTreeId( PTREE curr )
+{
+    if( curr->op == PT_BINARY ) {
+        if( curr->cgop == CO_COLON_COLON ) {
+            VStrConcStr( vbuf_FormatPTreeId, "::" );
+        }
+    } else if( curr->op == PT_ID ) {
+        VStrConcStr( vbuf_FormatPTreeId, curr->u.id.name );
+    }
+
+    return curr;
+}
+
+void FormatPTreeId( PTREE p, VBUF *pvbuf )
+/******************************************/
+{
+    VbufInit( pvbuf );
+    VStrNull( pvbuf );
+    vbuf_FormatPTreeId = pvbuf;
+
+    PTreeTraversePostfix( p, traverse_FormatPTreeId );
+}
+
 void FormatTemplateInfo( TEMPLATE_INFO *tinfo, VBUF *pvbuf )
 /**********************************************************/
 {
