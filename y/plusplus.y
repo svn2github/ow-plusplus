@@ -2695,7 +2695,7 @@ scoped-operator-function-id
 template-scoped-operator-function-id
     : Y_TEMPLATE_SCOPED_OPERATOR operator
     {
-        $$ = setLocation( MakeOperatorId( $2 ), &yylp[1] );
+        $$ = setLocation( MakeScopedOperatorId( $1, $2 ), &yylp[1] );
         ScopeQualifyPop();
     }
     ;
