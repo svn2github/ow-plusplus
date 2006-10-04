@@ -698,7 +698,10 @@ qualified-id
     | Y_SCOPED_TILDE Y_TYPE_NAME /* nested-name-specifier :: ~ class-name */
     { $$ = setLocation( MakeScopedDestructorId( $1, $2 ), &yylp[1] ); }
     | nested-name-specifier Y_TEMPLATE_SCOPED_TILDE Y_TEMPLATE_NAME /* nested-name-specifier :: ~ class-name */ /* TODO */
-    { $$ = NULL; }
+    {
+        PTreeFreeSubtrees( $1 );
+        $$ = setLocation( MakeScopedDestructorId( $2, $3 ), &yylp[2] );
+    }
     | scoped-operator-function-id
     | scoped-conversion-function-id
     | scoped-template-id
