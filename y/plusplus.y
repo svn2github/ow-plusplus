@@ -3220,7 +3220,8 @@ brace-start
 typename-special
     : typename-special-init Y_TYPENAME
     {
-        if( ! IsTemplateInstantiationActive() ) {
+        if( ! ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL )
+         && ! IsTemplateInstantiationActive() ) {
             SetErrLoc( &yylp[2] );
             CErr1( ERR_TYPENAME_OUTSIDE_TEMPLATE );
         }
