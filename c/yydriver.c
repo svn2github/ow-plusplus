@@ -170,6 +170,7 @@ typedef enum {          /* lookahead actions */
 
 #define LK_DEFS                                 /* lookup return value */ \
     LKDEF( LK_ID,       ID )                    /* identifier */ \
+    LKDEF( LK_UNKN_ID,  UNKNOWN_ID )            /* identifier */ \
     LKDEF( LK_TEMPL_ID, TEMPLATE_ID )           /* template function */ \
     LKDEF( LK_TYPE,     TYPE_NAME )             /* type name */ \
     LKDEF( LK_TEMPLATE, TEMPLATE_NAME )         /* template name */ \
@@ -467,6 +468,8 @@ static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control,
             ExtraRptIncrementCtr( found_type );
             return( LK_TYPE );
         }
+    } else {
+        return( LK_UNKN_ID );
     }
     ExtraRptIncrementCtr( found_id );
     return( LK_ID );
@@ -704,6 +707,8 @@ static int scopedChain( PARSE_STACK *state, PTREE start, PTREE id,
             switch( id_check ) {
             case LK_ID:
                 return( Y_SCOPED_ID );
+            case LK_UNKN_ID:
+                return( Y_SCOPED_UNKNOWN_ID );
             case LK_TEMPL_ID:
                 return( Y_SCOPED_TEMPLATE_ID );
             case LK_TYPE:
@@ -1082,8 +1087,10 @@ static boolean tokenMakesPTREE( unsigned token )
     case Y_CONSTANT:
     case Y_STRING:
     case Y_ID:
+    case Y_UNKNOWN_ID:
     case Y_TEMPLATE_ID:
     case Y_GLOBAL_ID:
+    case Y_GLOBAL_UNKNOWN_ID:
     case Y_GLOBAL_TEMPLATE_ID:
     case Y_GLOBAL_TYPE_NAME:
     case Y_GLOBAL_TEMPLATE_NAME:
@@ -1093,6 +1100,7 @@ static boolean tokenMakesPTREE( unsigned token )
     case Y_GLOBAL_NEW:
     case Y_GLOBAL_DELETE:
     case Y_SCOPED_ID:
+    case Y_SCOPED_UNKNOWN_ID:
     case Y_SCOPED_TEMPLATE_ID:
     case Y_SCOPED_TYPE_NAME:
     case Y_SCOPED_TEMPLATE_NAME:
@@ -1101,6 +1109,7 @@ static boolean tokenMakesPTREE( unsigned token )
     case Y_SCOPED_TILDE:
     case Y_SCOPED_TIMES:
     case Y_TEMPLATE_SCOPED_ID:
+    case Y_TEMPLATE_SCOPED_UNKNOWN_ID:
     case Y_TEMPLATE_SCOPED_TEMPLATE_ID:
     case Y_TEMPLATE_SCOPED_TYPE_NAME:
     case Y_TEMPLATE_SCOPED_TEMPLATE_NAME:
@@ -1121,12 +1130,16 @@ void ParseFlush( void )
         // NYI: we have a problem when this triggers!
         switch( currToken ) {
         case Y_GLOBAL_ID:
+        case Y_GLOBAL_UNKNOWN_ID:
+        case Y_GLOBAL_TEMPLATE_ID:
         case Y_GLOBAL_TEMPLATE_NAME:
         case Y_GLOBAL_OPERATOR:
         case Y_GLOBAL_TILDE:
         case Y_GLOBAL_NEW:
         case Y_GLOBAL_DELETE:
         case Y_SCOPED_ID:
+        case Y_SCOPED_UNKNOWN_ID:
+        case Y_SCOPED_TEMPLATE_ID:
         case Y_SCOPED_TYPE_NAME:
         case Y_SCOPED_TEMPLATE_NAME:
         case Y_SCOPED_NAMESPACE_NAME:
@@ -1134,6 +1147,8 @@ void ParseFlush( void )
         case Y_SCOPED_TILDE:
         case Y_SCOPED_TIMES:
         case Y_TEMPLATE_SCOPED_ID:
+        case Y_TEMPLATE_SCOPED_UNKNOWN_ID:
+        case Y_TEMPLATE_SCOPED_TEMPLATE_ID:
         case Y_TEMPLATE_SCOPED_TYPE_NAME:
         case Y_TEMPLATE_SCOPED_TEMPLATE_NAME:
         case Y_TEMPLATE_SCOPED_NAMESPACE_NAME:
@@ -2026,6 +2041,7 @@ static p_action doAction( YYTOKENTYPE t, PARSE_STACK *state )
             if( PragDbgToggle.dump_parse ) {
                 switch( t ) {
                 case Y_ID:
+                case Y_UNKNOWN_ID:
                 case Y_TEMPLATE_ID:
                 case Y_TYPE_NAME:
                 case Y_TEMPLATE_NAME:
@@ -2191,10 +2207,13 @@ static void syntaxError( void )
     } else {
         switch( currToken ) {
         case Y_ID:
+        case Y_UNKNOWN_ID:
             genIdSyntaxError( ERR_SYNTAX_UNDECLARED_ID );
             break;
         case Y_GLOBAL_ID:
+        case Y_GLOBAL_UNKNOWN_ID:
         case Y_SCOPED_ID:
+        case Y_SCOPED_UNKNOWN_ID:
             genScopedIdSyntaxError( ERR_SYNTAX_UNDECLARED_ID );
             break;
         case Y_TYPE_NAME:

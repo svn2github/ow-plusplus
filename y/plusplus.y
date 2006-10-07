@@ -223,6 +223,7 @@ Modified        By              Reason
 
 /*** special lexical tokens ***/
 %token <tree> Y_ID
+%token <tree> Y_UNKNOWN_ID
 %token <tree> Y_TEMPLATE_ID
 %token <tree> Y_TYPE_NAME
 %token <tree> Y_TEMPLATE_NAME
@@ -233,6 +234,7 @@ Modified        By              Reason
 %token <tree> Y_STRING
 
 %token <tree> Y_GLOBAL_ID               /* ::<id> */
+%token <tree> Y_GLOBAL_UNKNOWN_ID       /* ::<id> */
 %token <tree> Y_GLOBAL_TEMPLATE_ID      /* ::<id> */
 %token <tree> Y_GLOBAL_TYPE_NAME        /* ::<type-name> */
 %token <tree> Y_GLOBAL_TEMPLATE_NAME    /* ::<template-name> */
@@ -244,6 +246,7 @@ Modified        By              Reason
 
 /* Y_SCOPED_* tokens must stay in line with Y_TEMPLATE_SCOPED_* tokens */
 %token <tree> Y_SCOPED_ID               /* C::<id> */
+%token <tree> Y_SCOPED_UNKNOWN_ID       /* C::<id> */
 %token <tree> Y_SCOPED_TEMPLATE_ID      /* C::<id> */
 %token <tree> Y_SCOPED_TYPE_NAME        /* C::<type-name> */
 %token <tree> Y_SCOPED_TEMPLATE_NAME    /* C::<template-name> */
@@ -253,6 +256,7 @@ Modified        By              Reason
 %token <tree> Y_SCOPED_TIMES            /* C::* */
 
 %token <tree> Y_TEMPLATE_SCOPED_ID      /* T<>::<id> */
+%token <tree> Y_TEMPLATE_SCOPED_UNKNOWN_ID/* T<>::<id> */
 %token <tree> Y_TEMPLATE_SCOPED_TEMPLATE_ID/* T<>::<id> */
 %token <tree> Y_TEMPLATE_SCOPED_TYPE_NAME/* T<>::<type-name> */
 %token <tree> Y_TEMPLATE_SCOPED_TEMPLATE_NAME/* T<>::<template-name> */
@@ -1213,6 +1217,7 @@ direct-new-declarator
 
 make-id
     : Y_ID
+    | Y_UNKNOWN_ID
     | Y_TEMPLATE_ID
     | Y_TYPE_NAME
     | Y_TEMPLATE_NAME
@@ -1903,6 +1908,7 @@ cv-qualifier-seq-opt
 
 declarator-id
     : id-expression
+    | Y_UNKNOWN_ID /* non-standard */
     | Y_TEMPLATE_NAME /* non-standard */
     | Y_NAMESPACE_NAME /* non-standard */
     | Y_TYPE_NAME /* non-standard */
