@@ -683,6 +683,7 @@ static int scopedChain( PARSE_STACK *state, PTREE start, PTREE id,
                 continue;
             }
             yylval.tree = makeBinary( CO_STORAGE, curr, id );
+            yylval.tree->flags |= special_typename ? PTF_TYPENAME : 0;
             if( special_typename && undefined_scope ) {
                 if( special_template ) {
                     return( Y_SCOPED_TEMPLATE_NAME );
@@ -784,6 +785,7 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
                     return( adjusted_token );
                 }
                 yylval.tree = makeBinary( CO_STORAGE, curr, id );
+                yylval.tree->flags |= special_typename ? PTF_TYPENAME : 0;
                 /* kludge for constructor name */
                 if( name == id->u.id.name && ScopeEquivalent( GetCurrScope(), SCOPE_FILE ) ) {
                     /* so S::S( T x ) {} works if T is a nested type */
@@ -809,6 +811,7 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
             }
             id = makeId();
             yylval.tree = makeBinary( CO_STORAGE, curr, id );
+            yylval.tree->flags |= special_typename ? PTF_TYPENAME : 0;
             if( special_typename ) {
                 if( special_template ) {
                     return( Y_TEMPLATE_SCOPED_TEMPLATE_NAME );
@@ -855,6 +858,7 @@ static int globalChain( PARSE_STACK *state, boolean special_typename )
                                  special_typename ) );
         }
         yylval.tree = makeBinary( CO_STORAGE, tree, id );
+        yylval.tree->flags |= special_typename ? PTF_TYPENAME : 0;
         id_check = lexCategory( GetFileScope(), id, LK_LEXICAL,
                                 &yylval.tree->sym_name );
         return( globalLookupToken[ id_check ] );
@@ -960,6 +964,7 @@ static int yylex( PARSE_STACK *state )
                                  flags.special_typename );
         } else {
             token = doId( state->scope_member );
+            yylval.tree->flags |= flags.special_typename ? PTF_TYPENAME : 0;
         }
         state->scope_member = NULL;
         break;
@@ -1535,10 +1540,14 @@ static void setNoSuperTokens( PARSE_STACK *state )
     state->no_super_tokens = TRUE;
 }
 
-static void setWatchColonColon( PARSE_STACK *state, TYPE type )
+static void setWatchColonColon( PARSE_STACK *state, PTREE tree, TYPE type )
 {
     state->class_colon = type;
     state->special_colon_colon = TRUE;
+    if( tree->flags & PTF_TYPENAME ) {
+        state->special_typename = TRUE;
+        tree->flags &= ~PTF_TYPENAME;
+    }
 }
 
 static void setTypeMember( PARSE_STACK *state, SCOPE scope_member )

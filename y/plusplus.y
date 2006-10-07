@@ -3039,7 +3039,7 @@ template-type
 template-type-instantiation
     : Y_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state,
+        setWatchColonColon( state, $1,
                             TemplateClassInstantiation( $1, $3, TCI_NULL ) );
         $$ = $1;
     }
@@ -3052,13 +3052,13 @@ scoped-template-type
 scoped-template-type-instantiation
     : Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state,
+        setWatchColonColon( state, $1,
                             TemplateClassInstantiation( $1, $3, TCI_NULL ) );
         $$ = $1;
     }
     | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state,
+        setWatchColonColon( state, $1,
                             TemplateClassInstantiation( $1, $3, TCI_NULL ) );
         $$ = $1;
     }
@@ -3071,7 +3071,7 @@ template-scoped-template-type
 template-scoped-template-type-instantiation
     : Y_TEMPLATE_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state,
+        setWatchColonColon( state, $1,
                             TemplateClassInstantiation( $1, $3, TCI_NULL ) );
         $$ = $1;
     }
