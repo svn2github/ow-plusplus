@@ -1867,7 +1867,16 @@ FNOV_RESULT IsOverloadedFuncDistinct( SYMBOL *pold_sym,SYMBOL new_sym,char*name
 {
     DbgAssert(( control & ~(FNC_NO_DEALIAS) ) == 0 );
     control |= FNC_EXCLUDE_ELLIPSIS | FNC_DISTINCT_CHECK;
-    return doFunctionDistinctCheck( control, pold_sym, new_sym, name );
+
+    // check for template function
+    if( ( new_sym->id == SC_FUNCTION_TEMPLATE )
+     || ( new_sym->id == SC_STATIC_FUNCTION_TEMPLATE ) ) {
+        // TODO: check template function
+        *pold_sym = NULL;
+        return FNOV_DISTINCT;
+    } else {
+        return doFunctionDistinctCheck( control, pold_sym, new_sym, name );
+    }
 }
 
 FNOV_RESULT AreFunctionsDistinct( SYMBOL *pold_sym,SYMBOL new_sym,char*name )

@@ -1303,7 +1303,7 @@ void TemplateFunctionAttachDefn( DECL_INFO *dinfo )
     r = dinfo->body;
     dinfo->body = NULL;
     fn_templ = sym->u.defn;
-    DbgAssert( fn_templ );
+    DbgAssert( fn_templ != NULL );
     DbgAssert( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) );
 
     if( fn_templ->decl_scope != GetCurrScope() ) {
@@ -1679,7 +1679,8 @@ static PTREE processIndividualParm( TYPE arg_type, PTREE parm )
     return( parm );
 }
 
-static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms )
+static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
+                                        boolean *is_unbound )
 {
     SCOPE save_scope;
     SCOPE parm_scope;
@@ -1693,10 +1694,13 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms )
     boolean inside_decl_scope;
     TOKEN_LOCN start_locn;
 
+    something_went_wrong = FALSE;
+    *is_unbound = FALSE;
+
     inside_decl_scope = ScopeAccessType( SCOPE_TEMPLATE_DECL );
     save_scope = GetCurrScope();
+
     parms = NodeReverseArgs( &num_parms, parms );
-    something_went_wrong = FALSE;
     tprimary = RingFirst( tinfo->specializations );
 
     if( tprimary->corrupted ) {
@@ -1811,6 +1815,22 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms )
             SetCurrScope( save_scope );
             if( something_went_wrong )
                 break;
+
+            if( parm->op == PT_TYPE ) {
+                TYPE type = parm->type;
+
+                while( type != NULL ) {
+                    if( type->id == TYP_GENERIC ) {
+                        *is_unbound = TRUE;
+                        break;
+                    }
+                    type = type->of;
+                }
+            } else if( parm->op == PT_SYMBOL ) {
+                if( parm->u.symcg.symbol->id == SC_NULL ) {
+                    *is_unbound = TRUE;
+                }
+            }
 
             if( ! inside_decl_scope ) {
                 injectTemplateParm( parm_scope, parm, tprimary->arg_names[i] );
@@ -2342,6 +2362,7 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
 {
     SYMBOL class_template;
     char *template_name;
+    boolean is_unbound;
     TYPE type_instantiated;
     SCOPE parm_scope;
     TEMPLATE_INFO *tinfo;
@@ -2380,10 +2401,10 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
     if( class_template != NULL ) {
         tinfo = class_template->u.tinfo;
         tprimary = RingFirst( tinfo->specializations );
-        parms = processClassTemplateParms( tinfo, parms );
+        parms = processClassTemplateParms( tinfo, parms, &is_unbound );
         if( parms != NULL ) {
             /* parms have been validated; we can instantiate the class! */
-            if( ScopeAccessType( SCOPE_TEMPLATE_DECL ) ) {
+            if( is_unbound ) {
                 type_instantiated = tinfo->unbound_type;
 
                 /* we could be inside a function template? */
@@ -2392,8 +2413,6 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
                 type_instantiated =
                     instantiateUnboundClass( tinfo, tspec, parms,
                                              template_name );
-
-                NodeFreeDupedExpr( parms );
             } else {
                 parm_scope = NULL;
                 tspec = findTemplateClassSpecialization( tinfo, parms,
@@ -2402,8 +2421,9 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
                 type_instantiated =
                     instantiateClass( tinfo, parms, tspec, parm_scope,
                                       &(tid->locn), control );
-                NodeFreeDupedExpr( parms );
             }
+
+            NodeFreeDupedExpr( parms );
         }
     } else {
         /* TODO: I guess we need some error handling here */
@@ -3031,6 +3051,7 @@ void TemplateSpecificDefnStart( PTREE tid, PTREE parms )
     SCOPE inst_scope;
     SCOPE parm_scope;
     char *name;
+    boolean is_unbound;
 
     if( tid->op == PT_ID ) {
         name = tid->u.id.name;
@@ -3062,7 +3083,7 @@ void TemplateSpecificDefnStart( PTREE tid, PTREE parms )
     if( tprimary->corrupted ) {
         return;
     }
-    parms = processClassTemplateParms( tinfo, parms );
+    parms = processClassTemplateParms( tinfo, parms, &is_unbound );
     if( parms != NULL ) {
         /* parms have been validated; we can instantiate the class! */
         instance = NULL;

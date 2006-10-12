@@ -486,7 +486,6 @@ Modified        By              Reason
 %type <tree> mem-initializer
 %type <tree> template-id
 %type <tree> scoped-template-id
-%type <tree> template-scoped-template-id
 %type <tree> template-type
 %type <tree> template-type-instantiation
 %type <tree> scoped-template-type
@@ -737,9 +736,10 @@ template-scoped-unqualified-id
     { $$ = MakeScopedId( $1 ); }
     | Y_TEMPLATE_SCOPED_TEMPLATE_ID
     { $$ = MakeScopedId( $1 ); }
+    | Y_TEMPLATE_SCOPED_TEMPLATE_ID lt-special template-argument-list-opt Y_GT_SPECIAL
+    | Y_TEMPLATE_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt Y_GT_SPECIAL
     | template-scoped-operator-function-id
     | template-scoped-conversion-function-id
-    | template-scoped-template-id
     ;
 
 postfix-expression
@@ -2901,10 +2901,6 @@ template-id
 scoped-template-id
     : Y_SCOPED_TEMPLATE_ID lt-special template-argument-list-opt Y_GT_SPECIAL
     | Y_GLOBAL_TEMPLATE_ID lt-special template-argument-list-opt Y_GT_SPECIAL
-    ;
-
-template-scoped-template-id
-    : Y_TEMPLATE_SCOPED_TEMPLATE_ID lt-special template-argument-list-opt Y_GT_SPECIAL
     ;
 
 template-argument-list

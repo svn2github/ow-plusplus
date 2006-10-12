@@ -5227,6 +5227,34 @@ TYPE TypeReference(             // GET REFERENCE TYPE
     return( type );
 }
 
+static TYPE resolved_typename = NULL;
+static PTREE traverse_ResolveTypename( PTREE curr )
+{
+    if( curr->type != NULL ) {
+        resolved_typename = curr->type;
+    }
+    if( resolved_typename != NULL ) {
+        if( ( resolved_typename->id == TYP_CLASS )
+         && ( resolved_typename->flag & TF1_UNBOUND ) ) {
+            //DumpType( resolved_typename );
+        }
+    }
+
+    return curr;
+}
+
+TYPE TypeResolveTypename( TYPE type )
+/***********************************/
+{
+    TYPE new_type;
+
+    PTreeTraversePostfix( type->u.n.tree, traverse_ResolveTypename );
+    new_type = resolved_typename;
+    resolved_typename = NULL;
+
+    return new_type;
+}
+
 PTREE MakeConstructorId( DECL_SPEC *dspec )
 /*****************************************/
 {
@@ -8244,7 +8272,6 @@ static boolean performBinding( VSTK_CTL *stk, TOKEN_LOCN *locn )
             break;
         case TYP_FUNCTION:
             new_type = dupFunction( old_type, DF_NULL );
-            // TODO: add typename support (new_type->of == TypeError)
             old_args = TypeArgList( old_type );
             old_arg = old_args->type_list;
             new_args = TypeArgList( new_type );
@@ -8285,6 +8312,9 @@ static boolean performBinding( VSTK_CTL *stk, TOKEN_LOCN *locn )
             break;
         case TYP_GENERIC:
             new_type = old_type->of;
+            break;
+        case TYP_TYPENAME:
+            new_type = TypeResolveTypename( old_type );
             break;
         }
         if( new_type == NULL ) {

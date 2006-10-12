@@ -221,7 +221,8 @@ typedef enum {
     TYP_MODIFIER        = 0x1a,
     TYP_MEMBER_POINTER  = 0x1b,
     TYP_GENERIC         = 0x1c,
-    TYP_FREE            = 0x1d,
+    TYP_TYPENAME        = 0x1d,
+    TYP_FREE            = 0x1e,
     TYP_MAX,
 
     TYP_FIRST_VALID     = TYP_BOOL,
@@ -633,6 +634,9 @@ PCH_struct type {
         struct {                        // TYP_GENERIC
             unsigned    index;          // keeps template args distinct
         } g;
+        struct {                        // TYP_TYPENAME
+            PTREE       tree;           // parse tree
+        } n;
     } u;
     dbg_info            dbg;            // FOR D2 AND DWARF
     type_flag           flag;
@@ -1705,6 +1709,9 @@ TYPE TypePointerDiff(           // GET TYPE FOR DIFFERENCE OF POINTERS
 ;
 TYPE TypeReference(             // GET REFERENCE TYPE
     TYPE type )                 // - the type
+;
+TYPE TypeResolveTypename(       // RESOLVE TYPENAME
+    TYPE type )
 ;
 
 // type cache support

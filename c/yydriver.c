@@ -1201,8 +1201,9 @@ static DECL_SPEC *sendType( PTREE tree )
         type = tree->type;
     }
     if( type == NULL ) {
-        type = TypeError;
-        // TODO: add typename support
+        type = MakeType( TYP_TYPENAME );
+        type->u.n.tree = tree;
+        tree = NULL;
     }
     dspec = PTypeActualTypeName( type, tree );
     if( scope != NULL ) {
