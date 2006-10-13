@@ -2922,6 +2922,10 @@ typename-specifier
         $$ = sendType( $3 );
         PTreeFreeSubtrees( $2 );
     }
+    | typename-special nested-name-specifier
+    {
+        $$ = sendType( $2 );
+    }
     | typename-special Y_SCOPED_TYPE_NAME
     {
         $$ = sendType( $2 );
@@ -3041,9 +3045,16 @@ template-type
 template-type-instantiation
     : Y_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state, $1,
-                            TemplateClassInstantiation( $1, $3, TCI_NULL ) );
+        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+
+        DbgAssert( inst_type != NULL );
+
+        setWatchColonColon( state, $1, inst_type );
         $$ = $1;
+
+        if( inst_type != NULL ) {
+            $$->type = inst_type;
+        }
     }
     ;
 
@@ -3054,15 +3065,33 @@ scoped-template-type
 scoped-template-type-instantiation
     : Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state, $1,
-                            TemplateClassInstantiation( $1, $3, TCI_NULL ) );
+        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+
+        setWatchColonColon( state, $1, inst_type );
         $$ = $1;
+
+        if( inst_type == NULL ) {
+            DbgAssert( ( $$->op == PT_BINARY ) && ( $$->cgop == CO_STORAGE ) );
+            $$->u.subtree[1] = PTreeBinary( CO_TEMPLATE,
+                                            $$->u.subtree[1], $3 );
+        } else {
+            $$->u.subtree[1]->type = inst_type;
+        }
     }
     | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state, $1,
-                            TemplateClassInstantiation( $1, $3, TCI_NULL ) );
+        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+
+        setWatchColonColon( state, $1, inst_type );
         $$ = $1;
+
+        if( inst_type == NULL ) {
+            DbgAssert( ( $$->op == PT_BINARY ) && ( $$->cgop == CO_STORAGE ) );
+            $$->u.subtree[1] = PTreeBinary( CO_TEMPLATE,
+                                            $$->u.subtree[1], $3 );
+        } else {
+            $$->u.subtree[1]->type = inst_type;
+        }
     }
     ;
 
@@ -3073,9 +3102,18 @@ template-scoped-template-type
 template-scoped-template-type-instantiation
     : Y_TEMPLATE_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        setWatchColonColon( state, $1,
-                            TemplateClassInstantiation( $1, $3, TCI_NULL ) );
+        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+
+        setWatchColonColon( state, $1, inst_type );
         $$ = $1;
+
+        if( inst_type == NULL ) {
+            DbgAssert( ( $$->op == PT_BINARY ) && ( $$->cgop == CO_STORAGE ) );
+            $$->u.subtree[1] = PTreeBinary( CO_TEMPLATE,
+                                            $$->u.subtree[1], $3 );
+        } else {
+            $$->u.subtree[1]->type = inst_type;
+        }
     }
     ;
 

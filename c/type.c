@@ -5236,7 +5236,7 @@ static PTREE traverse_ResolveTypename( PTREE curr )
     if( resolved_typename != NULL ) {
         if( ( resolved_typename->id == TYP_CLASS )
          && ( resolved_typename->flag & TF1_UNBOUND ) ) {
-            //DumpType( resolved_typename );
+            // TODO
         }
     }
 
@@ -5248,9 +5248,15 @@ TYPE TypeResolveTypename( TYPE type )
 {
     TYPE new_type;
 
-    PTreeTraversePostfix( type->u.n.tree, traverse_ResolveTypename );
-    new_type = resolved_typename;
-    resolved_typename = NULL;
+    if( type->id == TYP_TYPENAME ) {
+        PTreeTraversePostfix( type->u.n.tree, traverse_ResolveTypename );
+        new_type = resolved_typename;
+        resolved_typename = NULL;
+    } else {
+        new_type = type;
+    }
+
+    new_type = type; // TODO
 
     return new_type;
 }
@@ -7339,7 +7345,7 @@ static void pushPrototypeAndArguments( type_bind_info *data,
         a = a_args->u.subtree[1];
 
         if( p->op == PT_TYPE ) {
-            p_type = p->type;
+            p_type = TypeResolveTypename( p->type );
             if( p_type->id == TYP_DOT_DOT_DOT ) {
                 /* anything after the ... cannot participate in binding */
                 break;

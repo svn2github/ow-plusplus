@@ -1337,6 +1337,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     unsigned num_parms, num_args;
     int num_explicit;
 
+    *templ_parm_scope = NULL;
     num_args = ( args != NULL ) ? args->num_args : 0;
     fn_type = FunctionDeclarationType( fn_templ->sym_type );
     if( ( fn_type == NULL )
@@ -1822,6 +1823,9 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
                 while( type != NULL ) {
                     if( type->id == TYP_GENERIC ) {
                         *is_unbound = TRUE;
+                        break;
+                    } else if( type->id == TYP_CLASS ) {
+                        *is_unbound |= ( type->flag & TF1_UNBOUND );
                         break;
                     }
                     type = type->of;
@@ -2394,8 +2398,9 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
 
         template_name = right->u.id.name;
 
-        DbgAssert( tid->sym_name != NULL );
-        class_template = tid->sym_name->name_type;
+        if( tid->sym_name != NULL ) {
+            class_template = tid->sym_name->name_type;
+        }
     }
 
     if( class_template != NULL ) {
@@ -2426,9 +2431,7 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
             NodeFreeDupedExpr( parms );
         }
     } else {
-        /* TODO: I guess we need some error handling here */
-        DbgAssert( 0 );
-        PTreeFreeSubtrees( parms );
+        return( NULL );
     }
     if( control & TCI_NO_DECL_SPEC ) {
         PTreeFreeSubtrees( tid );
