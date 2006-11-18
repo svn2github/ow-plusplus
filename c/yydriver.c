@@ -2415,6 +2415,49 @@ DECL_INFO *ParseException( void )
     return( exception );
 }
 
+DECL_INFO *ReparseFunctionDeclaration( void )
+{
+    int t;
+    PARSE_STACK decl_state;
+    p_action what;
+    DECL_INFO *dinfo;
+
+    newExprStack( &decl_state, Y_FUNCTION_DECL_SPECIAL );
+    syncLocation();
+    /* do parse */
+    for(;;) {
+        do {
+            t = yylex( &decl_state );
+            what = doAction( t, &decl_state );
+        } while( what == P_RELEX );
+        if( what != P_SHIFT ) break;
+        nextYYLexToken( &decl_state );
+    }
+    dinfo = NULL;
+    if( what > P_SPECIAL ) {
+        if( what > P_ERROR ) {
+            switch( what ) {
+            case P_SYNTAX:
+                syntaxError();
+                break;
+            case P_OVERFLOW:
+                CErr1( ERR_COMPLICATED_EXPRESSION );
+                break;
+            }
+            makeStable( Y_SEMI_COLON );
+        }
+#ifndef NDEBUG
+        else {
+            CFatal( "invalid return from doAction" );
+        }
+#endif
+    } else {
+        dinfo = decl_state.vsp->dinfo;
+    }
+    deleteStack( &decl_state );
+    return( dinfo );
+}
+
 static void parseEpilogue( void )
 {
     /* current token state is end-of-file */

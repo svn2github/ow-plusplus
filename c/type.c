@@ -1017,21 +1017,6 @@ static TYPE typeDuplicated(     // GET DUPLICATED TYPE
 
 #define typeHashVal( t ) ((t)->of->dbg.handle & TYPE_HASH_MASK )
 
-static TYPE checkMaybeDupType( TYPE type )
-{
-    if( type->next != NULL ) {
-        return( type );
-    }
-    if( type->next == NULL ) {
-        TYPE class_type = StructType( type );
-        if( class_type != NULL && ! TypeDefined( class_type ) ) {
-            return( type );
-        }
-    }
-    type = CheckDupType( type );
-    return( type );
-}
-
 TYPE CheckDupType( TYPE newtype )
 /*******************************/
 {
@@ -2691,27 +2676,6 @@ static TYPE dupArray( TYPE type, TYPE ref_type, target_size_t size, type_flag fl
     base_type = MakeTypeOf( array_type, base_type );
     base_type = replaceModifiers( mod_list, base_type );
     return( base_type );
-}
-
-static TYPE *dupExceptSpec( TYPE *spec )
-{
-    size_t alloc_size;
-    TYPE *curr_spec;
-    TYPE *zap_spec;
-    TYPE *new_spec;
-
-    alloc_size = sizeof( TYPE * );      // for final NULL
-    for( curr_spec = spec; *curr_spec != NULL; ++curr_spec ) {
-        alloc_size += sizeof( TYPE * );
-    }
-    new_spec = CPermAlloc( alloc_size );
-    zap_spec = new_spec;
-    for( curr_spec = spec; *curr_spec != NULL; ++curr_spec ) {
-        *zap_spec = *curr_spec;
-        ++zap_spec;
-    }
-    *zap_spec = NULL;
-    return( new_spec );
 }
 
 static TYPE dupFunction( TYPE fn_type, unsigned control )
@@ -5227,40 +5191,6 @@ TYPE TypeReference(             // GET REFERENCE TYPE
     return( type );
 }
 
-static TYPE resolved_typename = NULL;
-static PTREE traverse_ResolveTypename( PTREE curr )
-{
-    if( curr->type != NULL ) {
-        resolved_typename = curr->type;
-    }
-    if( resolved_typename != NULL ) {
-        if( ( resolved_typename->id == TYP_CLASS )
-         && ( resolved_typename->flag & TF1_UNBOUND ) ) {
-            // TODO
-        }
-    }
-
-    return curr;
-}
-
-TYPE TypeResolveTypename( TYPE type )
-/***********************************/
-{
-    TYPE new_type;
-
-    if( type->id == TYP_TYPENAME ) {
-        PTreeTraversePostfix( type->u.n.tree, traverse_ResolveTypename );
-        new_type = resolved_typename;
-        resolved_typename = NULL;
-    } else {
-        new_type = type;
-    }
-
-    new_type = type; // TODO
-
-    return new_type;
-}
-
 PTREE MakeConstructorId( DECL_SPEC *dspec )
 /*****************************************/
 {
@@ -6177,7 +6107,7 @@ static TYPE stripPragma( TYPE fn_type, SYMBOL sym )
     return( fn_type );
 }
 
-static void verifySpecialFunction( SCOPE scope, DECL_INFO *dinfo )
+/* static */ void verifySpecialFunction( SCOPE scope, DECL_INFO *dinfo )
 {
     char *name;
     char *scope_name;
@@ -7345,7 +7275,7 @@ static void pushPrototypeAndArguments( type_bind_info *data,
         a = a_args->u.subtree[1];
 
         if( p->op == PT_TYPE ) {
-            p_type = TypeResolveTypename( p->type );
+            p_type = p->type;
             if( p_type->id == TYP_DOT_DOT_DOT ) {
                 /* anything after the ... cannot participate in binding */
                 break;
@@ -8128,227 +8058,6 @@ typedef struct bind_stack {
     int         : 0;
 } TYPE_BIND_STACK;
 
-static void pushBinding( VSTK_CTL *stk, TYPE old_type, TYPE *link_type )
-{
-    TYPE_BIND_STACK *top;
-
-    top = VstkPush( stk );
-    top->old_type = NULL;
-    top->link_type = link_type;
-    top->type_args = NULL;
-    top->op = BIND_DUP_TYPE;
-    top = VstkPush( stk );
-    top->old_type = old_type;
-    top->link_type = link_type;
-    top->type_args = NULL;
-    top->op = BIND_BIND_TYPE;
-}
-
-static void pushClassBinding( VSTK_CTL *stk, TYPE old_type, TYPE *link_type,
-                              arg_list *type_args )
-{
-    TYPE_BIND_STACK *top;
-
-    top = VstkPush( stk );
-    top->old_type = old_type;
-    top->link_type = link_type;
-    top->type_args = type_args;
-    top->op = BIND_CLASS_TEMPLATE;
-}
-
-static unsigned countTypeArgs( SCOPE parm_scope )
-{
-    unsigned num_type_args;
-    SYMBOL curr;
-    SYMBOL stop;
-
-    num_type_args = 0;
-    curr = NULL;
-    stop = ScopeOrderedStart( parm_scope );
-    for(;;) {
-        curr = ScopeOrderedNext( stop, curr );
-        if( curr == NULL ) break;
-        if( curr->id == SC_TYPEDEF ) {
-            ++num_type_args;
-        }
-    }
-    return( num_type_args );
-}
-
-static boolean handleUnboundClass( VSTK_CTL *stk, TYPE old_type, TYPE *link_type )
-{
-    SYMBOL curr;
-    SYMBOL stop;
-    SCOPE parm_scope;
-    unsigned num_type_args;
-    arg_list *type_args;
-    TYPE *arg_link_type;
-
-    parm_scope = TemplateClassParmScope( old_type );
-    if( parm_scope == NULL ) {
-        return( TRUE );
-    }
-    num_type_args = countTypeArgs( parm_scope );
-    type_args = AllocArgListTemp( num_type_args );
-    pushClassBinding( stk, old_type, link_type, type_args );
-    arg_link_type = type_args->type_list;
-    curr = NULL;
-    stop = ScopeOrderedStart( parm_scope );
-    for(;;) {
-        curr = ScopeOrderedNext( stop, curr );
-        if( curr == NULL ) break;
-        if( curr->id == SC_TYPEDEF ) {
-            pushBinding( stk, curr->sym_type, arg_link_type );
-            *arg_link_type = NULL;
-            ++arg_link_type;
-        }
-    }
-    return( FALSE );
-}
-
-static boolean instantiateUnbound( TYPE old_type, TYPE *link_type,
-                                   arg_list *type_args, TOKEN_LOCN *locn )
-{
-    boolean problem_with_type;
-    TYPE new_type;
-
-    problem_with_type = FALSE;
-    new_type = TemplateUnboundInstantiate( old_type, type_args, locn );
-    if( new_type == NULL ) {
-        new_type = TypeError;
-        problem_with_type = TRUE;
-    }
-    *link_type = new_type;
-    CMemFree( type_args );
-    return( problem_with_type );
-}
-
-static boolean performBinding( VSTK_CTL *stk, TOKEN_LOCN *locn )
-{
-    boolean type_is_OK;
-    unsigned i;
-    arg_list *new_args;
-    arg_list *old_args;
-    TYPE old_type;
-    TYPE *link_type;
-    TYPE new_type;
-    TYPE *old_arg;
-    TYPE *new_arg;
-    TYPE *old_except;
-    TYPE *new_except;
-    TYPE_BIND_STACK *top;
-
-    type_is_OK = TRUE;
-    for(;;) {
-        top = VstkPop( stk );
-        if( top == NULL ) break;
-        /* fields must be extracted before any pushes */
-        old_type = top->old_type;
-        link_type = top->link_type;
-        switch( top->op ) {
-        case BIND_DUP_TYPE:
-            *link_type = checkMaybeDupType( *link_type );
-            continue;
-        case BIND_CLASS_TEMPLATE:
-            if( instantiateUnbound( old_type, link_type, top->type_args, locn ) ) {
-                type_is_OK = FALSE;
-            }
-            continue;
-        }
-        new_type = old_type;
-        switch( old_type->id ) {
-        case TYP_POINTER:
-            new_type = MakeType( TYP_POINTER );
-            new_type->flag = old_type->flag;
-            pushBinding( stk, old_type->of, &(new_type->of) );
-            break;
-        case TYP_TYPEDEF:
-            pushBinding( stk, old_type->of, link_type );
-            break;
-        case TYP_CLASS:
-            if( old_type->flag & TF1_UNBOUND ) {
-                if( old_type->of == NULL ) {
-                    if( handleUnboundClass( stk, old_type, link_type ) ) {
-                        type_is_OK = FALSE;
-                    }
-                } else {
-                    new_type = old_type->of;
-                }
-            }
-            break;
-        case TYP_FUNCTION:
-            new_type = dupFunction( old_type, DF_NULL );
-            old_args = TypeArgList( old_type );
-            old_arg = old_args->type_list;
-            new_args = TypeArgList( new_type );
-            new_arg = new_args->type_list;
-            for( i = new_args->num_args; i != 0; --i ) {
-                pushBinding( stk, *old_arg, new_arg );
-                ++old_arg;
-                ++new_arg;
-            }
-            new_except = new_args->except_spec;
-            if( new_except != NULL ) {
-                /* dupFunction doesn't duplicate the except-spec */
-                old_except = old_args->except_spec;
-                new_except = dupExceptSpec( old_except );
-                new_args->except_spec = new_except;
-                for(;;) {
-                    if( *old_except == NULL || *new_except == NULL ) break;
-                    pushBinding( stk, *old_except, new_except );
-                    ++old_except;
-                    ++new_except;
-                }
-            }
-            pushBinding( stk, old_type->of, &(new_type->of) );
-            break;
-        case TYP_ARRAY:
-            new_type = MakeArrayType( old_type->u.a.array_size );
-            pushBinding( stk, old_type->of, &(new_type->of) );
-            break;
-        case TYP_MODIFIER:
-            new_type = dupModifier( old_type );
-            pushBinding( stk, old_type->of, &(new_type->of) );
-            break;
-        case TYP_MEMBER_POINTER:
-            new_type = MakeType( TYP_MEMBER_POINTER );
-            new_type->flag = old_type->flag;
-            pushBinding( stk, old_type->of, &(new_type->of) );
-            pushBinding( stk, old_type->u.mp.host, &(new_type->u.mp.host) );
-            break;
-        case TYP_GENERIC:
-            new_type = old_type->of;
-            break;
-        case TYP_TYPENAME:
-            new_type = TypeResolveTypename( old_type );
-            break;
-        }
-        if( new_type == NULL ) {
-#ifndef NDEBUG
-            DumpType( old_type );
-#endif
-            CFatal( "unable to perform binding" );
-        }
-        *link_type = new_type;
-    }
-    return( type_is_OK );
-}
-
-TYPE CreateBoundType( TYPE unbound_type, TOKEN_LOCN *locn )
-{
-    TYPE bound_type;
-    auto VSTK_CTL bind_stack;
-
-    VstkOpen( &bind_stack, sizeof( TYPE_BIND_STACK ), 8 );
-    bound_type = NULL;
-    pushBinding( &bind_stack, unbound_type, &bound_type );
-    if( ! performBinding( &bind_stack, locn ) ) {
-        bound_type = NULL;
-    }
-    VstkClose( &bind_stack );
-    return( bound_type );
-}
-
 static void binderInit( type_bind_info *data, unsigned num_explicit )
 {
     PstkOpen( &(data->with_generic) );
@@ -8557,7 +8266,7 @@ void *BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
                     curr->sym_type->of = curr->sym_type->of->of;
                 }
             } else if( curr->id == SC_NULL ) {
-                result = curr->u.sval != 0;
+                result &= curr->u.sval != 0;
             }
         }
     }

@@ -268,6 +268,7 @@ Modified        By              Reason
 /*** leader token for "special" parsing ***/
 %token Y_EXPRESSION_SPECIAL
 %token Y_EXPR_DECL_SPECIAL
+%token Y_FUNCTION_DECL_SPECIAL
 %token Y_EXCEPTION_SPECIAL
 %token Y_MEM_INIT_SPECIAL
 %token Y_DEFARG_SPECIAL
@@ -528,6 +529,23 @@ goal-symbol
     | Y_EXPR_DECL_SPECIAL expr-decl-stmt
     {
         $$ = $2;
+        t = YYEOFTOKEN;
+    }
+    | Y_FUNCTION_DECL_SPECIAL decl-specifier-seq declarator
+    {
+        GStackPop( &(state->gstack) );      /* decl-spec */
+        $$ = (PTREE) $3;
+        t = YYEOFTOKEN;
+    }
+    | Y_FUNCTION_DECL_SPECIAL                    declarator
+    {
+        $$ = (PTREE) $2;
+        t = YYEOFTOKEN;
+    }
+    | Y_FUNCTION_DECL_SPECIAL decl-specifier-seq ctor-declarator
+    {
+        GStackPop( &(state->gstack) );      /* decl-spec */
+        $$ = (PTREE) $3;
         t = YYEOFTOKEN;
     }
     | might-restart-declarations
