@@ -914,18 +914,7 @@ static SCOPE findCommonEnclosing( SCOPE scope1, SCOPE scope2 )
     return( GetFileScope() );
 }
 
-static void addLexicalTrigger( SCOPE gets_trigger, SCOPE using_scope )
-{
-    USING_NS *lexical_entry;
-
-    // trigger == NULL: push
-    lexical_entry = CarveAlloc( carveUSING_NS );
-    lexical_entry->using_scope = using_scope;
-    lexical_entry->trigger = NULL;
-    RingPush( &gets_trigger->using_list, lexical_entry );
-}
-
-static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigger )
+static void addUsingDirective( SCOPE gets_using, SCOPE using_scope )
 {
     USING_NS *using_entry;
     USING_NS *curr;
@@ -934,119 +923,38 @@ static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigge
     if( PragDbgToggle.dump_using_dir ) {
         printf( "using directive: in " );
         printScopeName( gets_using, "using " );
-        printScopeName( using_scope, "trigger " );
-        printScopeName( trigger, "\n" );
+        printScopeName( using_scope, "\n" );
     }
 #endif
     using_entry = NULL;
     RingIterBeg( gets_using->using_list, curr ) {
-        if( curr->using_scope != using_scope ) continue;
-        // relation between scopes should not change so trigger
-        // should be equal
-        DbgAssert( curr->trigger == NULL || curr->trigger == trigger );
-        if( curr->trigger == trigger ) {
+        if( curr->using_scope == using_scope ) {
             using_entry = curr;
             break;
         }
     } RingIterEnd( curr )
     if( using_entry == NULL ) {
-        // trigger != NULL: append
         using_entry = CarveAlloc( carveUSING_NS );
         using_entry->using_scope = using_scope;
-        using_entry->trigger = trigger;
         RingAppend( &gets_using->using_list, using_entry );
-        addLexicalTrigger( trigger, using_scope );
-    } else {
-#ifndef NDEBUG
-        USING_NS *curr;
-        RingIterBeg( trigger->using_list, curr ) {
-            if( curr->using_scope != using_scope ) continue;
-            if( curr->trigger == NULL ) {
-                break;
-            }
-        } RingIterEnd( curr )
-        DbgAssert( curr->trigger == NULL );
-#endif
     }
 }
 
-void ScopeRestoreUsing( SCOPE scope )
-/***********************************/
-{
-    USING_NS *curr;
-
-    RingIterBeg( scope->using_list, curr ) {
-        if( curr->trigger != NULL ) {
-            addLexicalTrigger( curr->trigger, curr->using_scope );
-        }
-    } RingIterEnd( curr )
-}
-
-#if USING_DIRECTIVE_PERFORMS_CLOSURE
-static void addTransitiveUsingDirective( SCOPE gets_using, SCOPE using_scope,
-                                         SCOPE trigger )
-{
-    SCOPE *top;
-    SCOPE ns;
-    USING_NS *using_entry;
-    auto PSTK_CTL stack;
-    auto PSTK_CTL cycle;
-
-    PstkOpen( &stack );
-    PstkOpen( &cycle );
-    PstkPush( &stack, using_scope );
-    PstkPush( &cycle, using_scope );
-    DbgStmt( { int i; for( i = 0; i < 3; ++i ) PstkPush( &cycle, NULL ); } );
-    addUsingDirective( gets_using, using_scope, trigger );
-    // perform transitive closure of using namespace directives
-    for(;;) {
-        top = PstkPop( &stack );
-        if( top == NULL ) break;
-        ns = *top;
-        RingIterBeg( ns->using_list, using_entry ) {
-            if( using_entry->trigger == NULL ) {
-                continue;
-            }
-            using_scope = using_entry->using_scope;
-            if( ! PstkContainsElement( &cycle, using_scope ) ) {
-                PstkPush( &cycle, using_scope );
-                DbgStmt( { int i; for( i = 0; i < 3; ++i ) PstkPush( &cycle, NULL ); } );
-                PstkPush( &stack, using_scope );
-                trigger = findCommonEnclosing( gets_using, using_scope );
-                addUsingDirective( gets_using, using_scope, trigger );
-            }
-        } RingIterEnd( using_entry )
-    }
-    PstkClose( &cycle );
-    PstkClose( &stack );
-}
-#endif
-
-void ScopeAddUsing( SCOPE using_scope, SCOPE trigger )
+void ScopeAddUsing( SCOPE using_scope )
 /****************************************************/
 {
     SCOPE gets_using;
+    SCOPE trigger;
 
     gets_using = GetCurrScope();
     DbgAssert( using_scope != NULL );
     // NYI: to emulate MS/MetaWare bug, set trigger to CurrScope
-    if( trigger == NULL ) {
-        trigger = findCommonEnclosing( gets_using, using_scope );
-    }
+    trigger = findCommonEnclosing( gets_using, using_scope );
     if( trigger == using_scope ) {
         CErr1( WARN_USELESS_USING_DIRECTIVE );
         return;
     }
-    addUsingDirective( gets_using, using_scope, trigger );
-#if USING_DIRECTIVE_PERFORMS_CLOSURE
-    USING_NS *check_entry;
-    check_entry = RingLast( using_scope->using_list );
-    if( check_entry != NULL && check_entry->trigger != NULL ) {
-        addTransitiveUsingDirective( gets_using, using_scope, trigger );
-    } else {
-        addUsingDirective( gets_using, using_scope, trigger );
-    }
-#endif
+    addUsingDirective( gets_using, using_scope );
 }
 
 SCOPE ScopeIsGlobalNameSpace( SCOPE scope )
@@ -1345,44 +1253,15 @@ static void processNameSpaces( void )
     }
 }
 
-static USING_NS *pruneMatchingUsing( SCOPE host, SCOPE using )
-{
-    USING_NS **head;
-    USING_NS *curr;
-    USING_NS *prev;
-
-    head = &host->using_list;
-    prev = NULL;
-    RingIterBeg( *head, curr ) {
-        if( curr->trigger == NULL && curr->using_scope == using ) {
-            return( RingPruneWithPrev( head, curr, prev ) );
-        }
-        prev = curr;
-    } RingIterEnd( curr )
-    DbgAssert( ErrCount != 0 ); // should never get here on clean source
-    return( NULL );
-}
-
 SCOPE ScopeClose( void )
 /**********************/
 {
-    USING_NS *use;
-    USING_NS *lex_use;
     NAME_SPACE *ns;
-    SCOPE trigger;
     SCOPE dropping_scope;
 
     dropping_scope = GetCurrScope();
     SetCurrScope(dropping_scope->enclosing);
     ExtraRptIncrementCtr( scopes_closed );
-    RingIterBegSafe( dropping_scope->using_list, use ) {
-        trigger = use->trigger;
-        if( trigger != NULL ) {
-            lex_use = pruneMatchingUsing( trigger, use->using_scope );
-            DbgAssert( lex_use != NULL || ErrCount != 0 );
-            CarveFree( carveUSING_NS, lex_use );
-        }
-    } RingIterEndSafe( use )
     if( ! HashEmpty( dropping_scope->names ) ) {
         ExtraRptIncrementCtr( nonempty_scopes_closed );
         dropping_scope->keep = TRUE;
@@ -4487,13 +4366,11 @@ static boolean tryDisambigLookup( lookup_walk *data, SCOPE scope,
         top = PstkPop( from_stack );
         if( top == NULL ) break;
         RingIterBeg( (*top)->using_list, curr ) {
-            if( curr->trigger != NULL ) {
-                edge_scope = curr->using_scope;
-                if( ! PstkContainsElement( cycle, edge_scope ) ) {
-                    PstkPush( cycle, edge_scope );
-                    if( doRecordedLookup( data, edge_scope ) == NULL ) {
-                        PstkPush( to_stack, edge_scope );
-                    }
+            edge_scope = curr->using_scope;
+            if( ! PstkContainsElement( cycle, edge_scope ) ) {
+                PstkPush( cycle, edge_scope );
+                if( doRecordedLookup( data, edge_scope ) == NULL ) {
+                    PstkPush( to_stack, edge_scope );
                 }
             }
         } RingIterEnd( curr )
@@ -4541,7 +4418,6 @@ static boolean disambigNSLookup( lookup_walk *data, SCOPE scope )
 static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
 {
     boolean retn;
-    SCOPE trigger_scope;
     SCOPE top_scope;
     SCOPE edge_scope;
     SCOPE *top;
@@ -4556,13 +4432,11 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
     doRecordedLookup( data, scope );
     edge_scope = NULL;
     RingIterBeg( scope->using_list, curr ) {
-        if( curr->trigger == NULL ) {
-            edge_scope = curr->using_scope;
-            if( ! PstkContainsElement( &cycle, edge_scope ) ) {
-                PstkPush( &cycle, edge_scope );
-                PstkPush( &stack, edge_scope );
-                doRecordedLookup( data, edge_scope );
-            }
+        edge_scope = curr->using_scope;
+        if( ! PstkContainsElement( &cycle, edge_scope ) ) {
+            PstkPush( &cycle, edge_scope );
+            PstkPush( &stack, edge_scope );
+            doRecordedLookup( data, edge_scope );
         }
     } RingIterEnd( curr )
     if( edge_scope != NULL ) {
@@ -4572,14 +4446,11 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
             if( top == NULL ) break;
             top_scope = *top;
             RingIterBeg( top_scope->using_list, curr ) {
-                trigger_scope = curr->trigger;
-                if( trigger_scope == scope || trigger_scope == top_scope ) {
-                    edge_scope = curr->using_scope;
-                    if( ! PstkContainsElement( &cycle, edge_scope ) ) {
-                        PstkPush( &cycle, edge_scope );
-                        PstkPush( &stack, edge_scope );
-                        doRecordedLookup( data, edge_scope );
-                    }
+                edge_scope = curr->using_scope;
+                if( ! PstkContainsElement( &cycle, edge_scope ) ) {
+                    PstkPush( &cycle, edge_scope );
+                    PstkPush( &stack, edge_scope );
+                    doRecordedLookup( data, edge_scope );
                 }
             } RingIterEnd( curr )
         }
@@ -4593,7 +4464,6 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
 static boolean searchScope( lookup_walk *data, SCOPE scope )
 {
     SCOPE disambig;
-    SYMBOL_NAME sym_name;
 
     DbgAssert( data->is_special == NULL || data->check_special );
     ExtraRptIncrementCtr( scopes_searched );
@@ -4626,15 +4496,7 @@ static boolean searchScope( lookup_walk *data, SCOPE scope )
         return( disambigNSLookup( data, disambig ) );
     }
     DbgAssert( ! data->user_conversion );
-    if( _IsFileScope( scope ) ) {
-        return( simpleNSLookup( data, scope ) );
-    }
-    sym_name = doLookup( data, scope );
-    if( sym_name == NULL ) {
-        return( FALSE );
-    }
-    recordLocation( data, scope, sym_name );
-    return( TRUE );
+    return( simpleNSLookup( data, scope ) );
 }
 
 static void lexicalLookup( lookup_walk *data, SCOPE curr )
@@ -6273,15 +6135,10 @@ SYMBOL_NAME ScopeYYLexical( SCOPE scope, char *name )
             sym_name = NULL;
             break;
         }
-        if( _IsClassScope( scope ) || _IsFileScope( scope ) ) {
-            if( searchScope( &data, scope ) ) {
-                sym_name = data.paths->sym_name;
-                delLookupData( &data );
-                break;
-            }
-        } else {
-            sym_name = HashLookup( scope->names, name );
-            if( sym_name != NULL ) break;
+        if( searchScope( &data, scope ) ) {
+            sym_name = data.paths->sym_name;
+            delLookupData( &data );
+            break;
         }
         scope = scope->enclosing;
     }
@@ -7294,7 +7151,6 @@ static void saveUsingNS( void *e, carve_walk_base *d )
 {
     USING_NS *u = e;
     USING_NS *save_next;
-    SCOPE save_trigger;
     SCOPE save_using_scope;
 
     if( u->using_scope == NULL ) {
@@ -7302,14 +7158,11 @@ static void saveUsingNS( void *e, carve_walk_base *d )
     }
     save_next = u->next;
     u->next = CarveGetIndex( carveUSING_NS, save_next );
-    save_trigger = u->trigger;
-    u->trigger = ScopeGetIndex( save_trigger );
     save_using_scope = u->using_scope;
     u->using_scope = ScopeGetIndex( save_using_scope );
     PCHWriteCVIndex( d->index );
     PCHWrite( u, sizeof( *u ) );
     u->next = save_next;
-    u->trigger = save_trigger;
     u->using_scope = save_using_scope;
 }
 
@@ -7703,7 +7556,6 @@ static void readUsingNS( void )
     for(;;) {
         PCHReadMapped( pch, u, i, data );
         u->next = CarveMapIndex( carveUSING_NS, pch->next );
-        u->trigger = ScopeMapIndex( pch->trigger );
         u->using_scope = ScopeMapIndex( pch->using_scope );
     }
 }

@@ -111,7 +111,6 @@ static void openNameSpaceSym( char *name, TOKEN_LOCN *locn )
     if( ns_sym != NULL ) {
         SCOPE ns_scope = ns_sym->u.ns->scope;
         ScopeOpen( ns_scope );
-        ScopeRestoreUsing( ns_scope );
     } else {
         ns_sym = AllocSymbol();
         scope = ScopeOpenNameSpace( name, ns_sym );
@@ -128,9 +127,9 @@ void NameSpaceUnnamed( TOKEN_LOCN *locn )
     old_curr = GetCurrScope();
     openNameSpaceSym( NULL, locn );
     save_curr = GetCurrScope();
-    SetCurrScope(old_curr);
-    ScopeAddUsing( save_curr, old_curr );
-    SetCurrScope(save_curr);
+    SetCurrScope( old_curr );
+    ScopeAddUsing( save_curr );
+    SetCurrScope( save_curr );
 }
 
 void NameSpaceNamed( PTREE id )
@@ -225,7 +224,7 @@ void NameSpaceUsingDirective( PTREE ns_id )
     find_scope = getSearchScope( ns_id, &id, &control );
     ns_sym = previousNSSym( id->u.id.name, find_scope, control );
     if( ns_sym != NULL ) {
-        ScopeAddUsing( ns_sym->u.ns->scope, NULL );
+        ScopeAddUsing( ns_sym->u.ns->scope );
     } else {
         PTreeErrorExpr( ns_id, ERR_NAME_DOESNT_REF_NAMESPACE );
     }

@@ -844,8 +844,6 @@ PCH_struct name_space {
 
 PCH_struct using_ns {
     USING_NS            *next;
-    SCOPE               trigger;        // - if we find nothing in this scope,
-                                        //   search in the alternate scope
     SCOPE               using_scope;    // - alternate namespace scope to search
 };
 
@@ -1181,7 +1179,7 @@ typedef enum {
 } find_virtual_status;
 extern find_virtual_status ScopeFindVirtual( SCOPE, SYMBOL [2], char * );
 
-extern void ScopeAddUsing( SCOPE, SCOPE );
+extern void ScopeAddUsing( SCOPE );
 extern SCOPE ScopeIsGlobalNameSpace( SCOPE );
 extern SCOPE ScopeIsUnnamedNameSpace( SCOPE );
 extern void ScopeBeginFunction( SYMBOL );
@@ -1191,7 +1189,6 @@ extern SCOPE ScopeEnd( scope_type_t );
 extern void ScopeEndFileScope( void );
 extern SCOPE ScopeCreate( scope_type_t );
 extern void ScopeOpen( SCOPE );
-extern void ScopeRestoreUsing( SCOPE );
 extern void ScopeEstablish( SCOPE );
 extern SCOPE ScopeOpenNameSpace( char *, SYMBOL );
 extern SCOPE ScopeSetEnclosing( SCOPE, SCOPE );
