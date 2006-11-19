@@ -914,7 +914,7 @@ static SCOPE findCommonEnclosing( SCOPE scope1, SCOPE scope2 )
     return( GetFileScope() );
 }
 
-static void addUsingDirective( SCOPE gets_using, SCOPE using_scope )
+static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigger )
 {
     USING_NS *using_entry;
     USING_NS *curr;
@@ -923,38 +923,65 @@ static void addUsingDirective( SCOPE gets_using, SCOPE using_scope )
     if( PragDbgToggle.dump_using_dir ) {
         printf( "using directive: in " );
         printScopeName( gets_using, "using " );
-        printScopeName( using_scope, "\n" );
+        printScopeName( using_scope, "trigger " );
+        printScopeName( trigger, "\n" );
     }
 #endif
     using_entry = NULL;
     RingIterBeg( gets_using->using_list, curr ) {
-        if( curr->using_scope == using_scope ) {
+        if( curr->using_scope != using_scope ) continue;
+        // relation between scopes should not change so trigger
+        // should be equal
+        DbgAssert( curr->trigger == NULL || curr->trigger == trigger );
+        if( curr->trigger == trigger ) {
             using_entry = curr;
             break;
         }
     } RingIterEnd( curr )
     if( using_entry == NULL ) {
+        USING_NS *lexical_entry;
+
+        // trigger != NULL: append
         using_entry = CarveAlloc( carveUSING_NS );
         using_entry->using_scope = using_scope;
+        using_entry->trigger = trigger;
         RingAppend( &gets_using->using_list, using_entry );
+
+        // trigger == NULL: push
+        lexical_entry = CarveAlloc( carveUSING_NS );
+        lexical_entry->using_scope = using_scope;
+        lexical_entry->trigger = NULL;
+        RingPush( &trigger->using_list, lexical_entry );
+#ifndef NDEBUG
+    } else {
+        USING_NS *curr;
+        RingIterBeg( trigger->using_list, curr ) {
+            if( curr->using_scope != using_scope ) continue;
+            if( curr->trigger == NULL ) {
+                break;
+            }
+        } RingIterEnd( curr )
+        DbgAssert( curr->trigger == NULL );
+#endif
     }
 }
 
-void ScopeAddUsing( SCOPE using_scope )
+void ScopeAddUsing( SCOPE using_scope, SCOPE trigger )
 /****************************************************/
 {
     SCOPE gets_using;
-    SCOPE trigger;
 
     gets_using = GetCurrScope();
     DbgAssert( using_scope != NULL );
     // NYI: to emulate MS/MetaWare bug, set trigger to CurrScope
-    trigger = findCommonEnclosing( gets_using, using_scope );
+    if( trigger == NULL ) {
+        trigger = findCommonEnclosing( gets_using, using_scope );
+    }
     if( trigger == using_scope ) {
         CErr1( WARN_USELESS_USING_DIRECTIVE );
         return;
     }
-    addUsingDirective( gets_using, using_scope );
+    addUsingDirective( gets_using, using_scope, trigger );
 }
 
 SCOPE ScopeIsGlobalNameSpace( SCOPE scope )
@@ -4366,11 +4393,13 @@ static boolean tryDisambigLookup( lookup_walk *data, SCOPE scope,
         top = PstkPop( from_stack );
         if( top == NULL ) break;
         RingIterBeg( (*top)->using_list, curr ) {
-            edge_scope = curr->using_scope;
-            if( ! PstkContainsElement( cycle, edge_scope ) ) {
-                PstkPush( cycle, edge_scope );
-                if( doRecordedLookup( data, edge_scope ) == NULL ) {
-                    PstkPush( to_stack, edge_scope );
+            if( curr->trigger != NULL ) {
+                edge_scope = curr->using_scope;
+                if( ! PstkContainsElement( cycle, edge_scope ) ) {
+                    PstkPush( cycle, edge_scope );
+                    if( doRecordedLookup( data, edge_scope ) == NULL ) {
+                        PstkPush( to_stack, edge_scope );
+                    }
                 }
             }
         } RingIterEnd( curr )
@@ -4418,6 +4447,7 @@ static boolean disambigNSLookup( lookup_walk *data, SCOPE scope )
 static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
 {
     boolean retn;
+    SCOPE trigger_scope;
     SCOPE top_scope;
     SCOPE edge_scope;
     SCOPE *top;
@@ -4432,11 +4462,13 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
     doRecordedLookup( data, scope );
     edge_scope = NULL;
     RingIterBeg( scope->using_list, curr ) {
-        edge_scope = curr->using_scope;
-        if( ! PstkContainsElement( &cycle, edge_scope ) ) {
-            PstkPush( &cycle, edge_scope );
-            PstkPush( &stack, edge_scope );
-            doRecordedLookup( data, edge_scope );
+        if( curr->trigger == NULL ) {
+            edge_scope = curr->using_scope;
+            if( ! PstkContainsElement( &cycle, edge_scope ) ) {
+                PstkPush( &cycle, edge_scope );
+                PstkPush( &stack, edge_scope );
+                doRecordedLookup( data, edge_scope );
+            }
         }
     } RingIterEnd( curr )
     if( edge_scope != NULL ) {
@@ -4446,11 +4478,14 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
             if( top == NULL ) break;
             top_scope = *top;
             RingIterBeg( top_scope->using_list, curr ) {
-                edge_scope = curr->using_scope;
-                if( ! PstkContainsElement( &cycle, edge_scope ) ) {
-                    PstkPush( &cycle, edge_scope );
-                    PstkPush( &stack, edge_scope );
-                    doRecordedLookup( data, edge_scope );
+                trigger_scope = curr->trigger;
+                if( trigger_scope == scope || trigger_scope == top_scope ) {
+                    edge_scope = curr->using_scope;
+                    if( ! PstkContainsElement( &cycle, edge_scope ) ) {
+                        PstkPush( &cycle, edge_scope );
+                        PstkPush( &stack, edge_scope );
+                        doRecordedLookup( data, edge_scope );
+                    }
                 }
             } RingIterEnd( curr )
         }
@@ -6148,17 +6183,7 @@ SYMBOL_NAME ScopeYYLexical( SCOPE scope, char *name )
 SYMBOL_NAME ScopeYYMember( SCOPE scope, char *name )
 /**************************************************/
 {
-    SYMBOL_NAME sym_name;
-    auto lookup_walk data;
-
-    newLookupData( &data, name );
-    data.ignore_access = TRUE;
-    sym_name = NULL;
-    if( searchScope( &data, scope ) ) {
-        sym_name = data.paths->sym_name;
-        delLookupData( &data );
-    }
-    return( sym_name );
+    return ScopeYYLexical( scope, name );
 }
 
 SYMBOL ScopeAlreadyExists( SCOPE scope, char *name )
