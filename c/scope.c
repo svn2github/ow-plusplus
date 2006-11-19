@@ -6648,8 +6648,9 @@ void ScopeQualifyPush( SCOPE scope, SCOPE access )
     qual = CarveAlloc( carveQUALIFICATION );
     qual->access = access;
     qual->reset = GetCurrScope();
-    if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) ) {
-        // need to keep the TEMPLATE_DECL scope at the top
+    if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL )
+     || ScopeType( GetCurrScope(), SCOPE_TEMPLATE_PARM ) ) {
+        // need to keep the template decl/parm scope at the top
         qual->enclosing = GetCurrScope()->enclosing;
         ScopeSetEnclosing( GetCurrScope(), scope );
     } else {
