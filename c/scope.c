@@ -271,6 +271,7 @@ typedef struct {                                /* I - input, O - output */
     unsigned            file_ns_done : 1;       /* O: N::id search from file-scope done */
     unsigned            same_table : 1;         /* O: vfn name is in same table */
     unsigned            lookup_error : 1;       /* O: error to report from lookup */
+    unsigned            member_lookup : 1;
 } lookup_walk;
 
 typedef struct access_data {
@@ -3555,6 +3556,7 @@ static void newLookupData( lookup_walk *data, char *name )
     data->file_ns_done = FALSE;
     data->same_table = FALSE;
     data->lookup_error = FALSE;
+    data->member_lookup = FALSE;
 }
 
 static void removeDead( lookup_walk *data )
@@ -4462,7 +4464,8 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
     doRecordedLookup( data, scope );
     edge_scope = NULL;
     RingIterBeg( scope->using_list, curr ) {
-        if( curr->trigger == NULL ) {
+        if( data->member_lookup ?
+            ( curr->trigger != NULL ) : (curr->trigger == NULL ) ) {
             edge_scope = curr->using_scope;
             if( ! PstkContainsElement( &cycle, edge_scope ) ) {
                 PstkPush( &cycle, edge_scope );
@@ -4479,57 +4482,9 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
             top_scope = *top;
             RingIterBeg( top_scope->using_list, curr ) {
                 trigger_scope = curr->trigger;
-                if( trigger_scope == scope || trigger_scope == top_scope ) {
-                    edge_scope = curr->using_scope;
-                    if( ! PstkContainsElement( &cycle, edge_scope ) ) {
-                        PstkPush( &cycle, edge_scope );
-                        PstkPush( &stack, edge_scope );
-                        doRecordedLookup( data, edge_scope );
-                    }
-                }
-            } RingIterEnd( curr )
-        }
-    }
-    retn = processNSLookup( data );
-    PstkClose( &cycle );
-    PstkClose( &stack );
-    return( retn );
-}
-
-static boolean simpleMemberLookup( lookup_walk *data, SCOPE scope )
-{
-    boolean retn;
-    SCOPE top_scope;
-    SCOPE edge_scope;
-    SCOPE *top;
-    USING_NS *curr;
-    auto PSTK_CTL cycle;
-    auto PSTK_CTL stack;
-
-    PstkOpen( &stack );
-    PstkPush( &stack, scope );
-    PstkOpen( &cycle );
-    PstkPush( &cycle, scope );
-    doRecordedLookup( data, scope );
-    edge_scope = NULL;
-    RingIterBeg( scope->using_list, curr ) {
-        if( curr->trigger != NULL ) {
-            edge_scope = curr->using_scope;
-            if( ! PstkContainsElement( &cycle, edge_scope ) ) {
-                PstkPush( &cycle, edge_scope );
-                PstkPush( &stack, edge_scope );
-                doRecordedLookup( data, edge_scope );
-            }
-        }
-    } RingIterEnd( curr )
-    if( edge_scope != NULL ) {
-        // sym was found in this scope or this scope has triggers
-        for(;;) {
-            top = PstkPop( &stack );
-            if( top == NULL ) break;
-            top_scope = *top;
-            RingIterBeg( top_scope->using_list, curr ) {
-                if( curr->trigger != NULL ) {
+                if( data->member_lookup ? 
+                    ( trigger_scope != NULL ) :
+                    ( trigger_scope == scope || trigger_scope == top_scope ) ) {
                     edge_scope = curr->using_scope;
                     if( ! PstkContainsElement( &cycle, edge_scope ) ) {
                         PstkPush( &cycle, edge_scope );
@@ -6237,8 +6192,9 @@ SYMBOL_NAME ScopeYYMember( SCOPE scope, char *name )
     auto lookup_walk data;
 
     newLookupData( &data, name );
+    data.member_lookup = TRUE;
     data.ignore_access = TRUE;
-    if( simpleMemberLookup( &data, scope ) ) {
+    if( searchScope( &data, scope ) ) {
         sym_name = data.paths->sym_name;
         delLookupData( &data );
         return( sym_name );
