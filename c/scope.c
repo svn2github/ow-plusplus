@@ -4496,6 +4496,56 @@ static boolean simpleNSLookup( lookup_walk *data, SCOPE scope )
     return( retn );
 }
 
+static boolean simpleMemberLookup( lookup_walk *data, SCOPE scope )
+{
+    boolean retn;
+    SCOPE top_scope;
+    SCOPE edge_scope;
+    SCOPE *top;
+    USING_NS *curr;
+    auto PSTK_CTL cycle;
+    auto PSTK_CTL stack;
+
+    PstkOpen( &stack );
+    PstkPush( &stack, scope );
+    PstkOpen( &cycle );
+    PstkPush( &cycle, scope );
+    doRecordedLookup( data, scope );
+    edge_scope = NULL;
+    RingIterBeg( scope->using_list, curr ) {
+        if( curr->trigger != NULL ) {
+            edge_scope = curr->using_scope;
+            if( ! PstkContainsElement( &cycle, edge_scope ) ) {
+                PstkPush( &cycle, edge_scope );
+                PstkPush( &stack, edge_scope );
+                doRecordedLookup( data, edge_scope );
+            }
+        }
+    } RingIterEnd( curr )
+    if( edge_scope != NULL ) {
+        // sym was found in this scope or this scope has triggers
+        for(;;) {
+            top = PstkPop( &stack );
+            if( top == NULL ) break;
+            top_scope = *top;
+            RingIterBeg( top_scope->using_list, curr ) {
+                if( curr->trigger != NULL ) {
+                    edge_scope = curr->using_scope;
+                    if( ! PstkContainsElement( &cycle, edge_scope ) ) {
+                        PstkPush( &cycle, edge_scope );
+                        PstkPush( &stack, edge_scope );
+                        doRecordedLookup( data, edge_scope );
+                    }
+                }
+            } RingIterEnd( curr )
+        }
+    }
+    retn = processNSLookup( data );
+    PstkClose( &cycle );
+    PstkClose( &stack );
+    return( retn );
+}
+
 static boolean searchScope( lookup_walk *data, SCOPE scope )
 {
     SCOPE disambig;
@@ -6183,7 +6233,17 @@ SYMBOL_NAME ScopeYYLexical( SCOPE scope, char *name )
 SYMBOL_NAME ScopeYYMember( SCOPE scope, char *name )
 /**************************************************/
 {
-    return ScopeYYLexical( scope, name );
+    SYMBOL_NAME sym_name;
+    auto lookup_walk data;
+
+    newLookupData( &data, name );
+    data.ignore_access = TRUE;
+    if( simpleMemberLookup( &data, scope ) ) {
+        sym_name = data.paths->sym_name;
+        delLookupData( &data );
+        return( sym_name );
+    }
+    return( NULL );
 }
 
 SYMBOL ScopeAlreadyExists( SCOPE scope, char *name )
