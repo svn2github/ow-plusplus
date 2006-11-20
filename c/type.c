@@ -8608,6 +8608,24 @@ void DumpOfRefs()
 }
 #endif
 
+
+static void freeTypename( void *e, carve_walk_base *d )
+{
+    TYPE t = e;
+
+    if( t->id == TYP_TYPENAME ) {
+        PTreeFreeSubtrees( t->u.n.tree );
+        t->u.n.tree = NULL;
+    }
+}
+
+void TypeFreeTypenames( void )
+{
+    auto carve_walk_base data;
+    CarveWalkAll( carveTYPE, freeTypename, &data );
+}
+
+
 static void typesFini(          // COMPLETION OF TYPES PROCESSING
     INITFINI* defn )            // - definition
 {

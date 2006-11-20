@@ -1322,12 +1322,36 @@ void TemplateFunctionAttachDefn( DECL_INFO *dinfo )
 }
 
 
+static unsigned decl_paren_depth;
+static unsigned decl_bracket_depth;
+
+static void declOnlyReset( void )
+{
+    decl_paren_depth = 0;
+    decl_bracket_depth = 0;
+}
+
 /* only rewrite the declaration */
 static void declOnlyRewriteToken( void )
 {
     RewriteToken();
 
-    if( ( CurToken == T_SEMI_COLON ) || ( CurToken == T_LEFT_BRACE ) || ( CurToken == T_COLON ) ) {
+    if( CurToken == T_LEFT_PAREN ) {
+        decl_paren_depth++;
+    } else if( CurToken == T_RIGHT_PAREN ) {
+        decl_paren_depth--;
+    } else if( CurToken == T_LEFT_BRACKET ) {
+        decl_bracket_depth++;
+    } else if( CurToken == T_RIGHT_BRACKET ) {
+        decl_bracket_depth--;
+    }
+
+    if( ( CurToken == T_SEMI_COLON ) || (CurToken == T_LEFT_BRACE ) ) {
+        CurToken = T_EOF;
+    }
+
+    if( ( decl_paren_depth == 0 ) && ( decl_bracket_depth == 0 )
+     && ( CurToken == T_COLON ) ) {
         CurToken = T_EOF;
     }
 }
@@ -1399,9 +1423,12 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
         if( num_explicit >= 1 ) {
+            void verifySpecialFunction( SCOPE, DECL_INFO * ); /* TODO */
+
             /* reparse the function declaration to get any
              * typenames parsed correctly */
             ParseFlush();
+            declOnlyReset();
             save_token = RewritePackageToken();
             last_source = SetTokenSource( declOnlyRewriteToken );
             last_rewrite = RewriteRewind( fn_templ->u.defn->defn );
@@ -1437,11 +1464,12 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
         binding_handle = BindGenericTypes( parm_scope, pparms, pargs, TRUE,
                                            num_explicit );
         if( binding_handle ) {
+            void verifySpecialFunction( SCOPE, DECL_INFO * ); /* TODO */
+
             /* just reparse the function declaration once more to get
              * the bound type */
-            void verifySpecialFunction( SCOPE, DECL_INFO * );
-
             ParseFlush();
+            declOnlyReset();
             save_token = RewritePackageToken();
             last_source = SetTokenSource( declOnlyRewriteToken );
             last_rewrite = RewriteRewind( fn_templ->u.defn->defn );

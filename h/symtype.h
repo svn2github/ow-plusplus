@@ -1709,6 +1709,7 @@ TYPE TypePointerDiff(           // GET TYPE FOR DIFFERENCE OF POINTERS
 TYPE TypeReference(             // GET REFERENCE TYPE
     TYPE type )                 // - the type
 ;
+void TypeFreeTypenames( void );
 
 // type cache support
 typedef enum typc_index {
