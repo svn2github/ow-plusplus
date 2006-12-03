@@ -2995,19 +2995,15 @@ template-key
     ;
 
 template-def
-    : class-template Y_SEMI_COLON
+    : block-declaration-before-semicolon Y_SEMI_COLON
+    {
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
+    }
     | function-definition
     {
-        GStackPop( &(state->gstack) );
-        GStackPop( &(state->gstack) );
-    }
-    ;
-
-class-template
-    : block-declaration-before-semicolon
-    {
-        GStackPop( &(state->gstack) );
-        GStackPop( &(state->gstack) );
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
     ;
 

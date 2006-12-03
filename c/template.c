@@ -1262,6 +1262,8 @@ static FN_TEMPLATE *newTemplateFunction( SYMBOL sym )
     fn_defn->sym = sym;
     fn_defn->decl_scope = GetCurrScope();
     fn_defn->defn = NULL;
+    fn_defn->has_defn = FALSE;
+    fn_defn->free = FALSE;
     return( fn_defn );
 }
 
@@ -1281,11 +1283,14 @@ void TemplateFunctionCheck( SYMBOL sym, DECL_INFO *dinfo )
     sym->sym_type = MakePlusPlusFunction( sym->sym_type );
 }
 
-void TemplateFunctionDeclaration( SYMBOL sym )
+void TemplateFunctionDeclaration( SYMBOL sym, boolean is_defn )
 /********************************************/
 {
     if( sym->u.defn == NULL ) {
         sym->u.defn = newTemplateFunction( sym );
+        if( ! is_defn ) {
+            sym->u.defn->defn = ParseGetRecordingInProgress( NULL );
+        }
     }
 }
 
@@ -1312,10 +1317,12 @@ void TemplateFunctionAttachDefn( DECL_INFO *dinfo )
         fn_templ->decl_scope = GetCurrScope();
     }
 
-    if( fn_templ->defn != NULL ) {
+    if( fn_templ->has_defn ) {
         RewriteFree( r );
         CErr2p( ERR_FUNCTION_TEMPLATE_ALREADY_HAS_DEFN, sym );
     } else {
+        RewriteFree( fn_templ->defn );
+        fn_templ->has_defn = TRUE;
         fn_templ->defn = r;
     }
     FreeDeclInfo( dinfo );

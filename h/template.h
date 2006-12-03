@@ -136,6 +136,7 @@ PCH_struct fn_template {
     SYMBOL              sym;            // template function
     SCOPE               decl_scope;     // template declaration scope
     REWRITE             *defn;          // always non-NULL
+    unsigned            has_defn : 1;   // declaration or definition?
     unsigned            free : 1;       // used for precompiled headers
 };
 
@@ -164,7 +165,7 @@ extern void TemplateDeclInit( TEMPLATE_DATA * );
 extern void TemplateDeclAddArgument( DECL_INFO *new_dinfo );
 extern void TemplateDeclFini( void );
 extern void TemplateFunctionCheck( SYMBOL, DECL_INFO * );
-extern void TemplateFunctionDeclaration( SYMBOL );
+extern void TemplateFunctionDeclaration( SYMBOL, boolean is_defn );
 extern void TemplateFunctionAttachDefn( DECL_INFO * );
 extern SYMBOL TemplateFunctionGenerate( SYMBOL, arg_list *, PTREE, TOKEN_LOCN * );
 extern void TemplateClassDeclaration( PTREE, SCOPE, char * );

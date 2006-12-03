@@ -6556,7 +6556,7 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
                     }
                 }
                 if( is_template_function ) {
-                    TemplateFunctionDeclaration( sym );
+                    TemplateFunctionDeclaration( sym, dinfo->fn_defn );
                 }
             }
         } else {
