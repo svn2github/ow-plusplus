@@ -1873,9 +1873,10 @@ FNOV_RESULT IsOverloadedFuncDistinct( SYMBOL *pold_sym,SYMBOL new_sym,char*name
     control |= FNC_EXCLUDE_ELLIPSIS | FNC_DISTINCT_CHECK;
 
     // check for template function
-    if( SymIsFunctionTemplateModel( new_sym )
-     && SymIsFunctionTemplateModel( *pold_sym ) ) {
-        // have to compare template parameters for fuction templates
+    if( SymIsFunctionTemplateModel( *pold_sym )
+     && ( SymIsFunctionTemplateModel( new_sym )
+       || ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) ) ) {
+        // have to compare template parameters for function templates
         FN_TEMPLATE *old_fntempl = (*pold_sym)->u.defn;
         SYMBOL old_curr = NULL, new_curr = NULL;
         SYMBOL old_stop, new_stop;
