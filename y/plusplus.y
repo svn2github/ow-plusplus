@@ -2819,19 +2819,48 @@ operator
 
 /* A.12 Templates [gram.temp] */
 
+/* differs from standard */
 template-declaration
-    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL template-def
+    : template-declaration-before-semicolon Y_SEMI_COLON
+    | template-function-declaration
+    ;
+
+template-declaration-before-semicolon
+    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
     {
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
-    | Y_EXPORT template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL template-def
+    | Y_EXPORT template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
     {
         CErr1( WARN_UNSUPPORTED_TEMPLATE_EXPORT );
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
     ;
+
+template-function-declaration
+    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL function-definition
+    {
+        RewriteFree( ParseGetRecordingInProgress( NULL ) );
+        state->template_decl = FALSE;
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
+    }
+    | Y_EXPORT template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL function-definition
+    {
+        CErr1( WARN_UNSUPPORTED_TEMPLATE_EXPORT );
+        RewriteFree( ParseGetRecordingInProgress( NULL ) );
+        state->template_decl = FALSE;
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
+    }
+    ;
+
 
 /* non standard */
 template-declaration-init
@@ -2965,10 +2994,27 @@ explicit-instantiation
     ;
 
 explicit-specialization
-    : template-key template-declaration-init lt-special template-empty-parameter-list Y_GT_SPECIAL template-def
+    : explicit-specialization-before-semicolon Y_SEMI_COLON
+    | explicit-function-specialization
+    ;
+
+explicit-specialization-before-semicolon
+    : template-key template-declaration-init lt-special template-empty-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
     {
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
+    }
+    ;
+
+explicit-function-specialization
+    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL function-definition
+    {
+        RewriteFree( ParseGetRecordingInProgress( NULL ) );
+        state->template_decl = FALSE;
+        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
+        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
     ;
 
@@ -2991,19 +3037,6 @@ template-key
             CErr1( ERR_ONLY_GLOBAL_TEMPLATES );
         }
         state->template_decl = TRUE;
-    }
-    ;
-
-template-def
-    : block-declaration-before-semicolon Y_SEMI_COLON
-    {
-        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
-        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
-    }
-    | function-definition
-    {
-        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
-        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
     ;
 

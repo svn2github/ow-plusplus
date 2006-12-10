@@ -1525,7 +1525,6 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     PTreeFreeSubtrees( pparms );
     PTreeFreeSubtrees( pargs );
-    PTreeFreeSubtrees( templ_args );
 
     return( bound_type );
 }

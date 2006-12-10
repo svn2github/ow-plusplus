@@ -1601,6 +1601,10 @@ FNOV_CONTROL control, PTREE templ_args, FNOV_DIAG *fnov_diag )
     } else {
         buildOverloadListFromRegion( info.control, &info, result_in->region );
     }
+
+    PTreeFreeSubtrees( templ_args );
+    info.templ_args = NULL;
+
     fnovNumCandidatesSet( info.fnov_diag, *info.pcandidates );
     result = doOverload( &info );
     if( match != NULL ) {
@@ -1869,14 +1873,45 @@ FNOV_RESULT IsOverloadedFuncDistinct( SYMBOL *pold_sym,SYMBOL new_sym,char*name
     control |= FNC_EXCLUDE_ELLIPSIS | FNC_DISTINCT_CHECK;
 
     // check for template function
-    if( ( new_sym->id == SC_FUNCTION_TEMPLATE )
-     || ( new_sym->id == SC_STATIC_FUNCTION_TEMPLATE ) ) {
-        // TODO: check template function
+    if( SymIsFunctionTemplateModel( new_sym )
+     && SymIsFunctionTemplateModel( *pold_sym ) ) {
+        // have to compare template parameters for fuction templates
+        FN_TEMPLATE *old_fntempl = (*pold_sym)->u.defn;
+        SYMBOL old_curr = NULL, new_curr = NULL;
+        SYMBOL old_stop, new_stop;
+
+        // check that template parameters match
+        old_stop = ScopeOrderedStart( old_fntempl->decl_scope );
+        new_stop = ScopeOrderedStart( GetCurrScope() );
+        for(;;) {
+            old_curr = ScopeOrderedNext( old_stop, old_curr );
+            new_curr = ScopeOrderedNext( new_stop, new_curr );
+
+            if( ( old_curr == NULL ) || ( new_curr == NULL ) ) {
+                break;
+            }
+
+            if( ! TypeCompareExclude( old_curr->sym_type, new_curr->sym_type,
+                                      0 ) ) {
+                // template parameter types don't match
+                *pold_sym = NULL;
+                return FNOV_DISTINCT;
+            }
+        }
+
+        if( ( old_curr != NULL) || ( new_curr != NULL ) ) {
+            // number of template parameters don't match
+            *pold_sym = NULL;
+            return FNOV_DISTINCT;
+        }
+    } else if( SymIsFunctionTemplateModel( new_sym )
+            || SymIsFunctionTemplateModel( *pold_sym ) ) {
+        // only one is a template funciton
         *pold_sym = NULL;
         return FNOV_DISTINCT;
-    } else {
-        return doFunctionDistinctCheck( control, pold_sym, new_sym, name );
     }
+
+    return doFunctionDistinctCheck( control, pold_sym, new_sym, name );
 }
 
 FNOV_RESULT AreFunctionsDistinct( SYMBOL *pold_sym,SYMBOL new_sym,char*name )
