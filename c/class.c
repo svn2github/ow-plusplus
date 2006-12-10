@@ -717,14 +717,17 @@ static void newClassSym( CLASS_DATA *data, CLASS_DECL declaration, PTREE id )
     sym = getClassSym( data );
     SymbolLocnDefine( &(id->locn), sym );
     if( declaration == CLASS_DEFINITION ) {
+        InsertSymbol( GetCurrScope(), sym, data->name );
+    } else {
+        data->sym = sym;
+    }
+
+    if( ( declaration == CLASS_DEFINITION )
+     || ( declaration == CLASS_DECLARATION ) ) {
         /* class name injection */
         SYMBOL_NAME sym_name = AllocSymbolName( data->name, data->scope );
         sym_name->name_type = sym;
         HashInsert( data->scope->names, sym_name, data->name );
-
-        InsertSymbol( GetCurrScope(), sym, data->name );
-    } else {
-        data->sym = sym;
     }
 }
 
