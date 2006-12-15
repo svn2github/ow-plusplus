@@ -24,7 +24,7 @@
 *
 *  ========================================================================
 *
-* Description:  Command line processing for C++ compiler (x86 targets) 
+* Description:  Command line processing for C++ compiler (x86 targets)
 *
 ****************************************************************************/
 
@@ -67,7 +67,7 @@ typedef enum {                  // flags to control memory model settings
 #else
     #define DEF_TARGET_SWITCHES CHEAP_POINTER|USE_32|FLAT_MODEL
     #define DEF_SWITCHES 0
-    #define DEFAULT_CPU CPU_586
+    #define DEFAULT_CPU CPU_686
     #define DEFAULT_FPU FPU_387
 #endif
 
@@ -749,6 +749,9 @@ static void macroDefs( void )
     if( GenSwitches & FPU_ROUNDING_OMIT ) {
         DefSwitchMacro( "ZRO" );
     }
+    if( TargetSwitches & GEN_FWAIT_386 ) {
+        DefSwitchMacro( "ZFW" );
+    }
     if( CompFlags.signed_char ) {
         DefSwitchMacro( "J" );
     }
@@ -979,19 +982,23 @@ void CmdSysAnalyse( OPT_STORAGE *data )
         break;
     }
 
+    if( data->zfw ) {
+        TargetSwitches |= GEN_FWAIT_386;
+    }
 #if _CPU == 386
-    if (data->zro && data->zri)
-    {
+    if( data->zro && data->zri ) {
 //        DbgDefault( "invalid fp rounding flags - ignored" );
         data->zro = data->zri = 0;
     }
-    if (data->zri)
+    if( data->zri ) {
         GenSwitches |= FPU_ROUNDING_INLINE;
-    else if (data->zro)
+    } else if( data->zro ) {
         GenSwitches |= FPU_ROUNDING_OMIT;
+    }
 #else
-    if (data->zro)
+    if( data->zro ) {
         GenSwitches |= FPU_ROUNDING_OMIT;
+    }
 #endif
 
 #if _CPU == 386

@@ -1250,7 +1250,7 @@ extern SCOPE ScopeNearestNonTemplate( SCOPE );
 extern SCOPE ScopeNearestNonClass( SCOPE );
 extern SCOPE ScopeNearestFile( SCOPE );
 extern SCOPE ScopeNearestFileOrClass( SCOPE );
-extern SCOPE ScopeFunctionScopeInProgress();
+extern SCOPE ScopeFunctionScopeInProgress( void );
 extern SYMBOL ScopeFunctionScope( SCOPE );
 extern void ScopeMemberModuleFunction( SCOPE, SCOPE );
 extern void ScopeRestoreModuleFunction( SCOPE );

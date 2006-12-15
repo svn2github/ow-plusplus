@@ -1005,6 +1005,7 @@ static TEMPLATE_SPECIALIZATION *mergeClassTemplates( TEMPLATE_DATA *data,
             CErr2p( ERR_CANT_REDEFINE_CLASS_TEMPLATES, tinfo );
             RewriteFree( defn );
             data->defn = NULL;
+            return( NULL );
         } else {
             RewriteFree( tspec->defn );
             tspec->defn = defn;
@@ -1232,9 +1233,9 @@ void TemplateDeclFini( void )
         if( sym != NULL ) {
             if( tspec == NULL ) {
                 tspec = RingFirst( sym->u.tinfo->specializations );
+            } else {
+                tspec->corrupted = TRUE;
             }
-
-            tspec->corrupted = TRUE;
         }
     } else {
         if( data->defn_added && ( tspec != NULL ) ) {

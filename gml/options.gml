@@ -321,7 +321,7 @@
 :option. ecs
 :target. i86 386
 :enumerate. intel_call_conv
-:usage. set default calling convention to _Syscall
+:usage. set default calling convention to __syscall
 :jusage.
 
 :option. ecw
@@ -934,7 +934,7 @@
 
 :option. ri
 :target. i86 386
-:usage. promote to int all function arguments and returns
+:usage. return chars and shorts as ints
 :jusage. ‘S‚Ä‚ÌŠÖ”‚Ìˆø”‚Æ–ß‚è’l‚ğintŒ^‚É•ÏŠ·‚µ‚Ü‚·
 
 :option. rod
@@ -1161,6 +1161,16 @@
 :target. any
 :usage. scope of for loop initializer extends beyond loop
 :jusage. FIX ME
+
+:option. zfw
+:target. i86
+:usage. generate FWAIT instructions on 386 and later
+:jusage.
+
+:option. zfw
+:target. 386
+:usage. generate FWAIT instructions
+:jusage.
 
 :option. zff
 :target. i86 386
