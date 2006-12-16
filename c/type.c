@@ -6577,11 +6577,12 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
     dinfo->sym_used = TRUE;
     if( check_sym != NULL ) {
         if( dinfo->friend_fn ) {
-            if( ScopeType( insert_scope, SCOPE_CLASS ) ) {
+            SCOPE class_scope = ScopeNearestNonTemplate( insert_scope );
+            if( ScopeType( class_scope, SCOPE_CLASS ) ) {
                 if( dinfo->scope != NULL && dinfo->fn_defn ) {
                     CErr2p( ERR_INLINE_MEMBER_FRIEND, check_sym );
                 }
-                ScopeAddFriend( insert_scope, check_sym );
+                ScopeAddFriend( class_scope, check_sym );
             } else {
                 CErr1( ERR_FRIEND_NOT_IN_CLASS );
             }

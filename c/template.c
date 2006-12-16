@@ -2809,8 +2809,9 @@ static boolean makeSureSymIsAMember( SCOPE scope, SYMBOL sym )
     return( FALSE );
 }
 
-SYMBOL TemplateFunctionTranslate( SYMBOL sym, SCOPE *parse_scope )
-/****************************************************************/
+SYMBOL TemplateFunctionTranslate( SYMBOL sym, boolean friend_fn,
+                                  SCOPE *parse_scope )
+/**************************************************************/
 {
     SCOPE sym_scope;
     SYMBOL replace_sym;
@@ -2823,7 +2824,9 @@ SYMBOL TemplateFunctionTranslate( SYMBOL sym, SCOPE *parse_scope )
         sym = replace_sym;
         *parse_scope = sym_scope->enclosing;
     } else {
-        makeSureSymIsAMember( sym_scope, sym );
+        if( !friend_fn ) {      /* friends don't need to be members */
+            makeSureSymIsAMember( sym_scope, sym );
+        }
         *parse_scope = sym_scope;
     }
     return( sym );

@@ -183,7 +183,7 @@ extern SCOPE TemplateClassInstScope( TYPE );
 extern SCOPE TemplateClassParmScope( TYPE );
 extern boolean TemplateParmEqual( SYMBOL, SYMBOL );
 extern void TemplateFunctionInstantiate( FN_TEMPLATE *, FN_TEMPLATE_INST * );
-extern SYMBOL TemplateFunctionTranslate( SYMBOL, SCOPE * );
+extern SYMBOL TemplateFunctionTranslate( SYMBOL, boolean, SCOPE * );
 extern tc_fn_control TemplateFunctionControl( void );
 extern TYPE TemplateUnboundInstantiate( TYPE, arg_list *, TOKEN_LOCN * );
 extern SYMBOL ClassTemplateLookup( SCOPE scope, char * );

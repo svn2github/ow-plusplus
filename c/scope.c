@@ -2763,7 +2763,12 @@ static boolean isFriendly( SCOPE check, SCOPE friendly )
         default:
             /* friendly functions */
             if( SymIsFunction( sym ) ) {
-                if( sym == ScopeFunctionInProgress() ) {
+                SYMBOL curr_sym = ScopeFunctionInProgress();
+                if( sym == curr_sym ) {
+                    return( TRUE );
+                }
+                if( ( curr_sym->flag & SF_TEMPLATE_FN )
+                 && ( sym == curr_sym->u.alias ) ) {
                     return( TRUE );
                 }
             }

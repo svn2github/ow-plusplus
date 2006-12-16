@@ -2074,7 +2074,7 @@ void FunctionBody( DECL_INFO *dinfo )
         skipFunctionBody( 1 );
         return;
     }
-    func = TemplateFunctionTranslate( func, &parsing_scope );
+    func = TemplateFunctionTranslate( func, dinfo->friend_fn, &parsing_scope );
     dinfo->sym = func;
     CtxFunction( func );
     fn_control = TemplateFunctionControl();

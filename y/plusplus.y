@@ -390,7 +390,7 @@ Modified        By              Reason
 %type <dinfo> ctor-declarator
 %type <dinfo> declaring-declarator
 %type <dinfo> comma-declaring-declarator
-%type <dinfo> actual-declarator
+%type <dinfo> direct-declarator
 %type <dinfo> ptr-mod-init-declarator
 %type <dinfo> ptr-mod-declarator
 %type <dinfo> conversion-declarator
@@ -1373,6 +1373,8 @@ non-type-decl-specifier
     | function-specifier
     | cv-qualifier
     | ms-specific-declspec
+    | Y_FRIEND
+    { $$ = PTypeSpecifier( STY_FRIEND ); }
     ;
 
 /* non-standard */
@@ -1423,8 +1425,6 @@ function-specifier
     /* extension */
     | Y___INLINE
     { $$ = PTypeSpecifier( STY_INLINE ); }
-    | Y_FRIEND
-    { $$ = PTypeSpecifier( STY_FRIEND ); }
     ;
 
 type-specifier
@@ -1663,7 +1663,7 @@ init-declarator
         $1 = FinishDeclarator( state->gstack->u.dspec, $1 );
         $$ = InsertDeclInfo( GetCurrScope(), $1 );
     }
-    | actual-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
+    | direct-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
     {
         $1 = FinishDeclarator( state->gstack->u.dspec, $1 );
         $$ = InsertDeclInfo( GetCurrScope(), $1 );
@@ -1676,7 +1676,7 @@ declarator
     {
         $$ = FinishDeclarator( state->gstack->u.dspec, $1 );
     }
-    | actual-declarator
+    | direct-declarator
     {
         $$ = FinishDeclarator( state->gstack->u.dspec, $1 );
     }
@@ -1698,7 +1698,7 @@ comma-init-declarator
         $2 = FinishDeclarator( state->gstack->u.dspec, $2 );
         $$ = InsertDeclInfo( GetCurrScope(), $2 );
     }
-    | cv-qualifier-seq-opt actual-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
+    | cv-qualifier-seq-opt direct-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
     {
         $2 = AddMSCVQualifierKludge( $1, $2 );
         $2 = FinishDeclarator( state->gstack->u.dspec, $2 );
@@ -1731,7 +1731,7 @@ comma-declarator
         $2 = AddMSCVQualifierKludge( $1, $2 );
         $$ = FinishDeclarator( state->gstack->u.dspec, $2 );
     }
-    | cv-qualifier-seq-opt actual-declarator
+    | cv-qualifier-seq-opt direct-declarator
     {
         $2 = AddMSCVQualifierKludge( $1, $2 );
         $$ = FinishDeclarator( state->gstack->u.dspec, $2 );
@@ -1750,7 +1750,7 @@ ptr-mod
 ptr-mod-init-declarator
     : ptr-mod ptr-mod-init-declarator
     { $$ = AddDeclarator( $2, $1 ); }
-    | ptr-mod actual-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
+    | ptr-mod direct-declarator Y_LEFT_PAREN expression-list Y_RIGHT_PAREN
     {
         $$ = AddDeclarator( $2, $1 );
         setInitWithLocn( $$, $4, &yylp[3] );
@@ -1760,11 +1760,11 @@ ptr-mod-init-declarator
 ptr-mod-declarator
     : ptr-mod ptr-mod-declarator
     { $$ = AddDeclarator( $2, $1 ); }
-    | ptr-mod actual-declarator
+    | ptr-mod direct-declarator
     { $$ = AddDeclarator( $2, $1 ); }
     ;
 
-actual-declarator
+direct-declarator
     : declarator-id
     {
         $$ = MakeDeclarator( state->gstack->u.dspec, $1 );
@@ -1776,18 +1776,18 @@ actual-declarator
             }
         }
     }
-    | actual-declarator Y_LEFT_PAREN parameter-declaration-clause Y_RIGHT_PAREN cv-qualifier-seq-opt exception-specification-opt
+    | direct-declarator Y_LEFT_PAREN parameter-declaration-clause Y_RIGHT_PAREN cv-qualifier-seq-opt exception-specification-opt
     {
         $$ = AddDeclarator( $1, MakeFnType( &($3), $5, $6 ) );
         $$ = AddExplicitParms( $$, $3 );
     }
-    | actual-declarator Y_LEFT_BRACKET constant-expression Y_RIGHT_BRACKET
+    | direct-declarator Y_LEFT_BRACKET constant-expression Y_RIGHT_BRACKET
     { $$ = AddArrayDeclarator( $1, $3 ); }
-    | actual-declarator Y_LEFT_BRACKET                     Y_RIGHT_BRACKET
+    | direct-declarator Y_LEFT_BRACKET                     Y_RIGHT_BRACKET
     { $$ = AddArrayDeclarator( $1, NULL ); }
     | Y_LEFT_PAREN ptr-mod-declarator Y_RIGHT_PAREN
     { $$ = $2; }
-    | Y_LEFT_PAREN actual-declarator Y_RIGHT_PAREN
+    | Y_LEFT_PAREN direct-declarator Y_RIGHT_PAREN
     { $$ = $2; }
     ;
 
@@ -1930,6 +1930,12 @@ declarator-id
     | Y_TEMPLATE_NAME /* non-standard */
     | Y_NAMESPACE_NAME /* non-standard */
     | Y_TYPE_NAME /* non-standard */
+    | Y_GLOBAL_UNKNOWN_ID /* :: identifier */
+    { $$ = MakeGlobalId( $1 ); }
+    | Y_SCOPED_UNKNOWN_ID
+    { $$ = MakeScopedId( $1 ); }
+    | nested-name-specifier Y_TEMPLATE_SCOPED_UNKNOWN_ID
+    { $$ = MakeScopedId( $2 ); }
     /* TODO */
     ;
 
