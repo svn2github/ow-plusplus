@@ -3234,13 +3234,15 @@ static boolean duplicateMemInit( PTREE curr, PTREE test )
 static boolean verifyBaseClassInit( PTREE base, SCOPE scope )
 {
     TYPE class_type;
+    SCOPE class_scope;
 
     class_type = StructType( base->type );
+    class_scope = ScopeNearestNonTemplate( scope );
     if( class_type != NULL ) {
-        if( ScopeDirectBase( scope, class_type ) ) {
+        if( ScopeDirectBase( class_scope, class_type ) ) {
             return( FALSE );
         }
-        if( ScopeIndirectVBase( scope, class_type ) ) {
+        if( ScopeIndirectVBase( class_scope, class_type ) ) {
             return( FALSE );
         }
     }
