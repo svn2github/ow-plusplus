@@ -3281,14 +3281,6 @@ SYMBOL TemplateSymFromClass( TYPE class_type )
     return( sym );
 }
 
-SYMBOL TemplateSetFnMatchable( SYMBOL sym )
-/*****************************************/
-{
-    DbgAssert( sym->u.alias == NULL && SymIsFunction( sym ) );
-    sym->flag |= SF_TEMPLATE_FN;
-    return( sym );
-}
-
 boolean TemplateUnboundSame( TYPE ub1, TYPE ub2 )
 /***********************************************/
 {

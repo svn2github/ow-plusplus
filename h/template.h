@@ -191,7 +191,6 @@ extern SYMBOL TemplateSymFromClass( TYPE );
 extern void TemplateSetDepth( unsigned );
 extern boolean TemplateUnboundSame( TYPE, TYPE );
 extern void TemplateClassDirective( PTREE, tc_directive );
-extern SYMBOL TemplateSetFnMatchable( SYMBOL );
 extern void TemplateUsingDecl( SYMBOL, TOKEN_LOCN * );
 
 extern TEMPLATE_INFO *TemplateClassInfoGetIndex( TEMPLATE_INFO * );

@@ -2153,11 +2153,6 @@ void ScopeAddFriend( SCOPE scope, SYMBOL sym )
         }
     } RingIterEnd( a_friend )
     scopes_class_type = ScopeClass( scope );
-    if( scopes_class_type->flag & TF1_INSTANTIATION ) {
-        if( FunctionDeclarationType( sym->sym_type ) ) {
-            sym = TemplateSetFnMatchable( sym );
-        }
-    }
     ScopeRawAddFriend( scopes_class_type->u.c.info, sym );
 }
 
