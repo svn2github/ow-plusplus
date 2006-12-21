@@ -1330,40 +1330,6 @@ void TemplateFunctionAttachDefn( DECL_INFO *dinfo )
 }
 
 
-static unsigned decl_paren_depth;
-static unsigned decl_bracket_depth;
-
-static void declOnlyReset( void )
-{
-    decl_paren_depth = 0;
-    decl_bracket_depth = 0;
-}
-
-/* only rewrite the declaration */
-static void declOnlyRewriteToken( void )
-{
-    RewriteToken();
-
-    if( CurToken == T_LEFT_PAREN ) {
-        decl_paren_depth++;
-    } else if( CurToken == T_RIGHT_PAREN ) {
-        decl_paren_depth--;
-    } else if( CurToken == T_LEFT_BRACKET ) {
-        decl_bracket_depth++;
-    } else if( CurToken == T_RIGHT_BRACKET ) {
-        decl_bracket_depth--;
-    }
-
-    if( ( CurToken == T_SEMI_COLON ) || (CurToken == T_LEFT_BRACE ) ) {
-        CurToken = T_EOF;
-    }
-
-    if( ( decl_paren_depth == 0 ) && ( decl_bracket_depth == 0 )
-     && ( CurToken == T_COLON ) ) {
-        CurToken = T_EOF;
-    }
-}
-
 static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
                         TOKEN_LOCN *locn, SCOPE *templ_parm_scope,
                         bgt_control *pcontrol )
@@ -1422,9 +1388,6 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     num_explicit = BindExplicitTemplateArguments( parm_scope, templ_args );
     if( num_explicit >= 0 ) {
-        void (*last_source)( void );
-        REWRITE *save_token;
-        REWRITE *last_rewrite;
         DECL_INFO *dinfo;
         SCOPE save_scope;
 
@@ -1435,16 +1398,10 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
             /* reparse the function declaration to get any
              * typenames parsed correctly */
-            ParseFlush();
-            declOnlyReset();
-            save_token = RewritePackageToken();
-            last_source = SetTokenSource( declOnlyRewriteToken );
-            last_rewrite = RewriteRewind( fn_templ->u.defn->defn );
-
             save_scope = GetCurrScope();
             SetCurrScope( parm_scope );
 
-            dinfo = ReparseFunctionDeclaration();
+            dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
             DbgAssert( dinfo );
 
             verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
@@ -1452,11 +1409,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
             fn_type = dinfo->sym->sym_type;
             FreeDeclInfo( dinfo );
 
-            RewriteClose( last_rewrite );
-            ResetTokenSource( last_source );
-            RewriteRestoreToken( save_token );
             SetCurrScope( save_scope );
-            ParseFlush();
         }
 
         parms = fn_type->u.f.args;
@@ -1476,16 +1429,10 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
             /* just reparse the function declaration once more to get
              * the bound type */
-            ParseFlush();
-            declOnlyReset();
-            save_token = RewritePackageToken();
-            last_source = SetTokenSource( declOnlyRewriteToken );
-            last_rewrite = RewriteRewind( fn_templ->u.defn->defn );
-
             save_scope = GetCurrScope();
             SetCurrScope( parm_scope );
 
-            dinfo = ReparseFunctionDeclaration();
+            dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
             DbgAssert( dinfo );
 
             verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
@@ -1493,11 +1440,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
             bound_type = dinfo->sym->sym_type;
             FreeDeclInfo( dinfo );
 
-            RewriteClose( last_rewrite );
-            ResetTokenSource( last_source );
-            RewriteRestoreToken( save_token );
             SetCurrScope( save_scope );
-            ParseFlush();
 
             ClearGenericBindings( binding_handle, parm_scope->enclosing );
             *templ_parm_scope = parm_scope;

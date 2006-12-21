@@ -43,7 +43,7 @@ extern PTREE ParseTemplateIntDefArg( void );
 extern PTREE ParseTemplateTypeDefArg( void );
 extern DECL_INFO *ParseException( void );
 extern DECL_SPEC *ParseClassInstantiation( REWRITE *, boolean );
-extern DECL_INFO *ReparseFunctionDeclaration( void );
+extern DECL_INFO *ReparseFunctionDeclaration( REWRITE * );
 extern void ParseClassMemberInstantiation( REWRITE * );
 extern void ParseFunctionInstantiation( REWRITE * );
 extern void ParsePushQualification( void * );

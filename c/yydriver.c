@@ -2415,49 +2415,6 @@ DECL_INFO *ParseException( void )
     return( exception );
 }
 
-DECL_INFO *ReparseFunctionDeclaration( void )
-{
-    int t;
-    PARSE_STACK decl_state;
-    p_action what;
-    DECL_INFO *dinfo;
-
-    newExprStack( &decl_state, Y_FUNCTION_DECL_SPECIAL );
-    syncLocation();
-    /* do parse */
-    for(;;) {
-        do {
-            t = yylex( &decl_state );
-            what = doAction( t, &decl_state );
-        } while( what == P_RELEX );
-        if( what != P_SHIFT ) break;
-        nextYYLexToken( &decl_state );
-    }
-    dinfo = NULL;
-    if( what > P_SPECIAL ) {
-        if( what > P_ERROR ) {
-            switch( what ) {
-            case P_SYNTAX:
-                syntaxError();
-                break;
-            case P_OVERFLOW:
-                CErr1( ERR_COMPLICATED_EXPRESSION );
-                break;
-            }
-            makeStable( Y_SEMI_COLON );
-        }
-#ifndef NDEBUG
-        else {
-            CFatal( "invalid return from doAction" );
-        }
-#endif
-    } else {
-        dinfo = decl_state.vsp->dinfo;
-    }
-    deleteStack( &decl_state );
-    return( dinfo );
-}
-
 static void parseEpilogue( void )
 {
     /* current token state is end-of-file */
@@ -2741,6 +2698,128 @@ void ParseFunctionInstantiation( REWRITE *defn )
     SrcFileResetTokenLocn( &locn );
     CurToken = T_EOF;
     strcpy( Buffer, Tokens[ T_EOF ] );
+}
+
+static unsigned decl_paren_depth;
+static unsigned decl_bracket_depth;
+
+static void declOnlyReset( void )
+{
+    decl_paren_depth = 0;
+    decl_bracket_depth = 0;
+}
+
+/* only rewrite the declaration */
+static void declOnlyRewriteToken( void )
+{
+    RewriteToken();
+
+    if( CurToken == T_LEFT_PAREN ) {
+        decl_paren_depth++;
+    } else if( CurToken == T_RIGHT_PAREN ) {
+        decl_paren_depth--;
+    } else if( CurToken == T_LEFT_BRACKET ) {
+        decl_bracket_depth++;
+    } else if( CurToken == T_RIGHT_BRACKET ) {
+        decl_bracket_depth--;
+    }
+
+    if( ( CurToken == T_SEMI_COLON ) || (CurToken == T_LEFT_BRACE ) ) {
+        CurToken = T_EOF;
+    }
+
+    if( ( decl_paren_depth == 0 ) && ( decl_bracket_depth == 0 )
+     && ( CurToken == T_COLON ) ) {
+        CurToken = T_EOF;
+    }
+}
+
+DECL_INFO *ReparseFunctionDeclaration( REWRITE *defn )
+/****************************************************/
+{
+    int t;
+    PARSE_STACK decl_state;
+    p_action what;
+    DECL_INFO *dinfo;
+    REWRITE *last_rewrite;
+    REWRITE *save_token;
+    PTREE save_tree;
+    int save_yytoken;
+    void (*last_source)( void );
+    auto error_state_t check;
+    auto TOKEN_LOCN locn;
+
+    if( defn == NULL ) {
+        return( NULL );
+    }
+    CErrCheckpoint( &check );
+    declOnlyReset();
+
+    save_token = RewritePackageToken();
+    save_yytoken = currToken;
+    save_tree = yylval.tree;
+    yylval.tree = NULL;
+    SrcFileGetTokenLocn( &locn );
+    ParseFlush();
+
+    LinkagePushCpp();
+    last_source = SetTokenSource( declOnlyRewriteToken );
+    last_rewrite = RewriteRewind( defn );
+
+    newExprStack( &decl_state, Y_FUNCTION_DECL_SPECIAL );
+    syncLocation();
+    /* do parse */
+    for(;;) {
+        do {
+            t = yylex( &decl_state );
+            what = doAction( t, &decl_state );
+        } while( what == P_RELEX );
+        if( what != P_SHIFT ) break;
+        nextYYLexToken( &decl_state );
+    }
+
+    RewriteClose( last_rewrite );
+    ResetTokenSource( last_source );
+
+    dinfo = NULL;
+    if( what > P_SPECIAL ) {
+        if( what > P_ERROR ) {
+            switch( what ) {
+            case P_SYNTAX:
+                syntaxError();
+                break;
+            case P_OVERFLOW:
+                CErr1( ERR_COMPLICATED_EXPRESSION );
+                break;
+            }
+            makeStable( Y_SEMI_COLON );
+        }
+#ifndef NDEBUG
+        else {
+            CFatal( "invalid return from doAction" );
+        }
+#endif
+    } else {
+        dinfo = decl_state.vsp->dinfo;
+    }
+    deleteStack( &decl_state );
+    LinkagePop();
+
+    SrcFileResetTokenLocn( &locn );
+    RewriteRestoreToken( save_token );
+    ParseFlush();
+
+    currToken = save_yytoken;
+    yylval.tree = save_tree;
+
+    if( dinfo != NULL ) {
+        if( CErrOccurred( &check ) ) {
+            FreeDeclInfo( dinfo );
+            dinfo = NULL;
+        }
+    }
+
+    return dinfo;
 }
 
 pch_status PCHWriteParserData( void )
