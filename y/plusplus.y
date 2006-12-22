@@ -3054,11 +3054,11 @@ template-class-pre-id
     ;
 
 template-class-pre-instantiation
-    : Y_TEMPLATE_NAME lt-special template-argument-list
+    : Y_TEMPLATE_NAME lt-special template-argument-list-opt
     { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
-    | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list
+    | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list-opt
     { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
-    | Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list
+    | Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
     ;
 
