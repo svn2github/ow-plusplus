@@ -952,8 +952,9 @@ CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
     return( CLNAME_NULL );
 }
 
-void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration )
-/*******************************************************************/
+void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration,
+                                 int tci_control )
+/******************************************************************/
 {
     DECL_SPEC *dspec;
     TYPE type;
@@ -961,9 +962,7 @@ void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration )
     PTREE args;
     CLASS_DATA *data;
     SCOPE enclosing;
-    tc_instantiate tci_control;
 
-    tci_control = TCI_NULL;
     id = tree->u.subtree[0];
     args = tree->u.subtree[1];
     tree->u.subtree[0] = NULL;
@@ -997,7 +996,6 @@ void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration )
         ClassName( id, declaration );
         break;
     case CLASS_DECLARATION:
-        tci_control |= TCI_NO_CLASS_DEFN;
         if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) ) {
             PTreeFreeSubtrees( args );
             ClassName( id, declaration );

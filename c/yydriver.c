@@ -128,6 +128,8 @@ struct parse_stack {
     unsigned            special_colon_colon : 1;
     unsigned            special_gt_gt : 1;
     unsigned            special_typename : 1;
+    unsigned            template_extern : 1;
+    unsigned            template_instantiate : 1;
 };
 
 typedef struct {
@@ -1347,6 +1349,9 @@ static void commonInit( PARSE_STACK *stack )
     stack->template_class_inst_defer = FALSE;
     stack->special_colon_colon = FALSE;
     stack->special_gt_gt = FALSE;
+    stack->special_typename = FALSE;
+    stack->template_extern = FALSE;
+    stack->template_instantiate = FALSE;
 }
 
 static void restartInit( PARSE_STACK *stack )
@@ -1367,6 +1372,9 @@ static void restartInit( PARSE_STACK *stack )
     DbgAssert( stack->template_class_inst_defer == FALSE );
     DbgAssert( stack->special_colon_colon == FALSE );
     DbgAssert( stack->special_gt_gt == FALSE );
+    DbgAssert( stack->special_typename == FALSE);
+    DbgAssert( stack->template_extern == FALSE);
+    DbgAssert( stack->template_instantiate == FALSE);
 }
 
 static void newLookAheadStack( PARSE_STACK *stack, PARSE_STACK *prev_stack )

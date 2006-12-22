@@ -2410,6 +2410,7 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 
 TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
                                  tc_instantiate control )
+/*******************************************************/
 {
     SYMBOL class_template;
     char *template_name;
@@ -3047,6 +3048,7 @@ void TemplateProcessInstantiations( void )
         RingIterBeg( allClassTemplates, curr_tinfo ) {
             RingIterBeg( curr_tinfo->specializations, tspec ) {
                 RingIterBeg( tspec->instantiations, curr_instance ) {
+
                     if( curr_instance->specific
                      || curr_instance->dont_process ) {
                         continue;

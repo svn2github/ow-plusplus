@@ -1258,9 +1258,8 @@ declaration-seq
 declaration
     : block-declaration-before-semicolon Y_SEMI_COLON
     | function-definition
-    | template-declaration
+    | template-declaration /* | explicit-specialization */
     | explicit-instantiation
-    | explicit-specialization
     | linkage-specification
     | namespace-definition
     | Y_SEMI_COLON /* extension */
@@ -2336,18 +2335,28 @@ class-name
     | template-class-pre-id
     {
         CLASS_DECL decl_type;
+        tc_instantiate tci_control;
 
+        tci_control = TCI_NULL;
         decl_type = CLASS_REFERENCE;
+
         switch( t ) {
         case Y_LEFT_BRACE:
         case Y_COLON:
             decl_type = CLASS_DEFINITION;
             break;
         case Y_SEMI_COLON:
+            if( state->template_extern ) {
+                tci_control |= TCI_NO_MEMBERS;
+            } else if( state->template_instantiate ) {
+                tci_control |= TCI_EXPLICIT_FULL;
+            } else {
+                tci_control |= TCI_NO_CLASS_DEFN;
+            }
             decl_type = CLASS_DECLARATION;
             break;
         }
-        ClassSpecificInstantiation( $1, decl_type );
+        ClassSpecificInstantiation( $1, decl_type, tci_control );
         what = P_RELEX;
     }
     ;
@@ -2832,14 +2841,14 @@ template-declaration
     ;
 
 template-declaration-before-semicolon
-    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
+    : template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
     {
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
         GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
         GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
-    | Y_EXPORT template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
+    | Y_EXPORT template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
     {
         CErr1( WARN_UNSUPPORTED_TEMPLATE_EXPORT );
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
@@ -2850,14 +2859,14 @@ template-declaration-before-semicolon
     ;
 
 template-function-declaration
-    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL function-definition
+    : template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL function-definition
     {
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
         GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
         GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
-    | Y_EXPORT template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL function-definition
+    | Y_EXPORT template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL function-definition
     {
         CErr1( WARN_UNSUPPORTED_TEMPLATE_EXPORT );
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
@@ -2878,14 +2887,21 @@ template-declaration-init
     ;
 
 /* non standard */
-template-nonempty-parameter-list
-    : template-parameter-list
+template-opt-parameter-list
+    : /* nothing */
+    {
+        pushDefaultDeclSpec( state );
+        state->template_record_tokens =
+            RewriteRecordInit( &(state->template_record_locn) );
+    }
+    | template-parameter-list
     {
         pushDefaultDeclSpec( state );
         state->template_record_tokens =
             RewriteRecordInit( &(state->template_record_locn) );
     }
     ;
+
 
 template-parameter-list
     : template-parameter
@@ -2985,52 +3001,28 @@ typename-specifier
     }
     ;
 
-/* TODO */
+/* non-standard */
+explicit-instantiation-special
+    : Y_TEMPLATE
+    {
+        state->template_instantiate = TRUE;
+    }
+    | Y_EXTERN Y_TEMPLATE
+    {
+        state->template_extern = TRUE;
+    }
+    ;
+
 explicit-instantiation
     : Y_EXTERN Y_TEMPLATE template-class-directive-extern Y_SEMI_COLON
     {
         CErr1( WARN_MISSING_KEYWORD_IN_EXPLICT_INSTANTIATION );
     }
-    | Y_EXTERN Y_TEMPLATE Y_CLASS template-class-directive-extern Y_SEMI_COLON
     | Y_TEMPLATE template-class-directive-instantiate Y_SEMI_COLON
     {
         CErr1( WARN_MISSING_KEYWORD_IN_EXPLICT_INSTANTIATION );
     }
-    | Y_TEMPLATE Y_CLASS template-class-directive-instantiate Y_SEMI_COLON
-    ;
-
-explicit-specialization
-    : explicit-specialization-before-semicolon Y_SEMI_COLON
-    | explicit-function-specialization
-    ;
-
-explicit-specialization-before-semicolon
-    : template-key template-declaration-init lt-special template-empty-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
-    {
-        RewriteFree( ParseGetRecordingInProgress( NULL ) );
-        state->template_decl = FALSE;
-        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
-        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
-    }
-    ;
-
-explicit-function-specialization
-    : template-key template-declaration-init lt-special template-nonempty-parameter-list Y_GT_SPECIAL function-definition
-    {
-        RewriteFree( ParseGetRecordingInProgress( NULL ) );
-        state->template_decl = FALSE;
-        GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
-        GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
-    }
-    ;
-
-template-empty-parameter-list
-    : /* nothing */
-    {
-        pushDefaultDeclSpec( state );
-        state->template_record_tokens =
-            RewriteRecordInit( &(state->template_record_locn) );
-    }
+    | explicit-instantiation-special block-declaration-before-semicolon Y_SEMI_COLON
     ;
 
 template-key
@@ -3098,10 +3090,10 @@ template-type
 template-type-instantiation
     : Y_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        TYPE inst_type;
 
+        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
         DbgAssert( inst_type != NULL );
-
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3118,30 +3110,36 @@ scoped-template-type
 scoped-template-type-instantiation
     : Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        TYPE inst_type;
 
+        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        DbgAssert( inst_type != NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
         if( inst_type == NULL ) {
-            DbgAssert( ( $$->op == PT_BINARY ) && ( $$->cgop == CO_STORAGE ) );
-            $$->u.subtree[1] = PTreeBinary( CO_TEMPLATE,
-                                            $$->u.subtree[1], $3 );
+            DbgAssert( ( $$->op == PT_BINARY )
+                       && ( $$->cgop == CO_STORAGE ) );
+            $$->u.subtree[1] =
+                PTreeBinary( CO_TEMPLATE, $$->u.subtree[1], $3 );
         } else {
             $$->u.subtree[1]->type = inst_type;
         }
     }
     | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        TYPE inst_type;
 
+        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        DbgAssert( inst_type != NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
         if( inst_type == NULL ) {
-            DbgAssert( ( $$->op == PT_BINARY ) && ( $$->cgop == CO_STORAGE ) );
-            $$->u.subtree[1] = PTreeBinary( CO_TEMPLATE,
-                                            $$->u.subtree[1], $3 );
+            DbgAssert( ( $$->op == PT_BINARY )
+                       && ( $$->cgop == CO_STORAGE ) );
+            $$->u.subtree[1] =
+                PTreeBinary( CO_TEMPLATE, $$->u.subtree[1], $3 );
         } else {
             $$->u.subtree[1]->type = inst_type;
         }
@@ -3155,15 +3153,18 @@ template-scoped-template-type
 template-scoped-template-type-instantiation
     : Y_TEMPLATE_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
     {
-        TYPE inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        TYPE inst_type;
 
+        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        DbgAssert( inst_type != NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
         if( inst_type == NULL ) {
-            DbgAssert( ( $$->op == PT_BINARY ) && ( $$->cgop == CO_STORAGE ) );
-            $$->u.subtree[1] = PTreeBinary( CO_TEMPLATE,
-                                            $$->u.subtree[1], $3 );
+            DbgAssert( ( $$->op == PT_BINARY )
+                       && ( $$->cgop == CO_STORAGE ) );
+            $$->u.subtree[1] =
+                PTreeBinary( CO_TEMPLATE, $$->u.subtree[1], $3 );
         } else {
             $$->u.subtree[1]->type = inst_type;
         }
