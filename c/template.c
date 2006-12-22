@@ -1756,7 +1756,7 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
     }
     /* Check for argument overflow */
     if( num_parms > tprimary->num_args ) {
-        CErr1( ERR_TOO_MANY_TEMPLATE_PARAMETERS );
+        CErr2p( ERR_TOO_MANY_TEMPLATE_PARAMETERS, tinfo );
         something_went_wrong = TRUE;
     } else if( ! something_went_wrong ) {
         if( ! inside_decl_scope ) {
@@ -1800,7 +1800,7 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
                 if( tinfo->defarg_list[i] == NULL ) {
                     /* the rewrite stuff would have killed our location so approximate */
                     SetErrLoc( &start_locn );
-                    CErr1( ERR_TOO_FEW_TEMPLATE_PARAMETERS );
+                    CErr2p( ERR_TOO_FEW_TEMPLATE_PARAMETERS, tinfo );
                     something_went_wrong = TRUE;
                     break;  /* from for loop */
                 } else {
