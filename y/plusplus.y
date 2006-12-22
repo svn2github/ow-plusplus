@@ -3093,7 +3093,6 @@ template-type-instantiation
         TYPE inst_type;
 
         inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
-        DbgAssert( inst_type != NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3113,7 +3112,6 @@ scoped-template-type-instantiation
         TYPE inst_type;
 
         inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
-        DbgAssert( inst_type != NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3131,7 +3129,6 @@ scoped-template-type-instantiation
         TYPE inst_type;
 
         inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
-        DbgAssert( inst_type != NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3156,7 +3153,6 @@ template-scoped-template-type-instantiation
         TYPE inst_type;
 
         inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
-        DbgAssert( inst_type != NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
