@@ -2582,6 +2582,7 @@ DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
     SrcFileResetTokenLocn( &locn );
     RewriteRestoreToken( save_token );
     ParseFlush();
+    syncLocation();
     currToken = save_yytoken;
     yylval.tree = save_tree;
 
@@ -2816,6 +2817,7 @@ DECL_INFO *ReparseFunctionDeclaration( REWRITE *defn )
     SrcFileResetTokenLocn( &locn );
     RewriteRestoreToken( save_token );
     ParseFlush();
+    syncLocation();
 
     currToken = save_yytoken;
     yylval.tree = save_tree;
