@@ -1331,13 +1331,13 @@ decl-specifier-seq
         $$ = PTypeDone( $$, t == Y_SEMI_COLON );
         pushUserDeclSpec( state, $$ );
     }
-    |                          type-specifier maybe-type-decl-specifier-seq
+    |                            type-specifier maybe-type-decl-specifier-seq
     {
         $$ = PTypeCombine( $1, $2 );
         $$ = PTypeDone( $$, t == Y_SEMI_COLON );
         pushUserDeclSpec( state, $$ );
     }
-    |                          type-specifier
+    |                            type-specifier
     {
         $$ = PTypeDone( $1, t == Y_SEMI_COLON );
         pushUserDeclSpec( state, $$ );
@@ -2147,11 +2147,11 @@ ctor-declarator
             what = P_SYNTAX;
         }
         $$ = MakeDeclarator( dspec, id );
+        AddDeclarator( $$, MakeFnType( &($2), $4, $5 ) );
+        $$ = AddExplicitParms( $$, $2 );
         if( $$->template_member ) {
             what = P_CLASS_TEMPLATE;
         } else {
-            AddDeclarator( $$, MakeFnType( &($2), $4, $5 ) );
-            $$ = AddExplicitParms( $$, $2 );
             $$ = FinishDeclarator( dspec, $$ );
         }
     }
@@ -2171,14 +2171,14 @@ function-declaration
         GStackPush( &(state->gstack), GS_DECL_INFO );
         state->gstack->u.dinfo = $$;
     }
-    |                 declarator ctor-initializer
+    |                    declarator ctor-initializer
     {
         $1->mem_init = $2;
         $$ = DeclFunction( NULL, $1 );
         GStackPush( &(state->gstack), GS_DECL_INFO );
         state->gstack->u.dinfo = $$;
     }
-    |                 declarator
+    |                    declarator
     {
         $$ = DeclFunction( NULL, $1 );
         GStackPush( &(state->gstack), GS_DECL_INFO );

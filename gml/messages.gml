@@ -2855,14 +2855,14 @@ void fn2( void, void, void )    // Error!
 :eerrbad.
 
 :MSGSYM. ERR_TOO_FEW_TEMPLATE_PARAMETERS
-:MSGTXT. class template requires more parameters for instantiation
-:MSGJTXT. クラス・テンプレートのインスタンス化のためのパラメータが不足しています
+:MSGTXT. class template '%M' requires more parameters for instantiation
+:MSGJTXT.
 The class template instantiation has too few parameters supplied
 so the class cannot be instantiated properly.
 
 :MSGSYM. ERR_TOO_MANY_TEMPLATE_PARAMETERS
-:MSGTXT. class template requires fewer parameters for instantiation
-:MSGJTXT. クラス・テンプレートのインスタンス化のためのパラメータが多すぎます
+:MSGTXT. class template '%M' requires fewer parameters for instantiation
+:MSGJTXT.
 The class template instantiation has too many parameters supplied
 so the class cannot be instantiated properly.
 
@@ -11986,5 +11986,33 @@ f ();
 The "main" function shall have a return type of type int.
 :errbad.
 void main()
+{ }
+:eerrbad.
+
+:MSGSYM. ERR_OUT_OF_CLASS_EXPLICIT
+:MSGTXT. explicit may only be used within class definition
+:MSGJTXT.
+The explicit specifier shall be used only in the declaration of a
+constructor within its class definition.
+:errbad.
+struct A {
+    explicit A();
+};
+
+explicit A::A()
+{ }
+:eerrbad.
+
+:MSGSYM. ERR_OUT_OF_CLASS_VIRTUAL
+:MSGTXT. virtual may only be used within class definition
+:MSGJTXT.
+The virtual specifier shall be used only in the initial declaration of a
+class member function.
+:errbad.
+struct A {
+    virtual void f();
+};
+
+virtual void A::f()
 { }
 :eerrbad.

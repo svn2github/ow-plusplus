@@ -5202,8 +5202,13 @@ PTREE MakeConstructorId( DECL_SPEC *dspec )
         scope = dspec->scope;
         if( scope == NULL || ScopeType( scope, SCOPE_CLASS ) ) {
             dspec->scope = NULL;
+            if( dspec->partial->id == TYP_TYPENAME ) {
+                id_tree = dspec->partial->u.n.tree;
+                dspec->partial->u.n.tree = NULL;
+            } else {
+                id_tree = dspec->id;
+            }
             dspec->partial = NULL;
-            id_tree = dspec->id;
             dspec->id = NULL;
             id_tree = CheckScopedId( id_tree );
         }
@@ -6122,6 +6127,7 @@ static TYPE stripPragma( TYPE fn_type, SYMBOL sym )
     derived_status udc_class_check;
     unsigned num_args;
     boolean is_a_member;
+    boolean is_out_of_class_member;
     boolean non_static_member;
     boolean check_args_for_class;
 
@@ -6135,6 +6141,8 @@ static TYPE stripPragma( TYPE fn_type, SYMBOL sym )
     }
     name = id->u.id.name;
     is_a_member = memberCheck( scope, dinfo, &scope_type );
+    is_out_of_class_member =
+        is_a_member && ( dinfo->scope != NULL ) && ( dinfo->scope != scope );
     non_static_member = FALSE;
     scope_name = NULL;
     if( is_a_member ) {
@@ -6158,6 +6166,9 @@ static TYPE stripPragma( TYPE fn_type, SYMBOL sym )
             if( cv_qualifiers & TF1_CV_MASK ) {
                 CErr1( ERR_STATIC_CANT_BE_CONST_VOLATILE );
             }
+        }
+        if( ( fn_type->flag & TF1_VIRTUAL ) && is_out_of_class_member ) {
+            CErr1( ERR_OUT_OF_CLASS_VIRTUAL );
         }
     } else {
         if( fn_type->flag & TF1_VIRTUAL ) {
@@ -6226,6 +6237,9 @@ static TYPE stripPragma( TYPE fn_type, SYMBOL sym )
             }
             if( is_a_member ) {
                 sym->sym_type = functionReturnsThis( sym, scope_type );
+            }
+            if( ( fn_type->flag & TF1_EXPLICIT ) && is_out_of_class_member ) {
+                CErr1( ERR_OUT_OF_CLASS_EXPLICIT );
             }
         } else {
             /* not a special function */

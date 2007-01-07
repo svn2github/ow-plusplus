@@ -696,14 +696,7 @@ static int scopedChain( PARSE_STACK *state, PTREE start, PTREE id,
                     return( Y_SCOPED_TYPE_NAME );
                 }
             }
-#if 0
-            /* see dtor07.c */
-            /* kludge for constructor name */
-            if( name == id->u.id.name && ScopeId( GetCurrScope() ) == SCOPE_FILE ) {
-                /* so S::S( T x ) {} works if T is a nested type */
-                return( Y_SCOPED_ID );
-            }
-#endif
+
             id_check = lexCategory( scope, id, LK_NULL,
                                     &yylval.tree->sym_name );
             switch( id_check ) {
@@ -793,14 +786,10 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
                 }
                 yylval.tree = makeBinary( CO_STORAGE, curr, id );
                 yylval.tree->flags |= special_typename ? PTF_TYPENAME : 0;
-                /* kludge for constructor name */
-                if( name == id->u.id.name && ScopeEquivalent( GetCurrScope(), SCOPE_FILE ) ) {
-                    /* so S::S( T x ) {} works if T is a nested type */
-                    return( Y_TEMPLATE_SCOPED_ID );
-                }
                 /* template instantiation errors may have occured */
                 if( template_class_type != NULL ) {
                     scope = template_class_type->u.c.scope;
+
                     id_check = lexCategory( scope, id, LK_NULL,
                                             &yylval.tree->sym_name );
                     if( id_check == LK_TEMPLATE ) {
@@ -825,6 +814,10 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
                 } else {
                     return( Y_TEMPLATE_SCOPED_TYPE_NAME );
                 }
+            }
+            if( name == id->u.id.name ) {
+                /* A<T>::A is a type name */
+                return( Y_TEMPLATE_SCOPED_TYPE_NAME );
             }
             return( Y_TEMPLATE_SCOPED_ID );
         case T_TILDE:
