@@ -815,10 +815,12 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
                     return( Y_TEMPLATE_SCOPED_TYPE_NAME );
                 }
             }
+#if 0
             if( name == id->u.id.name ) {
                 /* A<T>::A is a type name */
                 return( Y_TEMPLATE_SCOPED_TYPE_NAME );
             }
+#endif
             return( Y_TEMPLATE_SCOPED_ID );
         case T_TILDE:
         case T_ALT_TILDE:
