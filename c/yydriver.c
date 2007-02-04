@@ -187,6 +187,7 @@ typedef enum {          /* lookup return value */
 typedef enum {
     LK_LEXICAL  = 0x01, /* lexical lookup required */
     LK_LT_AHEAD = 0x02, /* '<' token is after 'id' */
+    LK_PAREN_AHEAD = 0x04, /* '(' token is after 'id' */
     LK_NULL     = 0
 } lk_control;
 
@@ -466,6 +467,15 @@ static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control,
                     }
                 }
             }
+            if( !( control & LK_LEXICAL )
+             && ( control & LK_PAREN_AHEAD )
+             && ScopeType( scope, SCOPE_CLASS ) ) {
+                if( ScopeClass( scope )->u.c.info->name == name ) {
+                    /* return constructor declarations as ids */
+                    ExtraRptIncrementCtr( found_id );
+                    return( LK_ID );
+                }
+            }
             id->type = type;
             ExtraRptIncrementCtr( found_type );
             return( LK_TYPE );
@@ -488,6 +498,8 @@ static int doId( SCOPE scope_member )
     control = scope_member ? 0 : LK_LEXICAL;
     if( LAToken == T_LT ) {
         control |= LK_LT_AHEAD;
+    } else if( LAToken == T_LEFT_PAREN ) {
+        control |= LK_PAREN_AHEAD;
     }
     id_check = lexCategory( scope_member ? scope_member : GetCurrScope(),
                             id, control, &yylval.tree->sym_name );
@@ -697,7 +709,8 @@ static int scopedChain( PARSE_STACK *state, PTREE start, PTREE id,
                 }
             }
 
-            id_check = lexCategory( scope, id, LK_NULL,
+            id_check = lexCategory( scope, id,
+                                    ( LAToken == T_LEFT_PAREN ) ? LK_PAREN_AHEAD : LK_NULL,
                                     &yylval.tree->sym_name );
             switch( id_check ) {
             case LK_ID:
@@ -790,7 +803,8 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
                 if( template_class_type != NULL ) {
                     scope = template_class_type->u.c.scope;
 
-                    id_check = lexCategory( scope, id, LK_NULL,
+                    id_check = lexCategory( scope, id,
+                                            ( LAToken == T_LEFT_PAREN ) ? LK_PAREN_AHEAD : LK_NULL,
                                             &yylval.tree->sym_name );
                     if( id_check == LK_TEMPLATE ) {
                         return( Y_TEMPLATE_SCOPED_TEMPLATE_NAME );
@@ -815,12 +829,6 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
                     return( Y_TEMPLATE_SCOPED_TYPE_NAME );
                 }
             }
-#if 0
-            if( name == id->u.id.name ) {
-                /* A<T>::A is a type name */
-                return( Y_TEMPLATE_SCOPED_TYPE_NAME );
-            }
-#endif
             return( Y_TEMPLATE_SCOPED_ID );
         case T_TILDE:
         case T_ALT_TILDE:
