@@ -763,8 +763,8 @@ static PTREE resolve_symbols(   // RESOLVE MULTIPLE OVERLOAD DEFINITIONS
                     fun = next;
                 }
             } else {
-                    fun = NULL;
-                    break;
+                fun = NULL;
+                break;
             }
         }
         if( fun == NULL ) {

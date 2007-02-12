@@ -1513,6 +1513,8 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
                                  PTREE templ_args, TOKEN_LOCN *locn )
 /*******************************************************************/
 {
+    FN_TEMPLATE *fn_templ;
+    FN_TEMPLATE_INST *fn_inst;
     TYPE fn_type;
     SCOPE parm_scope;
     SYMBOL generated_fn;
@@ -1520,6 +1522,52 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
 
     control = BGT_TRIVIAL;
     fn_type = attemptGen( args, sym, templ_args, locn, &parm_scope, &control );
+    fn_templ = sym->u.defn;
+
+    // check if we have already instantiated this template function
+    RingIterBeg( fn_templ->instantiations, fn_inst ) {
+        if( fn_type == fn_inst->bound_sym->sym_type ) {
+            SYMBOL curr1 = NULL, curr2 = NULL;
+            SYMBOL stop1, stop2;
+
+            // also need to check parameter scopes
+            stop1 = ScopeOrderedStart( parm_scope );
+            stop2 = ScopeOrderedStart( fn_inst->parm_scope );
+
+            for(;;) {
+                curr1 = ScopeOrderedNext( stop1, curr1 );
+                curr2 = ScopeOrderedNext( stop2, curr2 );
+
+                if( ( curr1 == NULL ) || ( curr2 == NULL ) ) {
+                    if( ( curr1 == NULL ) && ( curr2 == NULL ) ) {
+                        // alread instantiated
+                        return fn_inst->bound_sym;
+                    }
+
+                    break;
+                }
+
+                if( ( curr1->id == SC_TYPEDEF )
+                 && ( curr2->id == SC_TYPEDEF ) ) {
+                    if( TypedefRemove( curr1->sym_type ) == TypedefRemove( curr2->sym_type ) ) {
+                        continue;
+                    }
+                } else if( ( curr1->id == SC_STATIC )
+                        && ( curr2->id == SC_STATIC ) ) {
+                    if( curr1->u.uval == curr2->u.uval ) {
+                        continue;
+                    }
+                } else if( ( curr1->id == SC_ADDRESS_ALIAS )
+                        && (curr2->id == SC_ADDRESS_ALIAS ) ) {
+                    if( curr1->u.alias == curr2->u.alias ) {
+                        continue;
+                    }
+                }
+
+                break;
+            }
+        }
+    } RingIterEnd( fn_inst )
 
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
