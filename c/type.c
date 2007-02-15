@@ -6477,6 +6477,10 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
         /* unadorned id style declaration */
         scope = insert_scope;
         if( dinfo->friend_fn ) {
+            if( ScopeId( scope ) == SCOPE_TEMPLATE_DECL ) {
+                is_template_function = TRUE;
+                TemplateFunctionCheck( sym, dinfo );
+            }
             scope = dinfo->friend_scope;
         } else if( ScopeId( scope ) == SCOPE_TEMPLATE_DECL ) {
             is_template_function = TRUE;
