@@ -557,7 +557,9 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
                     CMemFree( mock_args );
                 }
             } else {
-                if( isSimpleCandidate( sym_type, num_args ) ) {
+                if( isSimpleCandidate( sym_type, num_args )
+                 || ( !(control & FNC_EXCLUDE_ELLIPSIS)
+                   && isEllipsisCandidate( sym_type, num_args ) ) ) {
                     result = TemplateFunctionGenerate( sym, info->alist,
                                                        info->templ_args,
                                                        locn );
