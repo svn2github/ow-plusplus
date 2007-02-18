@@ -65,6 +65,7 @@ typedef struct                  // FNOV_INFO -- overload information
     arg_list* alist;            // - argument definition
     PTREE* plist;               // - arguments used
     PTREE templ_args;           // - explicit template arguments
+    SYMBOL distinct_check;      // - distinct check symbol
     FNOV_LIST** pcandidates;    // - hdr: candidates
     FNOV_LIST** pmatch;         // - hdr: matches
     FNOV_LIST* candfunc;        // - candidate function
@@ -524,25 +525,57 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
     if(( control & FNC_NO_DEALIAS ) == 0 ) {
         sym = SymDeAlias( sym );
     }
-    if( ( info->templ_args != NULL )
-     && ! ( ( sym->id == SC_FUNCTION_TEMPLATE )
-         || ( sym->id == SC_STATIC_FUNCTION_TEMPLATE ) ) ) {
-        // ignore non-template functions when explicit template argument
-        // specification is used
-        return;
-    }
-    if( ! ( control & FNC_DISTINCT_CHECK )
-     && ( ( sym->id == SC_FUNCTION_TEMPLATE )
-       || ( sym->id == SC_STATIC_FUNCTION_TEMPLATE ) ) ) {
-        SYMBOL result;
-        TOKEN_LOCN *locn;
 
-        locn = &sym->locn->tl;
-        result = TemplateFunctionGenerate( sym, info->alist,
-                                           info->templ_args, locn );
-        if( result != NULL ) {
-            sym = result;
+    if( SymIsFunctionTemplateModel( sym ) ) {
+        if( control & FNC_ONLY_NON_TEMPLATE ) {
+            // ignore template functions
+            return;
+        }
+
+        if( ! ( control & FNC_DISTINCT_CHECK ) ) {
+            SYMBOL result;
+            TOKEN_LOCN *locn;
+
+            locn = &sym->locn->tl;
+            result = TemplateFunctionGenerate( sym, info->alist,
+                                               info->templ_args, locn );
+            if( result != NULL ) {
+                sym = result;
+            } else {
+                return;
+            }
         } else {
+            // have to compare template parameters for function templates
+            FN_TEMPLATE *fntempl = sym->u.defn;
+            SYMBOL old_curr = NULL, new_curr = NULL;
+            SYMBOL old_stop, new_stop;
+
+            // check that template parameters match
+            old_stop = ScopeOrderedStart( fntempl->decl_scope );
+            new_stop = ScopeOrderedStart( GetCurrScope() );
+            for(;;) {
+                old_curr = ScopeOrderedNext( old_stop, old_curr );
+                new_curr = ScopeOrderedNext( new_stop, new_curr );
+
+                if( ( old_curr == NULL ) || ( new_curr == NULL ) ) {
+                    break;
+                }
+
+                if( ! TypeCompareExclude( old_curr->sym_type,
+                                          new_curr->sym_type, 0 ) ) {
+                    // template parameter types don't match
+                    return;
+                }
+            }
+
+            if( ( old_curr != NULL) || ( new_curr != NULL ) ) {
+                // number of template parameters don't match
+                return;
+            }
+        }
+    } else {
+        if( control & FNC_ONLY_TEMPLATE ) {
+            // ignore non-template functions
             return;
         }
     }
@@ -589,6 +622,7 @@ static void buildUdcListDiag(   // BUILD FNOV_LIST FOR USER-DEFD CONVERSIONS
     info.plist = NULL;
     info.alist = NULL;
     info.templ_args = NULL;
+    info.distinct_check = NULL;
     info.pcandidates = pcandidates;
     info.pmatch = NULL;
     info.fnov_diag = fnov_diag;
@@ -1591,9 +1625,13 @@ FNOV_CONTROL control, PTREE templ_args, FNOV_DIAG *fnov_diag )
     info.alist = alist;
     info.plist = ptlist;
     info.templ_args = templ_args;
+    info.distinct_check = NULL;
     info.pcandidates = &candidates;
     info.pmatch = &match;
     info.control = control;
+    if( info.templ_args != NULL ) {
+        info.control |= FNC_ONLY_TEMPLATE;
+    }
     info.fnov_diag = fnov_diag;
 
     if( ( result_in == NULL) || (result_in->region == NULL) ) {
@@ -1683,6 +1721,7 @@ static FNOV_RESULT opOverloadedLimitExDiag( SYMBOL *resolved, SEARCH_RESULT *mem
     info.alist = alist;
     info.plist = ptlist;
     info.templ_args = NULL;
+    info.distinct_check = NULL;
     info.pcandidates = &candidates;
     info.pmatch = &match;
     info.control = control;
@@ -1808,11 +1847,18 @@ static FNOV_RESULT doFunctionDistinctCheck( FNOV_CONTROL control,
         info.alist = SymFuncArgList( new_sym );
     }
 
+    info.distinct_check = old_sym;
     info.templ_args = NULL;
     info.plist = NULL;
     info.pcandidates = &candidates;
     info.pmatch = &match;
     info.control = control;
+    if( SymIsFunctionTemplateModel( old_sym )
+     || ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) ) {
+        info.control |= FNC_ONLY_TEMPLATE;
+    } else {
+        info.control |= FNC_ONLY_NON_TEMPLATE;
+    }
     info.fnov_diag = NULL;
 
     buildOverloadListFromSym( control, &info, old_sym );
@@ -1871,47 +1917,6 @@ FNOV_RESULT IsOverloadedFuncDistinct( SYMBOL *pold_sym,SYMBOL new_sym,char*name
 {
     DbgAssert(( control & ~(FNC_NO_DEALIAS) ) == 0 );
     control |= FNC_EXCLUDE_ELLIPSIS | FNC_DISTINCT_CHECK;
-
-    // check for template function
-    if( SymIsFunctionTemplateModel( *pold_sym )
-     && ( SymIsFunctionTemplateModel( new_sym )
-       || ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) ) ) {
-        // have to compare template parameters for function templates
-        FN_TEMPLATE *old_fntempl = (*pold_sym)->u.defn;
-        SYMBOL old_curr = NULL, new_curr = NULL;
-        SYMBOL old_stop, new_stop;
-
-        // check that template parameters match
-        old_stop = ScopeOrderedStart( old_fntempl->decl_scope );
-        new_stop = ScopeOrderedStart( GetCurrScope() );
-        for(;;) {
-            old_curr = ScopeOrderedNext( old_stop, old_curr );
-            new_curr = ScopeOrderedNext( new_stop, new_curr );
-
-            if( ( old_curr == NULL ) || ( new_curr == NULL ) ) {
-                break;
-            }
-
-            if( ! TypeCompareExclude( old_curr->sym_type, new_curr->sym_type,
-                                      0 ) ) {
-                // template parameter types don't match
-                *pold_sym = NULL;
-                return FNOV_DISTINCT;
-            }
-        }
-
-        if( ( old_curr != NULL) || ( new_curr != NULL ) ) {
-            // number of template parameters don't match
-            *pold_sym = NULL;
-            return FNOV_DISTINCT;
-        }
-    } else if( SymIsFunctionTemplateModel( new_sym )
-            || SymIsFunctionTemplateModel( *pold_sym ) ) {
-        // only one is a template funciton
-        *pold_sym = NULL;
-        return FNOV_DISTINCT;
-    }
-
     return doFunctionDistinctCheck( control, pold_sym, new_sym, name );
 }
 

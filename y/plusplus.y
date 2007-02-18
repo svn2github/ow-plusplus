@@ -2665,6 +2665,7 @@ ctor-initializer
     : Y_COLON
     {
         if( state->template_record_tokens != NULL ) {
+            PTreeFreeSubtrees( getMultiToken() );
             recordTemplateCtorInitializer( state );
             $$ = NULL;
         } else {

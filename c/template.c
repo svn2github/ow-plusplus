@@ -1348,6 +1348,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     bound_type = NULL;
     decl_scope = fn_templ->u.defn->decl_scope;
 
+    pparms = NULL;
     pargs = NULL;
     for( i = 0; i < num_args; i++ ) {
         PTREE arg = PTreeType( args->type_list[i] );
@@ -1407,7 +1408,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
         pparms = NULL;
         for( i = 0; i < parms->num_args; i++ ) {
-        PTREE parm = PTreeType( parms->type_list[i] );
+            PTREE parm = PTreeType( parms->type_list[i] );
             pparms = PTreeBinary( CO_LIST, pparms, parm );
         }
 

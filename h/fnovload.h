@@ -65,6 +65,8 @@ typedef enum
     FNC_STDOP_CV_VOID       = 0x1000,       // check cv-qual adjustments on stdop void
     FNC_NO_DEALIAS          = 0x2000,       // don't dealias syms before overload
     FNC_USE_WP13332         = 0x4000,       // abide by wp13332 rules
+    FNC_ONLY_TEMPLATE       = 0x8000,       // only template functions
+    FNC_ONLY_NON_TEMPLATE   = 0x10000,      // only non-template functions
     FNC_DEFAULT             = 0x0000        // default behaviour
 } FNOV_CONTROL;
 
