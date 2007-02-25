@@ -3600,6 +3600,12 @@ static TYPE makeModifiedTypeOf( TYPE mod, TYPE of )
                 mod->flag |= TF1_FAR;
             }
         }
+        mod->flag &= ~TF1_CV_MASK;
+        if( ( mod->flag == TF1_NULL )
+         && ( mod->u.m.base == NULL )
+         && ( mod->u.m.pragma == NULL ) ) {
+            return of;
+        }
     }
     return( MakeTypeOf( mod, of ) );
 }
@@ -7335,26 +7341,27 @@ static void pushPrototypeAndArguments( type_bind_info *data,
                 refed_type = TypeReference( a_type );
                 if( refed_type != NULL ) {
                     a_type = refed_type;
-                    refed_type = TypeReference( p_type );
-                    if( refed_type != NULL ) {
-                        p_type = refed_type;
-                    } else {
-                        // prototype had no reference so modifiers
-                        // must be removed
-                        TypeStripTdMod( a_type );
-                    }
-                } else {
-                    refed_type = TypeReference( p_type );
-                    if( refed_type != NULL ) {
-                        p_type = refed_type;
-                    }
                 }
 
-                // if we follow the WP, this should not be here but
-                // the WP breaks working code with string literals; we
-                // might want to special case string literals (decay
-                // to char *) and remove this line
-                a_type = adjustParmType( a_type );
+                refed_type = TypeReference( p_type );
+                if( refed_type != NULL ) {
+                    // [temp.deduct.call] (3) If P is a reference
+                    // type, the type referred to by P is used for
+                    // type deduction.
+                    p_type = refed_type;
+                } else {
+                    // [temp.deduct.call] (2) If P is not a reference
+                    // type:
+
+                    // - If A is a cv-qualified type, the top level
+                    // cv-qualifiers of A's type are ignored for type
+                    // deduction.
+                    TypeStripTdMod( a_type );
+
+                    // - If A is an array type, ...
+                    // - If A is a function type, ...
+                    a_type = adjustParmType( a_type );
+                }
             }
 
             PstkPush( &(data->with_generic), PTreeType( p_type ) );
