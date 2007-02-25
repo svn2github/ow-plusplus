@@ -7289,6 +7289,7 @@ static void pushPrototypeAndArguments( type_bind_info *data,
     unsigned i;
     PTREE p;
     PTREE a;
+    PTREE p_tree;
     TYPE p_type;
     TYPE a_type;
     TYPE refed_type;
@@ -7364,7 +7365,9 @@ static void pushPrototypeAndArguments( type_bind_info *data,
                 }
             }
 
-            PstkPush( &(data->with_generic), PTreeType( p_type ) );
+            p_tree = PTreeType( p_type );
+            p_tree->filler = 0;
+            PstkPush( &(data->with_generic), p_tree );
 
             if( control & PA_FUNCTION ) {
                 PstkPush( &(data->with_generic),
@@ -7556,6 +7559,7 @@ static boolean compareClassTypes( TYPE b_type, TYPE u_type,
     SYMBOL u_curr;
     SYMBOL u_stop;
     TYPE already_bound;
+    PTREE u_tree;
 
     if(( b_type->flag & TF1_INSTANTIATION ) == 0 ) {
         return( TRUE );
@@ -7603,8 +7607,9 @@ static boolean compareClassTypes( TYPE b_type, TYPE u_type,
                 if( b_curr->id == SC_TYPEDEF ) {
                     PstkPush( &(data->without_generic),
                               PTreeType( b_curr->sym_type ) );
-                    PstkPush( &(data->with_generic), 
-                              PTreeType( u_curr->sym_type ) );
+                    u_tree = PTreeType( u_curr->sym_type );
+                    u_tree->filler = 0;
+                    PstkPush( &(data->with_generic), u_tree );
                 }
             }
         }
@@ -7628,69 +7633,6 @@ static boolean modifiersMatch( type_flag b_flags, type_flag u_flags,
     return( TRUE );
 }
 
-static unsigned handle1stLevelPtr( type_bind_info *data, TYPE b_ptr, TYPE u_ptr )
-{
-    unsigned status;
-    TYPE base_type;
-    TYPE b_type;
-    TYPE u_type;
-    TYPE b_unmod_type;
-    TYPE u_unmod_type;
-    type_flag b_flags;
-    type_flag u_flags;
-    type_flag d_flags;
-    void *b_base;
-    void *u_base;
-
-    status = TB_NULL;
-    b_type = b_ptr->of; // arg
-    u_type = u_ptr->of; // prototype
-    if( b_type != NULL && u_type != NULL ) {
-        b_unmod_type = TypeModFlagsBaseEC( b_type, &b_flags, &b_base );
-        u_unmod_type = TypeModFlagsBaseEC( u_type, &u_flags, &u_base );
-        d_flags = u_flags ^ ( b_flags & u_flags );
-        if( d_flags != TF1_NULL ) {
-            /*
-                make sure flags in the arg type are in the parm type
-
-                u b  u not in b | (b&u) u^(b&u)
-                = =  ========== | ===== =======
-                0 0       0     |   0      0
-                0 1       0     |   0      0
-                1 0       1     |   0      1
-                1 1       0     |   1      0
-            */
-            // allow trivial conversion
-            if( d_flags & ~TF1_CV_MASK ) {
-                PstkPush( &(data->without_generic), PTreeType( b_type ) );
-                PstkPush( &(data->with_generic), PTreeType( u_type ) );
-                return( TB_NULL );
-            }
-            status |= TB_NEEDS_TRIVIAL;
-            u_flags &= ~d_flags;
-        }
-        if( ! modifiersMatch( b_flags, u_flags, b_base, u_base ) ) {
-            PstkPush( &(data->without_generic), PTreeType( b_type ) );
-            PstkPush( &(data->with_generic), PTreeType( u_type ) );
-            return( TB_NULL );
-        }
-        b_type = b_unmod_type;
-        u_type = u_unmod_type;
-        if( b_type->id == TYP_CLASS && u_type->id == TYP_CLASS ) {
-            if( u_type->flag & TF1_UNBOUND ) {
-                base_type = ScopeFindBoundBase( b_type, u_type );
-                if( base_type != NULL ) {
-                    status |= TB_NEEDS_DERIVED;
-                    b_type = base_type;
-                }
-            }
-        }
-    }
-    PstkPush( &(data->without_generic), PTreeType( b_type ) );
-    PstkPush( &(data->with_generic), PTreeType( u_type ) );
-    return( status );
-}
-
 static unsigned typesBind( type_bind_info *data )
 {
     type_flag t_flags;
@@ -7710,10 +7652,12 @@ static unsigned typesBind( type_bind_info *data )
     TYPE u_unmod_type;
     PTREE *b_top;
     PTREE *u_top;
+    PTREE u_tree;
     TYPE *pb;
     TYPE *pu;
     arg_list *b_args;
     arg_list *u_args;
+    type_flag u_cv_mask;
     TYPE match;
     unsigned i;
     unsigned status;
@@ -7822,6 +7766,17 @@ static unsigned typesBind( type_bind_info *data )
         b_unmod_type = TypeModFlagsBaseEC( b_type, &b_flags, &b_base );
         u_type = ( *u_top )->type;
 
+        if( flags.arg_1st_level ) {
+            u_cv_mask = TF1_CONST | TF1_VOLATILE;
+        } else {
+            /*
+             * In order to implement [conv.qual] we need to pass
+             * cv-qualifier information down the stack. We do this by
+             * using the "filler" field in the PTREE struct.
+             */
+            u_cv_mask = ( *u_top )->filler;
+        }
+
         PTreeFree( *b_top );
         PTreeFree( *u_top );
 
@@ -7845,11 +7800,8 @@ static unsigned typesBind( type_bind_info *data )
                     1 0       1     |   0      1
                     1 1       0     |   1      0
                 */
-                if( ! flags.arg_1st_level ) {
-                    return( TB_NULL );
-                }
                 // allow trivial conversion
-                if( d_flags & ~TF1_CV_MASK ) {
+                if( d_flags & ~u_cv_mask ) {
                     return( TB_NULL );
                 }
                 status |= TB_NEEDS_TRIVIAL;
@@ -7892,12 +7844,8 @@ static unsigned typesBind( type_bind_info *data )
                     1 0       1     |   0      1
                     1 1       0     |   1      0
                 */
-                /* flags up to the generic don't match */
-                if( ! flags.arg_1st_level ) {
-                    return( TB_NULL );
-                }
                 // allow trivial conversion
-                if( d_flags & ~TF1_CV_MASK ) {
+                if( d_flags & ~u_cv_mask ) {
                     return( TB_NULL );
                 }
                 status |= TB_NEEDS_TRIVIAL;
@@ -7971,23 +7919,34 @@ static unsigned typesBind( type_bind_info *data )
             u_unmod_type->of = g_type;
             continue;
         }
-        if( flags.arg_1st_level ) {
-            // allow trivial conversion
-            d_flags = u_flags ^ ( b_flags & u_flags );
-            if( d_flags != TF1_NULL ) {
-                /* flags up to the types don't match */
-                if(( d_flags & ~TF1_CV_MASK ) == TF1_NULL ) {
-                    /* only const/volatile don't match */
-                    status |= TB_NEEDS_TRIVIAL;
-                    u_flags &= ~d_flags;
-                }
-            }
+        // allow trivial conversion
+        d_flags = u_flags ^ ( b_flags & u_flags );
+        /* flags up to the types don't match */
+        if( ( d_flags != TF1_NULL )
+         && ( ( d_flags & ~u_cv_mask ) == TF1_NULL ) ) {
+            /* only const/volatile don't match */
+            status |= TB_NEEDS_TRIVIAL;
+            u_flags &= ~d_flags;
         }
         if( ! modifiersMatch( b_flags, u_flags, b_base, u_base ) ) {
             return( TB_NULL );
         }
         switch( b_unmod_type->id ) {
         case TYP_CLASS:
+            if( flags.arg_1st_level
+             && !( u_unmod_type->flag & TF1_UNBOUND ) ) {
+                if( TypeDerived( b_unmod_type, u_unmod_type ) ) {
+                    // If P is a class and P has the form
+                    // simple-template-id, then the transformed A can
+                    // be a derived class of the deduced A. Likewise,
+                    // if P is a pointer to a class of the form
+                    // simple-template-id, the transformed A can be a
+                    // pointer to a derived class pointed to by the
+                    // deduced A.
+                    break;
+                }
+            }
+
             if( compareClassTypes( b_unmod_type, u_unmod_type, data ) ) {
                 if( flags.arg_1st_level && u_unmod_type->flag & TF1_UNBOUND ) {
                     b_unmod_type = ScopeFindBoundBase( b_unmod_type, u_unmod_type );
@@ -8011,25 +7970,33 @@ static unsigned typesBind( type_bind_info *data )
             if( ( b_unmod_type->flag ^ u_unmod_type->flag ) & TF1_REFERENCE ) {
                 return( TB_NULL );
             }
-            if( flags.arg_1st_level ) {
-                status |= handle1stLevelPtr( data, b_unmod_type, u_unmod_type );
-            } else {
-                PstkPush( &(data->without_generic), PTreeType( b_unmod_type->of ) );
-                PstkPush( &(data->with_generic), PTreeType( u_unmod_type->of ) );
+            PstkPush( &(data->without_generic), PTreeType( b_unmod_type->of ) );
+            u_tree = PTreeType( u_unmod_type->of );
+            u_tree->filler = u_cv_mask;
+            if( ! flags.arg_1st_level ) {
+                u_tree->filler &= b_flags;
             }
+            PstkPush( &(data->with_generic), u_tree );
             break;
         case TYP_MEMBER_POINTER:
             PstkPush( &(data->without_generic), PTreeType( b_unmod_type->u.mp.host ) );
-            PstkPush( &(data->with_generic), PTreeType( u_unmod_type->u.mp.host ) );
+            u_tree = PTreeType( u_unmod_type->u.mp.host );
+            u_tree->filler = 0;
+            PstkPush( &(data->with_generic), u_tree );
+
             PstkPush( &(data->without_generic), PTreeType( b_unmod_type->of ) );
-            PstkPush( &(data->with_generic), PTreeType( u_unmod_type->of ) );
+            u_tree = PTreeType( u_unmod_type->of );
+            u_tree->filler = 0;
+            PstkPush( &(data->with_generic), u_tree );
             break;
         case TYP_ARRAY:
             if( b_unmod_type->u.a.array_size != u_unmod_type->u.a.array_size ) {
                 return( TB_NULL );
             }
             PstkPush( &(data->without_generic), PTreeType( b_unmod_type->of ) );
-            PstkPush( &(data->with_generic), PTreeType( u_unmod_type->of ) );
+            u_tree = PTreeType( u_unmod_type->of );
+            u_tree->filler = 0;
+            PstkPush( &(data->with_generic), u_tree );
             break;
         case TYP_FUNCTION:
             if( b_unmod_type->u.f.pragma != u_unmod_type->u.f.pragma ) {
@@ -8048,13 +8015,17 @@ static unsigned typesBind( type_bind_info *data )
                 pu = u_args->type_list;
                 for( i = b_args->num_args; i != 0; --i ) {
                     PstkPush( &(data->without_generic), PTreeType( *pb ) );
-                    PstkPush( &(data->with_generic), PTreeType( *pu ) );
+                    u_tree = PTreeType( *pu );
+                    u_tree->filler = 0;
+                    PstkPush( &(data->with_generic), u_tree );
                     ++pb;
                     ++pu;
                 }
             }
             PstkPush( &(data->without_generic), PTreeType( b_unmod_type->of ) );
-            PstkPush( &(data->with_generic), PTreeType( u_unmod_type->of ) );
+            u_tree = PTreeType( u_unmod_type->of );
+            u_tree->filler = 0;
+            PstkPush( &(data->with_generic), u_tree );
             break;
         default:
             if( ! TypeCompareExclude( b_unmod_type, u_unmod_type,
