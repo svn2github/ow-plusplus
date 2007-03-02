@@ -1527,7 +1527,8 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
 
     // check if we have already instantiated this template function
     RingIterBeg( fn_templ->instantiations, fn_inst ) {
-        if( fn_type == fn_inst->bound_sym->sym_type ) {
+        if( TypeCompareExclude( fn_type, fn_inst->bound_sym->sym_type,
+                                TC1_NULL ) ) {
             SYMBOL curr1 = NULL, curr2 = NULL;
             SYMBOL stop1, stop2;
 
@@ -1550,7 +1551,8 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
 
                 if( ( curr1->id == SC_TYPEDEF )
                  && ( curr2->id == SC_TYPEDEF ) ) {
-                    if( TypedefRemove( curr1->sym_type ) == TypedefRemove( curr2->sym_type ) ) {
+                    if( TypeCompareExclude( curr1->sym_type, curr2->sym_type,
+                                            TC1_NULL ) ) {
                         continue;
                     }
                 } else if( ( curr1->id == SC_STATIC )
