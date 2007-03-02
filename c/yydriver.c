@@ -1247,7 +1247,6 @@ static void pushUserDeclSpec( PARSE_STACK *state, DECL_SPEC *dspec )
     top->u.dspec = dspec;
 }
 
-#if 0
 static void zapTemplateClassDeclSpec( PARSE_STACK *state )
 /********************************************************/
 {
@@ -1258,7 +1257,6 @@ static void zapTemplateClassDeclSpec( PARSE_STACK *state )
 #endif
     PTypeClassInstantiationUndo( state->gstack->u.dspec );
 }
-#endif
 
 static void pushClassData( PARSE_STACK *state, type_flag flags, CLASS_INIT extra,
                            TYPE class_mod_list )

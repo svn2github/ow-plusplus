@@ -380,7 +380,6 @@ Modified        By              Reason
 %type <dspec> qualified-class-specifier
 %type <dspec> qualified-class-type
 %type <dspec> typename-specifier
-%type <dspec> template-class-id
 
 %type <dinfo> function-declaration
 %type <dinfo> declarator
@@ -1214,16 +1213,10 @@ partial-ptr-declarator
     { $$ = MakeNewPointer( $2, $3, $1 ); }
     | Y_SCOPED_TIMES cv-qualifier-seq-opt
     { $$ = MakeNewPointer( $2, NULL, $1 ); }
-    | template-class-id Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt partial-ptr-declarator
-    { $$ = MakeNewPointer( $3, $4, $2 ); PTypeRelease( $1 ); }
-    | template-class-id Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt
-    { $$ = MakeNewPointer( $3, NULL, $2 ); PTypeRelease( $1 ); }
-/*
-    | Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt partial-ptr-declarator
-    { $$ = MakeNewPointer( $2, $3, $1 ); zapTemplateClassDeclSpec( state ); }
-    | Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt
-    { $$ = MakeNewPointer( $2, NULL, $1 ); zapTemplateClassDeclSpec( state ); }
-*/
+    | nested-name-specifier Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt partial-ptr-declarator
+    { $$ = MakeNewPointer( $3, $4, $2 ); PTreeFreeSubtrees( $1 ); }
+    | nested-name-specifier Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt
+    { $$ = MakeNewPointer( $3, NULL, $2 ); PTreeFreeSubtrees( $1 ); }
     ;
 
 direct-new-declarator
@@ -1877,12 +1870,8 @@ ptr-operator
     { $$ = MakePointerType( TF1_REFERENCE, $2 ); }
     | Y_SCOPED_TIMES cv-qualifier-seq-opt
     { $$ = MakeMemberPointer( $1, $2 ); }
-    | template-class-id Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt
-    { $$ = MakeMemberPointer( $2, $3 ); PTypeRelease( $1 ); }
-/*
-    | Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt
-    { $$ = MakeMemberPointer( $1, $2 ); zapTemplateClassDeclSpec( state ); }
-*/
+    | nested-name-specifier Y_TEMPLATE_SCOPED_TIMES cv-qualifier-seq-opt
+    { $$ = MakeMemberPointer( $2, $3 ); PTreeFreeSubtrees( $1 ); }
     /* extension */
     | Y_TIMES Y__SEG16 cv-qualifier-seq-opt
     { $$ = MakeSeg16Pointer( $3 ); }
@@ -1935,6 +1924,17 @@ declarator-id
     { $$ = MakeScopedId( $1 ); }
     | nested-name-specifier Y_TEMPLATE_SCOPED_UNKNOWN_ID
     { $$ = MakeScopedId( $2 ); }
+    /*
+     * these Y_TEMPLATE_SCOPED_ cases are needed because of the off way
+     * template class constructors are parsed. Essentially, a constructor
+     * of the form A<T>::A() gets parsed as a function with A<T> being the
+     * return type and ::A being the declarator-id. zapTemplateClassDeclSpec
+     * then cleans things up by converting it into a constructor.
+     */
+    | Y_TEMPLATE_SCOPED_ID
+    { $$ = MakeScopedId( $1 ); zapTemplateClassDeclSpec( state ); }
+    | Y_TEMPLATE_SCOPED_UNKNOWN_ID
+    { $$ = MakeScopedId( $1 ); zapTemplateClassDeclSpec( state ); }
     /* TODO */
     ;
 
@@ -3046,17 +3046,6 @@ template-key
             CErr1( ERR_ONLY_GLOBAL_TEMPLATES );
         }
         state->template_decl = TRUE;
-    }
-    ;
-
-template-class-id
-    : template-type-instantiation Y_GT_SPECIAL
-    {
-        $$ = PTypeClassInstantiation( state->class_colon, $1 );
-    }
-    | scoped-template-type-instantiation Y_GT_SPECIAL
-    {
-        $$ = PTypeClassInstantiation( state->class_colon, $1 );
     }
     ;
 
