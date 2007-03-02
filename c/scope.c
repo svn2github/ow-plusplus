@@ -915,6 +915,17 @@ static SCOPE findCommonEnclosing( SCOPE scope1, SCOPE scope2 )
     return( GetFileScope() );
 }
 
+static void addLexicalTrigger( SCOPE gets_trigger, SCOPE using_scope )
+{
+    USING_NS *lexical_entry;
+
+    // trigger == NULL: push
+    lexical_entry = CarveAlloc( carveUSING_NS );
+    lexical_entry->using_scope = using_scope;
+    lexical_entry->trigger = NULL;
+    RingPush( &gets_trigger->using_list, lexical_entry );
+}
+
 static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigger )
 {
     USING_NS *using_entry;
@@ -940,19 +951,13 @@ static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigge
         }
     } RingIterEnd( curr )
     if( using_entry == NULL ) {
-        USING_NS *lexical_entry;
-
         // trigger != NULL: append
         using_entry = CarveAlloc( carveUSING_NS );
         using_entry->using_scope = using_scope;
         using_entry->trigger = trigger;
         RingAppend( &gets_using->using_list, using_entry );
 
-        // trigger == NULL: push
-        lexical_entry = CarveAlloc( carveUSING_NS );
-        lexical_entry->using_scope = using_scope;
-        lexical_entry->trigger = NULL;
-        RingPush( &trigger->using_list, lexical_entry );
+        addLexicalTrigger( trigger, using_scope );
 #ifndef NDEBUG
     } else {
         USING_NS *curr;
@@ -965,6 +970,18 @@ static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigge
         DbgAssert( curr->trigger == NULL );
 #endif
     }
+}
+
+void ScopeRestoreUsing( SCOPE scope )
+/***********************************/
+{
+    USING_NS *curr;
+
+    RingIterBeg( scope->using_list, curr ) {
+        if( curr->trigger != NULL ) {
+            addLexicalTrigger( curr->trigger, curr->using_scope );
+        }
+    } RingIterEnd( curr )
 }
 
 void ScopeAddUsing( SCOPE using_scope, SCOPE trigger )
@@ -1281,15 +1298,44 @@ static void processNameSpaces( void )
     }
 }
 
+static USING_NS *pruneMatchingUsing( SCOPE host, SCOPE using )
+{
+    USING_NS **head;
+    USING_NS *curr;
+    USING_NS *prev;
+
+    head = &host->using_list;
+    prev = NULL;
+    RingIterBeg( *head, curr ) {
+        if( curr->trigger == NULL && curr->using_scope == using ) {
+            return( RingPruneWithPrev( head, curr, prev ) );
+        }
+        prev = curr;
+    } RingIterEnd( curr )
+    DbgAssert( ErrCount != 0 ); // should never get here on clean source
+    return( NULL );
+}
+
 SCOPE ScopeClose( void )
 /**********************/
 {
+    USING_NS *use;
+    USING_NS *lex_use;
     NAME_SPACE *ns;
+    SCOPE trigger;
     SCOPE dropping_scope;
 
     dropping_scope = GetCurrScope();
     SetCurrScope(dropping_scope->enclosing);
     ExtraRptIncrementCtr( scopes_closed );
+    RingIterBegSafe( dropping_scope->using_list, use ) {
+        trigger = use->trigger;
+        if( trigger != NULL ) {
+            lex_use = pruneMatchingUsing( trigger, use->using_scope );
+            DbgAssert( lex_use != NULL || ErrCount != 0 );
+            CarveFree( carveUSING_NS, lex_use );
+        }
+    } RingIterEndSafe( use )
     if( ! HashEmpty( dropping_scope->names ) ) {
         ExtraRptIncrementCtr( nonempty_scopes_closed );
         dropping_scope->keep = TRUE;
