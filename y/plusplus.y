@@ -1935,7 +1935,16 @@ declarator-id
     { $$ = MakeScopedId( $1 ); zapTemplateClassDeclSpec( state ); }
     | Y_TEMPLATE_SCOPED_UNKNOWN_ID
     { $$ = MakeScopedId( $1 ); zapTemplateClassDeclSpec( state ); }
-    /* TODO */
+    | Y_TEMPLATE_SCOPED_TILDE make-id
+    { $$ = MakeScopedDestructorId( $1, $2 ); zapTemplateClassDeclSpec( state ); }
+    | template-scoped-conversion-function-id
+    {
+        zapTemplateClassDeclSpec( state );
+    }
+    | template-scoped-operator-function-id
+    {
+        zapTemplateClassDeclSpec( state );
+    }
     ;
 
 type-id
