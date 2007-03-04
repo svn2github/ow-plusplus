@@ -1389,17 +1389,21 @@ void ScopeAdjustUsing( SCOPE prev_scope, SCOPE new_scope )
 
     // there is some room for optimisation
 
-    scope = prev_scope;
-    while( scope->enclosing != NULL ) {
-        pruneScopeUsing( scope );
-        scope = scope->enclosing;
+    if( prev_scope != NULL ) {
+        scope = prev_scope;
+        while( scope->enclosing != NULL ) {
+            pruneScopeUsing( scope );
+            scope = scope->enclosing;
+        }
     }
 
     // note: we are probably restoring in the wrong order here
-    scope = new_scope;
-    while( scope->enclosing != NULL ) {
-        ScopeRestoreUsing( scope );
+    if( new_scope != NULL ) {
+        scope = new_scope;
+        while( scope->enclosing != NULL ) {
+            ScopeRestoreUsing( scope );
         scope = scope->enclosing;
+        }
     }
 }
 

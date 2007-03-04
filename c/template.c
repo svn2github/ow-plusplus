@@ -2986,8 +2986,10 @@ static void processInstantiationInlines( CLASS_INST *instance )
     if( instance->inlines_scope != NULL ) {
         // set up the scopes for instantiating inline member function
         save_enclosing = instance->inlines_scope->enclosing;
+        ScopeAdjustUsing( save_scope, NULL );
         instance->inlines_scope->enclosing = instance->inlines_enclosing;
         SetCurrScope( instance->inlines_scope );
+        ScopeAdjustUsing( NULL, instance->inlines_scope );
     }
     prev_inline = NULL;
 
@@ -3020,7 +3022,9 @@ static void processInstantiationInlines( CLASS_INST *instance )
     } RingIterEndSafe( curr_inline )
 
     if( instance->inlines_scope != NULL ) {
+        ScopeAdjustUsing( instance->inlines_scope, NULL );
         instance->inlines_scope->enclosing = save_enclosing;
+        ScopeAdjustUsing( NULL, save_scope );
     }
     SetCurrScope( save_scope );
 }
