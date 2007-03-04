@@ -1161,8 +1161,13 @@ static void defineAllClassDecls( TEMPLATE_SPECIALIZATION *tspec )
         }
         copyWithNewNames( old_parm_scope, tspec->arg_names );
         save_enclosing = ScopeEstablishEnclosing( inst_scope, parm_scope );
+
         SetCurrScope( inst_scope );
+        ScopeAdjustUsing( save_scope, inst_scope );
+
         doParseClassTemplate( tspec, tspec->defn, &location, TCI_NULL );
+
+        ScopeAdjustUsing( inst_scope, save_scope );
         ScopeSetEnclosing( inst_scope, save_enclosing );
     } RingIterEnd( curr )
     SetCurrScope( save_scope );
@@ -2272,9 +2277,13 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
     }
 
     injectTemplateParms( tspec, parm_scope, parms, spec_parm_scope != NULL );
+    ScopeAdjustUsing( save_scope, inst_scope );
+
     new_type = doParseClassTemplate( tspec, tspec->defn, locn, control );
 
+    ScopeAdjustUsing( inst_scope, save_scope );
     SetCurrScope( save_scope );
+
     return( new_type );
 }
 
@@ -2755,7 +2764,11 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
     }
 
     pushInstContext( &context, TCTX_MEMBER_DEFN, locn, NULL );
+    ScopeAdjustUsing( save_scope, inst_scope );
+
     ParseClassMemberInstantiation( member->defn );
+
+    ScopeAdjustUsing( inst_scope, save_scope );
     popInstContext();
 
     ScopeSetEnclosing( instance->scope, class_parm_scope );
@@ -2879,7 +2892,11 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     save_fn = templateData.translate_fn;
     templateData.translate_fn = bound_sym;
     pushInstContext( &context, TCTX_FN_DEFN, &bound_sym->locn->tl, bound_sym );
+    ScopeAdjustUsing( save_scope, fn_inst->inst_scope );
+
     ParseFunctionInstantiation( fn_templ->defn );
+
+    ScopeAdjustUsing( fn_inst->inst_scope, save_scope );
     popInstContext();
     templateData.translate_fn = save_fn;
 
@@ -2897,7 +2914,6 @@ static void processFunctionTemplateInstantiations( void )
 
             if( ! curr_inst->processed
              && ( curr_inst->bound_sym->flag & SF_REFERENCED ) ) {
-
                 templateData.keep_going = TRUE;
                 curr_inst->processed = TRUE;
                 TemplateFunctionInstantiate( curr_defn, curr_inst );

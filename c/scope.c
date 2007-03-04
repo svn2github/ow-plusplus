@@ -1366,6 +1366,43 @@ SCOPE ScopeClose( void )
     return( dropping_scope );
 }
 
+static void pruneScopeUsing( SCOPE scope )
+{
+    SCOPE trigger;
+    USING_NS *use;
+    USING_NS *lex_use;
+
+    RingIterBegSafe( scope->using_list, use ) {
+        trigger = use->trigger;
+        if( trigger != NULL ) {
+            lex_use = pruneMatchingUsing( trigger, use->using_scope );
+            DbgAssert( lex_use != NULL || ErrCount != 0 );
+            CarveFree( carveUSING_NS, lex_use );
+        }
+    } RingIterEndSafe( use )
+}
+
+void ScopeAdjustUsing( SCOPE prev_scope, SCOPE new_scope )
+/********************************************************/
+{
+    SCOPE scope;
+
+    // there is some room for optimisation
+
+    scope = prev_scope;
+    while( scope->enclosing != NULL ) {
+        pruneScopeUsing( scope );
+        scope = scope->enclosing;
+    }
+
+    // note: we are probably restoring in the wrong order here
+    scope = new_scope;
+    while( scope->enclosing != NULL ) {
+        ScopeRestoreUsing( scope );
+        scope = scope->enclosing;
+    }
+}
+
 void ScopeJumpForward( SCOPE scope )
 /**********************************/
 {

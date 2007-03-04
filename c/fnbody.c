@@ -2112,8 +2112,11 @@ void FunctionBody( DECL_INFO *dinfo )
     fn_type = handleDefnChecks( func );
     handleDefnChangesToSym( func );
     previous_func = CgFrontCurrentFunction();
+
     enclosing_scope = GetCurrScope();
-    SetCurrScope(parsing_scope);
+    SetCurrScope( parsing_scope );
+    ScopeAdjustUsing( enclosing_scope, parsing_scope );
+
     initFunctionBody( dinfo, &fn_data, fn_type );
     // after initFunctionBody so .DEF files can have names in their prototypes
     MainProcSetup( func );
@@ -2244,7 +2247,10 @@ void FunctionBody( DECL_INFO *dinfo )
         break;
     }
     finiFunctionBody( func );
-    SetCurrScope(enclosing_scope);
+
+    SetCurrScope( enclosing_scope );
+    ScopeAdjustUsing( parsing_scope, enclosing_scope );
+
     CgFrontResumeFunction( previous_func );
 }
 

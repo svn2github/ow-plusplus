@@ -1192,6 +1192,7 @@ extern void ScopeEndFileScope( void );
 extern SCOPE ScopeCreate( scope_type_t );
 extern void ScopeOpen( SCOPE );
 extern void ScopeRestoreUsing( SCOPE );
+extern void ScopeAdjustUsing( SCOPE, SCOPE );
 extern void ScopeEstablish( SCOPE );
 extern SCOPE ScopeOpenNameSpace( char *, SYMBOL );
 extern SCOPE ScopeSetEnclosing( SCOPE, SCOPE );

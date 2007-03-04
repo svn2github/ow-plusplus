@@ -3600,10 +3600,12 @@ boolean ClassDefineRefdDefaults( void )
     boolean something_defined;
     TYPE head;
     TYPE curr;
+    SCOPE save_scope;
     CLASSINFO *info;
 
     head = PTypeListOfTypes( TYP_CLASS );
     something_defined = FALSE;
+    save_scope = GetCurrScope();
     RingIterBeg( head, curr ) {
         info = curr->u.c.info;
         if( ! info->corrupted ) {
@@ -3633,6 +3635,7 @@ boolean ClassDefineRefdDefaults( void )
             }
         }
     } RingIterEnd( curr )
+    SetCurrScope( save_scope );
 
     return( something_defined );
 }
