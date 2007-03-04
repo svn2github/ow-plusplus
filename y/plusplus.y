@@ -813,7 +813,11 @@ postfix-expression-before-dot
         }
         $1 = PTreeTraversePostfix( $1, &setAnalysedFlag );
         if( $1->type ) {
-            TYPE cls = TypedefModifierRemove( $1->type );
+            TYPE cls = TypedefModifierRemoveOnly( $1->type );
+
+            if( ( cls->id == TYP_POINTER ) && ( cls->flag & TF1_REFERENCE ) ) {
+                cls = TypedefModifierRemoveOnly( cls->of );
+            }
             if( cls->id == TYP_CLASS ) {
                 setTypeMember( state, cls->u.c.scope );
             }
@@ -839,9 +843,14 @@ postfix-expression-before-arrow
         $$->u.subtree[0] = PTreeTraversePostfix( $$->u.subtree[0],
                                                  &setAnalysedFlag );
         if( $$->u.subtree[0] ) {
-            TYPE cls = TypedefModifierRemove( $$->u.subtree[0]->type );
+            TYPE cls = TypedefModifierRemoveOnly( $$->u.subtree[0]->type );
+
             if( cls->id == TYP_POINTER ) {
-                cls = TypedefModifierRemove( cls->of );
+                cls = TypedefModifierRemoveOnly( cls->of );
+                if( ( cls->id == TYP_POINTER )
+                 && ( cls->flag & TF1_REFERENCE ) ) {
+                    cls = TypedefModifierRemoveOnly( cls->of );
+                }
                 if( cls->id == TYP_CLASS ) {
                     setTypeMember( state, cls->u.c.scope );
                 }
