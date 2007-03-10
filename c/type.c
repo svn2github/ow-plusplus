@@ -7926,7 +7926,7 @@ static unsigned typesBind( type_bind_info *data )
          && ( ( d_flags & ~u_cv_mask ) == TF1_NULL ) ) {
             /* only const/volatile don't match */
             status |= TB_NEEDS_TRIVIAL;
-            u_flags &= ~d_flags;
+            b_flags |= d_flags;
         }
         if( ! modifiersMatch( b_flags, u_flags, b_base, u_base ) ) {
             return( TB_NULL );
@@ -7974,7 +7974,7 @@ static unsigned typesBind( type_bind_info *data )
             u_tree = PTreeType( u_unmod_type->of );
             u_tree->filler = u_cv_mask;
             if( ! flags.arg_1st_level ) {
-                u_tree->filler &= b_flags;
+                u_tree->filler &= u_flags;
             }
             PstkPush( &(data->with_generic), u_tree );
             break;
