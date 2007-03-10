@@ -845,12 +845,12 @@ postfix-expression-before-arrow
         if( $$->u.subtree[0] ) {
             TYPE cls = TypedefModifierRemoveOnly( $$->u.subtree[0]->type );
 
+            if( ( cls->id == TYP_POINTER )
+             && ( cls->flag & TF1_REFERENCE ) ) {
+                cls = TypedefModifierRemoveOnly( cls->of );
+            }
             if( cls->id == TYP_POINTER ) {
                 cls = TypedefModifierRemoveOnly( cls->of );
-                if( ( cls->id == TYP_POINTER )
-                 && ( cls->flag & TF1_REFERENCE ) ) {
-                    cls = TypedefModifierRemoveOnly( cls->of );
-                }
                 if( cls->id == TYP_CLASS ) {
                     setTypeMember( state, cls->u.c.scope );
                 }
