@@ -310,10 +310,10 @@ void BuildUdcList(              // BUILD FNOV_LIST FOR USER-DEFD CONVERSIONS
     FNOV_LIST **pcandidates,    // - pointer to candidate list
     SYMBOL sym )                // - symbol to add
 ;
-void BuildUdcListDiag(              // BUILD FNOV_LIST FOR USER-DEFD CONVERSIONS
+void BuildCtorList(             // BUILD FNOV_LIST FOR CTOR CONVERSIONS
     FNOV_LIST **pcandidates,    // - pointer to candidate list
     SYMBOL sym,                 // - symbol to add
-    FNOV_DIAG *fnov_diag )
+    arg_list *alist )           // - argument list
 ;
 FNOV_RESULT ResolveUdcList(     // SELECT BEST USER-DEFD CONVERSION TO 'type'
     FNOV_LIST *candidates,      // - candidate list

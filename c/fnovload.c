@@ -517,7 +517,7 @@ static boolean isSimpleCandidate( TYPE type, int num_args )
 }
 
 static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
-/****************************************************************************/
+/*************************************************************************/
 {
     arg_list *mock_args = NULL;
     arg_list *func_args;
@@ -526,6 +526,12 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
 
     if(( control & FNC_NO_DEALIAS ) == 0 ) {
         sym = SymDeAlias( sym );
+    }
+
+    if( control & FNC_RANK_RETURN ) {
+        func_args = SymFuncArgList( sym );
+        addListEntry( control, info, sym, func_args, LENT_DEFAULT );
+        return;
     }
 
     if( SymIsFunctionTemplateModel( sym ) ) {
@@ -609,27 +615,23 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
     }
 
     func_args = SymFuncArgList( sym );
-    if( control & FNC_RANK_RETURN ) {
-        addListEntry( control, info, sym, func_args, LENT_DEFAULT );
+    if( control & FNC_MEMBER ) {
+        if( isMemberCandidate( sym_type, num_args ) ) {
+            mock_args = MakeMemberArgList( sym, num_args );
+            addListEntry( control, info, sym, mock_args, LENT_FREE_ARGS );
+        }
     } else {
-        if( control & FNC_MEMBER ) {
-            if( isMemberCandidate( sym_type, num_args ) ) {
-                mock_args = MakeMemberArgList( sym, num_args );
-                addListEntry( control, info, sym, mock_args, LENT_FREE_ARGS );
-            }
-        } else {
-            if( !( SymIsDefArg(sym) && (control & FNC_EXCLUDE_DEFARG ) ) ) {
-                if( isSimpleCandidate( sym_type, num_args ) ) {
-                    addListEntry( control, info, sym, func_args, 0 );
-                } else if( !(control & FNC_EXCLUDE_ELLIPSIS) ) {
-                    if( isEllipsisCandidate( sym_type, num_args ) ) {
-                        mock_args = MakeMockArgList( sym_type, num_args );
-                        addListEntry( control
-                                    , info
-                                    , sym
-                                    , mock_args
-                                    , LENT_FREE_ARGS );
-                    }
+        if( !( SymIsDefArg(sym) && (control & FNC_EXCLUDE_DEFARG ) ) ) {
+            if( isSimpleCandidate( sym_type, num_args ) ) {
+                addListEntry( control, info, sym, func_args, 0 );
+            } else if( !(control & FNC_EXCLUDE_ELLIPSIS) ) {
+                if( isEllipsisCandidate( sym_type, num_args ) ) {
+                    mock_args = MakeMockArgList( sym_type, num_args );
+                    addListEntry( control
+                                , info
+                                , sym
+                                , mock_args
+                                , LENT_FREE_ARGS );
                 }
             }
         }
@@ -661,6 +663,25 @@ void BuildUdcList(              // BUILD FNOV_LIST FOR USER-DEFD CONVERSIONS
     SYMBOL sym )                // - symbol to add
 {
     buildUdcListDiag( pcandidates, sym, NULL );
+}
+
+void BuildCtorList(             // BUILD FNOV_LIST FOR CTOR CONVERSIONS
+/****************/
+    FNOV_LIST **pcandidates,    // - current list
+    SYMBOL sym,                 // - symbol to add
+    arg_list *alist )           // - argument list
+{
+    FNOV_INFO info;
+
+    info.control = 0;
+    info.plist = NULL;
+    info.alist = alist;
+    info.templ_args = NULL;
+    info.distinct_check = NULL;
+    info.pcandidates = pcandidates;
+    info.pmatch = NULL;
+    info.fnov_diag = NULL;
+    processSym( 0, &info, sym );
 }
 
 static void buildOverloadListFromSym( FNOV_CONTROL control,
