@@ -1261,6 +1261,16 @@ FNOV_LIST **rejects, boolean *ambiguous, boolean is_ctor )
                     result = compareArgument( &(*match)->thisrank, NULL
                                               , &curr->thisrank, NULL, FNC_DEFAULT );
                 }
+                if( result == OV_CMP_SAME ) {
+                    // prefer non-template functions
+                    if( ( (*match)->sym->flag & SF_TEMPLATE_FN )
+                     && ! ( curr->sym->flag & SF_TEMPLATE_FN ) ) {
+                        result = OV_CMP_BETTER_SECOND;
+                    } else if( ! ( (*match)->sym->flag & SF_TEMPLATE_FN )
+                            && ( curr->sym->flag & SF_TEMPLATE_FN ) ) {
+                        result = OV_CMP_BETTER_FIRST;
+                    }
+                }
                 switch( result ) {
                 case OV_CMP_BETTER_FIRST:
                     RingInsert( rejects, curr, NULL );
