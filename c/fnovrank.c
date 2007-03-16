@@ -768,7 +768,7 @@ FNOV_LIST **pmatch, FNOV_RANK *rank, FNOV_DIAG *fnov_diag )
                 completeFNOV_TYPE( &conv_class );
                 FnovFreeDiag( &my_fnov_diag );
                 FnovListFree( &match );
-                coarse = fnovUdcLocate( FNOV_UDC_DIRECT
+                coarse = fnovUdcLocate( FNOV_UDC_CTOR | ( control & FNOV_UDC_USE_EXPLICIT )
                                       , ictl | FNOV_INTRNL_8_5_3_ANSI
                                       , wsrc
                                       , &conv_class
