@@ -1301,7 +1301,6 @@ void TemplateFunctionCheck( SYMBOL sym, DECL_INFO *dinfo )
         CErr1( ERR_NO_VARIABLE_TEMPLATES );
         return;
     }
-    ForceNoDefaultArgs( dinfo, ERR_FUNCTION_TEMPLATE_NO_DEFARGS );
     if( sym->id != SC_STATIC ) {
         sym->id = SC_FUNCTION_TEMPLATE;
     } else {
@@ -1311,7 +1310,7 @@ void TemplateFunctionCheck( SYMBOL sym, DECL_INFO *dinfo )
 }
 
 void TemplateFunctionDeclaration( SYMBOL sym, boolean is_defn )
-/********************************************/
+/*************************************************************/
 {
     if( sym->u.defn == NULL ) {
         sym->u.defn = newTemplateFunction( sym );

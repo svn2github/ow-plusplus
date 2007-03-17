@@ -1306,45 +1306,12 @@ static boolean cantHaveDefaultArgs( int err_msg, DECL_INFO *dinfo )
     return( FALSE );
 }
 
-/*
- *  cantHaveDefaultArgGaps
- *      Supposedly checks for gaps in default arguments. Don't think it works!
- *  called from:
- *      ForceNoDefaultArgs  (called from FinishDeclarator)
- *      checkUsefulParms    (called from FinishDeclarator)
- */
-static boolean cantHaveDefaultArgGaps( DECL_INFO *dinfo )
-{
-    boolean transition_detected;
-    DECL_INFO *prev_init;
-    DECL_INFO *curr;
-
-    transition_detected = FALSE;
-    prev_init = NULL;
-    RingIterBeg( dinfo, curr ) {
-        if( curr->has_defarg ) {
-            if( prev_init == NULL ) {
-                if( transition_detected ) {
-                    CErr1( ERR_DEFAULT_ARGS_MISSING );
-                    return( TRUE );
-                }
-                transition_detected = TRUE;
-            }
-            prev_init = curr;
-        } else {
-            prev_init = NULL;
-        }
-    } RingIterEnd( curr )
-    return( FALSE );
-}
-
 void ForceNoDefaultArgs( DECL_INFO *dinfo, int err_msg )
 /******************************************************/
 {
     DECL_INFO *parms;
 
     parms = dinfo->parms;
-    cantHaveDefaultArgGaps( parms );
     if( cantHaveDefaultArgs( err_msg, parms )){
         removeDefaultArgs( parms );
     }
@@ -1357,7 +1324,6 @@ void FreeTemplateArgs( DECL_INFO * dinfo)
 
 void FreeArgs( DECL_INFO *dinfo )
 {
-    cantHaveDefaultArgGaps( dinfo );
     cantHaveDefaultArgs( ERR_DEFAULT_ARGS_IN_A_TYPE, dinfo );
     freeDeclList( &dinfo );
 }
@@ -3113,10 +3079,6 @@ static void checkUsefulParms( int status, DECL_INFO *dinfo )
         FreeArgs( dinfo->parms );
         dinfo->parms = NULL;
         dinfo->explicit_parms = FALSE;
-    } else {
-        if( cantHaveDefaultArgGaps( dinfo->parms ) ) {
-            removeDefaultArgs( dinfo->parms );
-        }
     }
 }
 
