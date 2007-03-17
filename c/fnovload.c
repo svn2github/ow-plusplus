@@ -534,6 +534,21 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
         return;
     }
 
+    if( control & FNC_MEMBER ) {
+        if( ! isMemberCandidate( sym_type, num_args ) ) {
+            return;
+        }
+    } else {
+        if( SymIsDefArg(sym) && (control & FNC_EXCLUDE_DEFARG ) ) {
+            return;
+        } else if( ! isSimpleCandidate( sym_type, num_args ) ) {
+            if( (control & FNC_EXCLUDE_ELLIPSIS)
+             || !isEllipsisCandidate( sym_type, num_args ) ) {
+                return;
+            }
+        }
+    }
+
     if( SymIsFunctionTemplateModel( sym ) ) {
         if( control & FNC_ONLY_NON_TEMPLATE ) {
             // ignore template functions
@@ -548,28 +563,22 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
             result = NULL;
 
             if( control & FNC_MEMBER ) {
-                if( isMemberCandidate( sym_type, num_args ) ) {
-                    // have to strip the implicit this pointer
-                    mock_args = AllocArgListTemp( num_args - 1 );
-                    mock_args->except_spec = info->alist->except_spec;
-                    if( num_args > 1 ) {
-                        memcpy( &mock_args->type_list[0]
-                              , &info->alist->type_list[1]
-                              , sizeof( info->alist->type_list[0] ) * ( num_args - 1 ) );
-                    }
-                    result = TemplateFunctionGenerate( sym, mock_args,
-                                                       info->templ_args,
-                                                       locn );
-                    CMemFree( mock_args );
+                // have to strip the implicit this pointer
+                mock_args = AllocArgListTemp( num_args - 1 );
+                mock_args->except_spec = info->alist->except_spec;
+                if( num_args > 1 ) {
+                    memcpy( &mock_args->type_list[0]
+                          , &info->alist->type_list[1]
+                          , sizeof( info->alist->type_list[0] ) * ( num_args - 1 ) );
                 }
+                result = TemplateFunctionGenerate( sym, mock_args,
+                                                   info->templ_args,
+                                                   locn );
+                CMemFree( mock_args );
             } else {
-                if( isSimpleCandidate( sym_type, num_args )
-                 || ( !(control & FNC_EXCLUDE_ELLIPSIS)
-                   && isEllipsisCandidate( sym_type, num_args ) ) ) {
-                    result = TemplateFunctionGenerate( sym, info->alist,
-                                                       info->templ_args,
-                                                       locn );
-                }
+                result = TemplateFunctionGenerate( sym, info->alist,
+                                                   info->templ_args,
+                                                   locn );
             }
 
             if( result != NULL ) {
@@ -616,24 +625,18 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
 
     func_args = SymFuncArgList( sym );
     if( control & FNC_MEMBER ) {
-        if( isMemberCandidate( sym_type, num_args ) ) {
-            mock_args = MakeMemberArgList( sym, num_args );
-            addListEntry( control, info, sym, mock_args, LENT_FREE_ARGS );
-        }
+        mock_args = MakeMemberArgList( sym, num_args );
+        addListEntry( control, info, sym, mock_args, LENT_FREE_ARGS );
     } else {
-        if( !( SymIsDefArg(sym) && (control & FNC_EXCLUDE_DEFARG ) ) ) {
-            if( isSimpleCandidate( sym_type, num_args ) ) {
-                addListEntry( control, info, sym, func_args, 0 );
-            } else if( !(control & FNC_EXCLUDE_ELLIPSIS) ) {
-                if( isEllipsisCandidate( sym_type, num_args ) ) {
-                    mock_args = MakeMockArgList( sym_type, num_args );
-                    addListEntry( control
-                                , info
-                                , sym
-                                , mock_args
-                                , LENT_FREE_ARGS );
-                }
-            }
+        if( isSimpleCandidate( sym_type, num_args ) ) {
+            addListEntry( control, info, sym, func_args, 0 );
+        } else {
+            mock_args = MakeMockArgList( sym_type, num_args );
+            addListEntry( control
+                        , info
+                        , sym
+                        , mock_args
+                        , LENT_FREE_ARGS );
         }
     }
 }
