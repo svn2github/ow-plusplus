@@ -346,12 +346,22 @@ void TemplateDeclAddArgument( DECL_INFO *new_dinfo )
     }
 }
 
-static unsigned getArgList( DECL_INFO *args, TYPE *type_list, char **names, REWRITE **defarg_list )
+static unsigned getArgList( DECL_INFO *args, TYPE *type_list, char **names,
+                            REWRITE **defarg_list, boolean allow_defargs )
 {
     DECL_INFO *curr;
     unsigned count;
+    boolean prev_defarg;
 
+    /*
+     * see 14.1 p11:
+     * If a template-parameter has a default template-argument, all
+     * subsequent template-parameters shall have a default
+     * template-argument supplied.
+     */
+    prev_defarg = FALSE;
     count = 0;
+
     RingIterBeg( args, curr ) {
         if( type_list != NULL ) {
             type_list[count] = curr->type;
@@ -360,14 +370,35 @@ static unsigned getArgList( DECL_INFO *args, TYPE *type_list, char **names, REWR
             names[count] = curr->name;
         }
         if( defarg_list != NULL ) {
-            /*
             //  Ensure that we NULL out curr->defarg_rewrite or else
             //  when we delete the DECL_INFO, the rewrite element gets
             //  freed as well. The rewrite info will be freed when the
             //  the template info is freed.
-            */
-            defarg_list[count] = curr->defarg_rewrite;
+            if( ( defarg_list[count] != NULL ) && ( curr->has_defarg ) ) {
+                CErr2p( ERR_DEFAULT_TEMPLATE_ARG_REDEFINED, curr->name );
+                RewriteFree( curr->defarg_rewrite );
+            } else if( curr->has_defarg ) {
+                defarg_list[count] = curr->defarg_rewrite;
+            }
             curr->defarg_rewrite = NULL;
+
+            if( defarg_list[count] != NULL ) {
+                prev_defarg = TRUE;
+            } else if( prev_defarg ) {
+                /* previous parameter had a default argument, but this one
+                 * hasn't => error */
+                if( curr->generic_sym ) {
+                    SetErrLoc( &curr->generic_sym->locn->tl );
+                } else {
+                    SetErrLoc( &curr->sym->locn->tl );
+                }
+                CErr1( ERR_DEFAULT_ARGS_MISSING );
+            }
+        } else if( ! allow_defargs ) {
+            if( curr->has_defarg && ! prev_defarg ) {
+                CErr1( ERR_DEFAULT_ARG_IN_PARTIAL_SPEC );
+                prev_defarg = TRUE;
+            }
         }
         ++count;
     } RingIterEnd( curr )
@@ -385,7 +416,7 @@ static TEMPLATE_SPECIALIZATION *newTemplateSpecialization(
     tinfo->nr_specs++;
 
     args = data->args;
-    arg_count = getArgList( args, NULL, NULL, NULL );
+    arg_count = getArgList( args, NULL, NULL, NULL, TRUE );
     tspec = RingCarveAlloc( carveTEMPLATE_SPECIALIZATION,
                             &tinfo->specializations );
     tprimary = RingFirst( tinfo->specializations );
@@ -406,7 +437,7 @@ static TEMPLATE_SPECIALIZATION *newTemplateSpecialization(
     tspec->defn_found = FALSE;
     tspec->free = FALSE;
 
-    getArgList( args, tspec->type_list, tspec->arg_names, NULL );
+    getArgList( args, tspec->type_list, tspec->arg_names, NULL, TRUE );
     return( tspec );
 }
 
@@ -418,7 +449,7 @@ static TEMPLATE_INFO *newTemplateInfo( TEMPLATE_DATA *data )
     unsigned arg_count;
 
     args = data->args;
-    arg_count = getArgList( args, NULL, NULL, NULL );
+    arg_count = getArgList( args, NULL, NULL, NULL, TRUE );
     if( arg_count == 0 ) {
         CErr1( ERR_TEMPLATE_MUST_HAVE_ARGS );
     }
@@ -437,7 +468,8 @@ static TEMPLATE_INFO *newTemplateInfo( TEMPLATE_DATA *data )
     tprimary->defn = data->defn;
     tprimary->defn_found = data->defn_found;
 
-    getArgList( args, NULL, NULL, tinfo->defarg_list );
+    memset( tinfo->defarg_list, 0, arg_count * sizeof( REWRITE * ) );
+    getArgList( args, NULL, NULL, tinfo->defarg_list, TRUE );
     return( tinfo );
 }
 
@@ -510,7 +542,7 @@ static boolean templateArgListsSame( DECL_INFO *args, TEMPLATE_INFO *tinfo )
     TEMPLATE_SPECIALIZATION *tprimary;
 
     tprimary = RingFirst( tinfo->specializations );
-    curr_count = getArgList( args, NULL, NULL, NULL );
+    curr_count = getArgList( args, NULL, NULL, NULL, TRUE );
     if( curr_count != tprimary->num_args ) {
         return( FALSE );
     }
@@ -545,9 +577,9 @@ static char **getUniqueArgNames( DECL_INFO *args,
 
     arg_names = tspec->arg_names;
     if( ! sameArgNames( args, arg_names ) ) {
-        arg_count = getArgList( args, NULL, NULL, NULL );
+        arg_count = getArgList( args, NULL, NULL, NULL, TRUE );
         arg_names = CPermAlloc( arg_count * sizeof( char * ) );
-        getArgList( args, NULL, arg_names, NULL );
+        getArgList( args, NULL, arg_names, NULL, TRUE );
     }
     return( arg_names );
 }
@@ -991,6 +1023,7 @@ static TEMPLATE_SPECIALIZATION *mergeClassTemplates( TEMPLATE_DATA *data,
         return tspec;
     }
     defn = data->defn;
+    defarg_list = primary_specialization ? tinfo->defarg_list : NULL;
     if( data->defn_found ) {
         if( tspec->defn_found ) {
             CErr2p( ERR_CANT_REDEFINE_CLASS_TEMPLATES, tinfo );
@@ -1003,17 +1036,14 @@ static TEMPLATE_SPECIALIZATION *mergeClassTemplates( TEMPLATE_DATA *data,
             tspec->defn_found = TRUE;
             data->defn_added = TRUE;
             tspec->arg_names = getUniqueArgNames( args, tspec );
-            if( primary_specialization ) {
-                defarg_list = tinfo->defarg_list;
-            } else {
-                defarg_list = NULL;
-            }
 
             getArgList( args, tspec->type_list, tspec->arg_names,
-                        defarg_list );
+                        defarg_list, primary_specialization );
         }
     } else {
-        if( ( tspec->defn == NULL ) ) {
+        getArgList( args, NULL, NULL, defarg_list, primary_specialization );
+
+        if( tspec->defn == NULL ) {
             tspec->defn = defn;
         } else {
             RewriteFree( defn );
@@ -1239,7 +1269,7 @@ void TemplateDeclFini( void )
         }
     }
 
-    FreeArgsDefaultsOK( data->args );
+    FreeTemplateArgs( data->args );
     data->args = NULL;
     PTreeFreeSubtrees( data->spec_args );
     data->spec_args = NULL;

@@ -12016,3 +12016,31 @@ struct A {
 virtual void A::f()
 { }
 :eerrbad.
+
+:MSGSYM. ERR_DEFAULT_TEMPLATE_ARG_REDEFINED
+:MSGTXT. cannot redefine default template argument '%N'
+:MSGJTXT.
+A template-parameter shall not be given default arguments by two
+different declarations in the same scope.
+:errbad.
+template< class T = int >
+class X;
+
+template< class T = int >
+class X {
+};
+:eerrbad.
+
+:MSGSYM. ERR_DEFAULT_ARG_IN_PARTIAL_SPEC
+:MSGTXT. cannot have default template arguments in partial specializations
+:MSGJTXT.
+A partial specialization cannot have default template arguments.
+:errbad.
+template< class T >
+class X {
+};
+
+template< class T = int >
+class X< T * > {
+};
+:eerrbad.

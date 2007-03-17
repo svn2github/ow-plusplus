@@ -1402,7 +1402,7 @@ void ScopeAdjustUsing( SCOPE prev_scope, SCOPE new_scope )
         scope = new_scope;
         while( scope->enclosing != NULL ) {
             ScopeRestoreUsing( scope );
-        scope = scope->enclosing;
+            scope = scope->enclosing;
         }
     }
 }

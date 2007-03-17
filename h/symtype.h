@@ -1534,7 +1534,7 @@ extern DECL_INFO *AddArgument( DECL_INFO *, DECL_INFO * );
 extern DECL_INFO *AddEllipseArg( DECL_INFO * );
 extern void FreeDeclInfo( DECL_INFO * );
 extern void FreeArgs( DECL_INFO * );
-extern void FreeArgsDefaultsOK( DECL_INFO * );
+extern void FreeTemplateArgs( DECL_INFO * );
 extern DECL_INFO *InsertDeclInfo( SCOPE, DECL_INFO * );
 extern void ProcessDefArgs( DECL_INFO * );
 extern SYMBOL InsertSymbol( SCOPE, SYMBOL, char *name );
