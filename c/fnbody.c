@@ -1294,8 +1294,9 @@ static SYMBOL makeCatchVar(     // CREATE A CATCH VARIABLE
     }
     catch_var = SymCreateCurrScope( info->type
                                   , SC_AUTO
-                                  , SF_REFERENCED | SF_ALIAS | SF_CATCH_ALIAS
+                                  , SF_REFERENCED
                                   , name );
+    catch_var->flag |= SF_ALIAS | SF_CATCH_ALIAS;
     catch_var->u.alias = try_var;
     return catch_var;
 }

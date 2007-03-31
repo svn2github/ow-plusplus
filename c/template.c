@@ -1355,12 +1355,12 @@ void TemplateFunctionAttachDefn( DECL_INFO *dinfo )
 }
 
 
-static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
-                        TOKEN_LOCN *locn, SCOPE *templ_parm_scope,
-                        bgt_control *pcontrol )
+static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
+                              PTREE templ_args, TOKEN_LOCN *locn,
+                              SCOPE *templ_parm_scope, bgt_control *pcontrol )
 {
     TYPE fn_type;
-    TYPE bound_type;
+    DECL_INFO *dinfo;
     TEMPLATE_CONTEXT context;
     SCOPE decl_scope;
     SCOPE parm_scope;
@@ -1374,12 +1374,11 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
     *templ_parm_scope = NULL;
     num_args = ( args != NULL ) ? args->num_args : 0;
     fn_type = FunctionDeclarationType( fn_templ->sym_type );
-    if( ( fn_type == NULL )
-     || ! TypeHasNumArgs( fn_type, num_args ) ) {
+    if( fn_type == NULL ) {
         return( NULL );
     }
 
-    bound_type = NULL;
+    dinfo = NULL;
     decl_scope = fn_templ->u.defn->decl_scope;
 
     pparms = NULL;
@@ -1414,7 +1413,6 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     num_explicit = BindExplicitTemplateArguments( parm_scope, templ_args );
     if( num_explicit >= 0 ) {
-        DECL_INFO *dinfo;
         SCOPE save_scope;
 
         pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
@@ -1434,6 +1432,7 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
                                    dinfo );
             fn_type = dinfo->sym->sym_type;
             FreeDeclInfo( dinfo );
+            dinfo = NULL;
 
             SetCurrScope( save_scope );
         }
@@ -1463,11 +1462,8 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
             verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
                                    dinfo );
-            bound_type = dinfo->sym->sym_type;
-            FreeDeclInfo( dinfo );
 
             SetCurrScope( save_scope );
-
             *templ_parm_scope = parm_scope;
         } else {
 #ifndef NDEBUG
@@ -1488,17 +1484,17 @@ static TYPE attemptGen( arg_list *args, SYMBOL fn_templ, PTREE templ_args,
 
     ScopeSetEnclosing( parm_scope, NULL );
 
-    if( bound_type == NULL ) {
+    if( dinfo == NULL ) {
         ScopeBurn( parm_scope );
     }
 
     PTreeFreeSubtrees( pparms );
     PTreeFreeSubtrees( pargs );
 
-    return( bound_type );
+    return( dinfo );
 }
 
-static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
+static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym, DECL_INFO *dinfo,
                                SCOPE parm_scope, TOKEN_LOCN *locn )
 {
     SCOPE inst_scope;
@@ -1508,9 +1504,6 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
     symbol_flag new_flags;
     symbol_class new_class;
 
-    if( bound_type == NULL ) {
-        return( NULL );
-    }
     if( ScopeType( SymScope( sym ), SCOPE_CLASS ) ) {
         new_flags = ( sym->flag & SF_ACCESS );
         new_class = SC_MEMBER;
@@ -1525,6 +1518,7 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
     inst_scope = ScopeCreate( SCOPE_TEMPLATE_INST );
     ScopeSetEnclosing( inst_scope, parm_scope );
     ScopeSetEnclosing( parm_scope, SymScope( sym ) );
+
     new_sym = SymCreateAtLocn( bound_type
                              , new_class
                              , new_flags | SF_TEMPLATE_FN
@@ -1533,6 +1527,23 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym,
                              , locn );
     new_sym->u.alias = sym;
     fn_templ = sym->u.defn;
+
+    {
+        void declareDefaultArgs( SCOPE scope, DECL_INFO *dinfo ); /* TODO */
+        declareDefaultArgs( parm_scope, dinfo );
+    }
+
+    if( ( dinfo->proto_sym != NULL ) && SymIsDefArg( dinfo->proto_sym ) ) {
+        SYMBOL *prev = &dinfo->proto_sym->thread;
+
+        while ( (*prev)->thread != NULL ) {
+            prev = &(*prev)->thread;
+        }
+
+        *prev = new_sym;
+        new_sym = dinfo->proto_sym;
+    }
+    FreeDeclInfo( dinfo );
 
     fn_inst = RingCarveAlloc( carveFN_TEMPLATE_INST,
                               &fn_templ->instantiations );
@@ -1548,6 +1559,7 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
                                  PTREE templ_args, TOKEN_LOCN *locn )
 /*******************************************************************/
 {
+    DECL_INFO *dinfo;
     FN_TEMPLATE *fn_templ;
     FN_TEMPLATE_INST *fn_inst;
     TYPE fn_type;
@@ -1556,12 +1568,28 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
     bgt_control control;
 
     control = BGT_TRIVIAL;
-    fn_type = attemptGen( args, sym, templ_args, locn, &parm_scope, &control );
+    dinfo = attemptGen( args, sym, templ_args, locn, &parm_scope, &control );
+    if( dinfo == NULL ) {
+        return NULL;
+    }
+
+    fn_type = dinfo->sym->sym_type;
     fn_templ = sym->u.defn;
+
+    if( fn_type == NULL ) {
+        FreeDeclInfo( dinfo );
+        return NULL;
+    }
+
+    generated_fn = NULL;
 
     // check if we have already instantiated this template function
     RingIterBeg( fn_templ->instantiations, fn_inst ) {
-        if( TypeCompareExclude( fn_type, fn_inst->bound_sym->sym_type,
+        SYMBOL inst_sym;
+
+        inst_sym = SymDefaultBase( fn_inst->bound_sym );
+
+        if( TypeCompareExclude( fn_type, inst_sym->sym_type,
                                 TC1_NULL ) ) {
             SYMBOL curr1 = NULL, curr2 = NULL;
             SYMBOL stop1, stop2;
@@ -1577,7 +1605,8 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
                 if( ( curr1 == NULL ) || ( curr2 == NULL ) ) {
                     if( ( curr1 == NULL ) && ( curr2 == NULL ) ) {
                         // alread instantiated
-                        return fn_inst->bound_sym;
+                        FreeDeclInfo( dinfo );
+                        generated_fn = fn_inst->bound_sym;
                     }
 
                     break;
@@ -1607,7 +1636,7 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
     } RingIterEnd( fn_inst )
 
 #ifndef NDEBUG
-    if( PragDbgToggle.templ_function ) {
+    if( PragDbgToggle.templ_function && ( generated_fn == NULL ) ) {
         VBUF vbuf1, vbuf2, vbuf3;
         FormatType( fn_type, &vbuf1, &vbuf2 );
         FormatTemplateParmScope( &vbuf3, parm_scope );
@@ -1618,12 +1647,40 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
         VbufFree( &vbuf3 );
     }
 #endif
-    if( fn_type != NULL ) {
-        generated_fn = buildTemplateFn( fn_type, sym, parm_scope, locn );
-        if( generated_fn != NULL ) {
-            return generated_fn;
-        }
+
+    if( generated_fn == NULL ) {
+        generated_fn = buildTemplateFn( fn_type, sym, dinfo, parm_scope,
+                                        locn );
     }
+
+    while( generated_fn != NULL ) {
+        fn_type = FunctionDeclarationType( generated_fn->sym_type );
+        if( fn_type != NULL ) {
+            int type_args;
+            arg_list *alist;
+
+            alist = TypeArgList( fn_type );
+            type_args = alist->num_args;
+
+            if( type_args == args->num_args ) {
+                return generated_fn;
+            }
+
+            if( type_args != 0 ) {
+                if( type_args <= args->num_args+1 ) {
+                    if( alist->type_list[type_args-1]->id == TYP_DOT_DOT_DOT ) {
+                        return generated_fn;
+                    }
+                }
+            }
+        }
+
+        if( ! SymIsDefArg( generated_fn ) ) {
+            break;
+        }
+        generated_fn = generated_fn->thread;
+    }
+
     return NULL;
 }
 
@@ -2889,7 +2946,7 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     auto TEMPLATE_CONTEXT context;
 
     fn_sym = fn_templ->sym;
-    bound_sym = fn_inst->bound_sym;
+    bound_sym = SymDefaultBase( fn_inst->bound_sym );
 
     save_scope = GetCurrScope();
     parm_scope = fn_inst->parm_scope;

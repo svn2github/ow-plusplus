@@ -465,20 +465,20 @@ static boolean isEllipsisCandidate( TYPE type, int num_args )
 /***********************************************************/
 // determine if type is a candidate based on:
 //      type having more than zero arguments
-//      type having fewer arguments than num_args and
-//              last argument is ellipsis, or
-//      type having exactly one more argument than num_args which is ellipsis
+//      type having fewer or as many arguments as num_args+1 and
+//              last argument is ellipsis
 {
     TYPE argtype;
+    int type_args;
     arg_list *alist;
 
     type = FunctionDeclarationType( type );
     if( type != NULL ) {
         alist = TypeArgList( type );
-        if( alist->num_args != 0 ) {
-            if( ( alist->num_args < num_args )
-              ||( alist->num_args == num_args+1 ) ) {
-                argtype = alist->type_list[alist->num_args-1];
+        type_args = alist->num_args;
+        if( type_args != 0 ) {
+            if( type_args <= num_args+1 ) {
+                argtype = alist->type_list[type_args-1];
                 if( argtype->id == TYP_DOT_DOT_DOT ) {
                     return( TRUE );
                 }
@@ -519,6 +519,7 @@ static boolean isSimpleCandidate( TYPE type, int num_args )
 static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
 /*************************************************************************/
 {
+    SYMBOL base_sym;
     arg_list *mock_args = NULL;
     arg_list *func_args;
     TYPE sym_type = sym->sym_type;
@@ -539,7 +540,7 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
             return;
         }
     } else {
-        if( SymIsDefArg(sym) && (control & FNC_EXCLUDE_DEFARG ) ) {
+        if( SymIsDefArg( sym ) && (control & FNC_EXCLUDE_DEFARG ) ) {
             return;
         } else if( ! isSimpleCandidate( sym_type, num_args ) ) {
             if( (control & FNC_EXCLUDE_ELLIPSIS)
@@ -549,7 +550,12 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
         }
     }
 
-    if( SymIsFunctionTemplateModel( sym ) ) {
+    base_sym = sym;
+    while( SymIsDefArg( base_sym ) ) {
+        base_sym = base_sym->thread;
+    }
+
+    if( SymIsFunctionTemplateModel( base_sym ) ) {
         if( control & FNC_ONLY_NON_TEMPLATE ) {
             // ignore template functions
             return;
@@ -571,12 +577,12 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
                           , &info->alist->type_list[1]
                           , sizeof( info->alist->type_list[0] ) * ( num_args - 1 ) );
                 }
-                result = TemplateFunctionGenerate( sym, mock_args,
+                result = TemplateFunctionGenerate( base_sym, mock_args,
                                                    info->templ_args,
                                                    locn );
                 CMemFree( mock_args );
             } else {
-                result = TemplateFunctionGenerate( sym, info->alist,
+                result = TemplateFunctionGenerate( base_sym, info->alist,
                                                    info->templ_args,
                                                    locn );
             }

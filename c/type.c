@@ -5569,6 +5569,7 @@ static unsigned declareDefaultProtos( SCOPE scope, DECL_INFO *dinfo )
 {
     unsigned control;
     unsigned arg_index;
+    boolean is_template;
     DECL_INFO *curr;
     SYMBOL def_arg_sym;
     SYMBOL head;
@@ -5578,6 +5579,7 @@ static unsigned declareDefaultProtos( SCOPE scope, DECL_INFO *dinfo )
     head = NULL;
     prev_arg = &head;
     arg_index = 0;
+    is_template = SymIsFunctionTemplateModel( dinfo->sym );
     RingIterBeg( dinfo->parms, curr ) {
         if( curr->type->id == TYP_DOT_DOT_DOT ) break;
         def_arg_sym = NULL;
@@ -5588,6 +5590,10 @@ static unsigned declareDefaultProtos( SCOPE scope, DECL_INFO *dinfo )
                 def_arg_sym = NULL;
             } else {
                 if( curr->defarg_rewrite != NULL ) {
+                    if( is_template ) {
+                        RewriteFree( curr->defarg_rewrite );
+                        curr->defarg_rewrite = NULL;
+                    }
                     control |= DA_REWRITES;
                 }
             }
@@ -5606,7 +5612,7 @@ static unsigned declareDefaultProtos( SCOPE scope, DECL_INFO *dinfo )
     } RingIterEnd( curr )
     *prev_arg = dinfo->sym;
     dinfo->proto_sym = head;
-    return( control );
+    return( is_template ? 0 : control );
 }
 
 static void deferDefaultRewrites( DECL_INFO *dinfo )
@@ -5637,7 +5643,7 @@ static void deferDefaultRewrites( DECL_INFO *dinfo )
     ClassStoreDefArg( fn_dinfo );
 }
 
-static void declareDefaultArgs( SCOPE scope, DECL_INFO *dinfo )
+/* static */ void declareDefaultArgs( SCOPE scope, DECL_INFO *dinfo )
 {
     unsigned dp_control;
 

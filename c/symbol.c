@@ -94,6 +94,8 @@ TYPE SymClass(                  // GET TYPE FOR CLASS CONTAINING A SYMBOL
     SCOPE scope;                // - SCOPE for "sym"
     SYMBOL templ_sym;
 
+    sym = SymDefaultBase( SymDeAlias( sym ) );
+
     templ_sym = SymIsFunctionTemplateInst( sym );
     if( templ_sym != NULL ) {
         sym = templ_sym;
@@ -112,6 +114,8 @@ static SCOPE symClassScope(     // GET SCOPE FOR CLASS CONTAINING SYMBOL
 {
     SCOPE scope;                // - SCOPE for "sym"
     SYMBOL templ_sym;
+
+    sym = SymDefaultBase( SymDeAlias( sym ) );
 
     templ_sym = SymIsFunctionTemplateInst( sym );
     if( templ_sym != NULL ) {

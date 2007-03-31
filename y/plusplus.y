@@ -2143,6 +2143,9 @@ defarg-check
              && ( angle_state->paren_depth == 0 ) ) {
                 $$ = RewritePackageTemplateDefArg();
                 t = Y_DEFARG_GONE_SPECIAL;
+            } else if( state->template_decl ) {
+                $$ = RewritePackagePassThrough( currParseStack->template_record_tokens );
+                t = Y_DEFARG_GONE_SPECIAL;
             } else if( ClassOKToRewrite() ) {
                 $$ = RewritePackageDefArg( NULL );
                 t = Y_DEFARG_GONE_SPECIAL;
