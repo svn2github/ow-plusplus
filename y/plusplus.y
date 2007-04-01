@@ -2865,15 +2865,26 @@ template-declaration
     | template-function-declaration
     ;
 
+/* differs from standard */
+template-declaration-start
+    : template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL
+    ;
+
+/* differs from standard */
+simple-template-declaration-before-semicolon
+    : block-declaration-before-semicolon
+    | simple-member-declaration-before-semicolon
+    ;
+
 template-declaration-before-semicolon
-    : template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
+    : template-declaration-start simple-template-declaration-before-semicolon
     {
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
         GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
         GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
-    | Y_EXPORT template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL block-declaration-before-semicolon
+    | Y_EXPORT template-declaration-start simple-template-declaration-before-semicolon
     {
         CErr1( WARN_UNSUPPORTED_TEMPLATE_EXPORT );
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
@@ -2884,14 +2895,14 @@ template-declaration-before-semicolon
     ;
 
 template-function-declaration
-    : template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL function-definition
+    : template-declaration-start function-definition
     {
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
         state->template_decl = FALSE;
         GStackPop( &(state->gstack) ); /* GS_DECL_SPEC */
         GStackPop( &(state->gstack) ); /* GS_TEMPLATE_DATA */
     }
-    | Y_EXPORT template-key template-declaration-init lt-special template-opt-parameter-list Y_GT_SPECIAL function-definition
+    | Y_EXPORT template-declaration-start function-definition
     {
         CErr1( WARN_UNSUPPORTED_TEMPLATE_EXPORT );
         RewriteFree( ParseGetRecordingInProgress( NULL ) );
