@@ -582,15 +582,18 @@ goal-symbol
         $$ = (PTREE) $2;
         t = YYEOFTOKEN;
     }
-    /* I have included this as a stack reset leaves us open to abuse now we fixed bug 218       */
-    /* All linkage gets reset when we have a syntax error earlier in the file which screws up   */
-    /* closing of the parser. We only issue an error if we have not reported any earlier errors */
-    /* as this error comes out badly at the end of a file                                       */
+    /* I have included this as a stack reset leaves us open to abuse
+     * now we fixed bug 218. All linkage gets reset when we have a
+     * syntax error earlier in the file which screws up closing of the
+     * parser. We only issue an error if we have not reported any
+     * earlier errors as this error comes out badly at the end of a
+     * file
+     */
     | Y_RIGHT_BRACE
     {
         error_state_t save;
-        CErrCheckpoint(&save);
-        if(0 == save){
+        CErrCheckpoint( &save );
+        if( 0 == save ) {
             SetErrLoc( &yylp[1] );
             CErr1( ERR_MISPLACED_RIGHT_BRACE );
             what = P_DIAGNOSED;
@@ -656,6 +659,7 @@ access-declaration
 
 identifier
     : Y_ID
+    | Y_UNKNOWN_ID
     | Y_TEMPLATE_ID
     ;
 
@@ -771,9 +775,9 @@ postfix-expression
     {
         $$ = setLocation( MakeFunctionLikeCast( $1, $3 ), &yylp[2] );
     }
-    | postfix-expression-before-dot Y_DOT id-expression /* TODO */
+    | postfix-expression-before-dot Y_DOT id-expression
     { $$ = PTreeReplaceRight( setLocation( $1, &yylp[2] ), $3 ); }
-    | postfix-expression-before-arrow Y_ARROW id-expression /* TODO */
+    | postfix-expression-before-arrow Y_ARROW id-expression
     { $$ = PTreeReplaceRight( setLocation( $1, &yylp[2] ), $3 ); }
     | postfix-expression-before-dot Y_DOT pseudo-destructor-name
     { $$ = PTreeReplaceRight( setLocation( $1, &yylp[2] ), $3 ); }
@@ -1923,7 +1927,6 @@ cv-qualifier-seq-opt
 
 declarator-id
     : id-expression
-    | Y_UNKNOWN_ID /* non-standard */
     | Y_TEMPLATE_NAME /* non-standard */
     | Y_NAMESPACE_NAME /* non-standard */
     | Y_TYPE_NAME /* non-standard */
@@ -2706,7 +2709,7 @@ mem-initializer-list
 mem-initializer
     : qualified-class-specifier Y_LEFT_PAREN expression-list-opt Y_RIGHT_PAREN
     { $$ = MakeMemInitItem( $1, NULL, $3, &yylp[2] ); }
-    | Y_ID Y_LEFT_PAREN expression-list-opt Y_RIGHT_PAREN
+    | identifier Y_LEFT_PAREN expression-list-opt Y_RIGHT_PAREN
     { $$ = MakeMemInitItem( NULL, $1, $3, &yylp[2] ); }
     ;
 
