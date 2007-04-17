@@ -611,7 +611,9 @@ void ClassChangingScope( SYMBOL typedef_sym, SCOPE new_scope )
 
     class_type = StructType( typedef_sym->sym_type );
     class_scope = class_type->u.c.scope;
+    ScopeAdjustUsing( GetCurrScope(), NULL );
     ScopeEstablishEnclosing( class_scope, new_scope );
+    ScopeAdjustUsing( NULL, GetCurrScope() );
 }
 
 static TYPE createClassType( char *name, type_flag flag )
@@ -1095,6 +1097,7 @@ static void defineInlineFuncsAndDefArgExprs( CLASS_DATA *data )
     void (*last_source)( void );
     TOKEN_LOCN locn;
     SCOPE save_scope;
+    SCOPE sym_scope;
     PTREE defarg_expr;
 
     if( ( CurToken != T_RIGHT_BRACE ) && ( CurToken != T_ALT_RIGHT_BRACE ) ) {
@@ -1106,7 +1109,9 @@ static void defineInlineFuncsAndDefArgExprs( CLASS_DATA *data )
     for(;;) {
         curr = RingPop( &(data->defargs) );
         if( curr == NULL ) break;
-        SetCurrScope(SymScope( curr->sym ));
+        sym_scope = SymScope( curr->sym );
+        ScopeAdjustUsing( GetCurrScope(), sym_scope );
+        SetCurrScope( sym_scope );
         RingIterBeg( curr->parms, parm ) {
             if( parm->has_defarg ) {
                 ParseFlush();
@@ -1127,6 +1132,7 @@ static void defineInlineFuncsAndDefArgExprs( CLASS_DATA *data )
         } RingIterEnd( parm )
         ProcessDefArgs( curr ); // frees 'curr'
     }
+    ScopeAdjustUsing( GetCurrScope(), save_scope );
     SetCurrScope( save_scope );
     if( ( data->tflag & TF1_INSTANTIATION ) &&
       ! ( data->tflag & TF1_SPECIFIC ) ) {
@@ -3635,6 +3641,7 @@ boolean ClassDefineRefdDefaults( void )
             }
         }
     } RingIterEnd( curr )
+    ScopeAdjustUsing( GetCurrScope(), save_scope );
     SetCurrScope( save_scope );
 
     return( something_defined );

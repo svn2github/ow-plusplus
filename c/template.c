@@ -509,7 +509,7 @@ void TemplateUsingDecl( SYMBOL sym, TOKEN_LOCN *locn )
 }
 
 SYMBOL ClassTemplateLookup( SCOPE scope, char *name )
-/**************************************/
+/***************************************************/
 {
     SCOPE file_scope;
     SEARCH_RESULT *result;
@@ -1172,6 +1172,7 @@ static void defineAllClassDecls( TEMPLATE_SPECIALIZATION *tspec )
 
     SrcFileGetTokenLocn( &location );
     save_scope = GetCurrScope();
+    ScopeAdjustUsing( save_scope, NULL );
     RingIterBeg( tspec->instantiations, curr ) {
         if( curr->specific ) {
             /* we shouldn't mess around with specific instantiations */
@@ -1193,14 +1194,15 @@ static void defineAllClassDecls( TEMPLATE_SPECIALIZATION *tspec )
         save_enclosing = ScopeEstablishEnclosing( inst_scope, parm_scope );
 
         SetCurrScope( inst_scope );
-        ScopeAdjustUsing( save_scope, inst_scope );
+        ScopeAdjustUsing( NULL, inst_scope );
 
         doParseClassTemplate( tspec, tspec->defn, &location, TCI_NULL );
 
-        ScopeAdjustUsing( inst_scope, save_scope );
+        ScopeAdjustUsing( inst_scope, NULL );
         ScopeSetEnclosing( inst_scope, save_enclosing );
     } RingIterEnd( curr )
     SetCurrScope( save_scope );
+    ScopeAdjustUsing( NULL, save_scope );
 }
 
 extern int WalkTemplateInst( SYMBOL sym, AInstSCOPE fscope  )
@@ -1423,6 +1425,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
             /* reparse the function declaration to get any
              * typenames parsed correctly */
             save_scope = GetCurrScope();
+            ScopeAdjustUsing( save_scope, parm_scope );
             SetCurrScope( parm_scope );
 
             dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
@@ -1434,6 +1437,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
             FreeDeclInfo( dinfo );
             dinfo = NULL;
 
+            ScopeAdjustUsing( GetCurrScope(), save_scope );
             SetCurrScope( save_scope );
         }
 
@@ -1455,6 +1459,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
             /* just reparse the function declaration once more to get
              * the bound type */
             save_scope = GetCurrScope();
+            ScopeAdjustUsing( save_scope, parm_scope );
             SetCurrScope( parm_scope );
 
             dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
@@ -1463,6 +1468,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
             verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
                                    dinfo );
 
+            ScopeAdjustUsing( GetCurrScope(), save_scope );
             SetCurrScope( save_scope );
             *templ_parm_scope = parm_scope;
         } else {
@@ -2322,6 +2328,7 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
         }
     }
     save_scope = GetCurrScope();
+    ScopeAdjustUsing( save_scope, NULL );
     file_scope = SymScope( tinfo->sym );
     if( already_instantiated != NULL ) {
         inst_scope = curr_instantiation->scope;
@@ -2363,7 +2370,7 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
     }
 
     injectTemplateParms( tspec, parm_scope, parms, spec_parm_scope != NULL );
-    ScopeAdjustUsing( save_scope, inst_scope );
+    ScopeAdjustUsing( NULL, inst_scope );
 
     new_type = doParseClassTemplate( tspec, tspec->defn, locn, control );
 
@@ -2808,6 +2815,7 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
     auto TEMPLATE_CONTEXT context;
 
     save_scope = GetCurrScope();
+    ScopeAdjustUsing( save_scope, NULL );
     save_parm_enclosing = NULL;
     class_parm_scope = instance->scope->enclosing;
     member_arg_names = member->arg_names;
@@ -2850,11 +2858,11 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
     }
 
     pushInstContext( &context, TCTX_MEMBER_DEFN, locn, NULL );
-    ScopeAdjustUsing( save_scope, inst_scope );
+    ScopeAdjustUsing( NULL, inst_scope );
 
     ParseClassMemberInstantiation( member->defn );
 
-    ScopeAdjustUsing( inst_scope, save_scope );
+    ScopeAdjustUsing( inst_scope, NULL );
     popInstContext();
 
     ScopeSetEnclosing( instance->scope, class_parm_scope );
@@ -2862,6 +2870,7 @@ static void instantiateMember( TEMPLATE_INFO *tinfo,
         ScopeSetEnclosing( class_parm_scope->enclosing, save_parm_enclosing );
     }
     SetCurrScope( save_scope );
+    ScopeAdjustUsing( NULL, save_scope );
 }
 
 static TYPE classTemplateType( CLASS_INST *instance )
@@ -2949,6 +2958,7 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     bound_sym = SymDefaultBase( fn_inst->bound_sym );
 
     save_scope = GetCurrScope();
+    ScopeAdjustUsing( save_scope, NULL );
     parm_scope = fn_inst->parm_scope;
     SetCurrScope( fn_inst->inst_scope );
     DbgAssert( parm_scope->enclosing == SymScope( fn_sym ) );
@@ -2978,16 +2988,17 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     save_fn = templateData.translate_fn;
     templateData.translate_fn = bound_sym;
     pushInstContext( &context, TCTX_FN_DEFN, &bound_sym->locn->tl, bound_sym );
-    ScopeAdjustUsing( save_scope, fn_inst->inst_scope );
 
+    ScopeAdjustUsing( NULL, fn_inst->inst_scope );
     ParseFunctionInstantiation( fn_templ->defn );
+    ScopeAdjustUsing( fn_inst->inst_scope, NULL );
 
-    ScopeAdjustUsing( fn_inst->inst_scope, save_scope );
     popInstContext();
     templateData.translate_fn = save_fn;
 
     ScopeSetParmFn( parm_scope, NULL );
     SetCurrScope( save_scope );
+    ScopeAdjustUsing( NULL, save_scope );
 }
 
 static void processFunctionTemplateInstantiations( void )
@@ -3125,6 +3136,8 @@ static void processInstantiationMembers( CLASS_INST *instance )
     SCOPE save_class_parm_enclosing;
     DECL_INFO *dinfo;
 
+    ScopeAdjustUsing( GetCurrScope(), NULL );
+
     prev_member = NULL;
     RingIterBegSafe( instance->members, curr_member ) {
         dinfo = curr_member->dinfo;
@@ -3152,7 +3165,10 @@ static void processInstantiationMembers( CLASS_INST *instance )
                 templateData.fn_control |= TCF_GEN_FUNCTION;
             }
 
+            ScopeAdjustUsing( NULL, GetCurrScope() );
             ClassProcessFunction( dinfo, FALSE );
+            ScopeAdjustUsing( GetCurrScope(), NULL );
+
             RingPruneWithPrev( &instance->members,
                                curr_member,
                                prev_member );
@@ -3166,6 +3182,8 @@ static void processInstantiationMembers( CLASS_INST *instance )
             prev_member = curr_member;
         }
     } RingIterEndSafe( curr_member )
+
+    ScopeAdjustUsing( NULL, GetCurrScope() );
 }
 
 void TemplateProcessInstantiations( void )

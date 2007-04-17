@@ -1470,6 +1470,7 @@ static void deleteStack( PARSE_STACK *stack )
     if( stack->template_record_tokens != NULL ) {
         RewriteFree( stack->template_record_tokens );
     }
+    ScopeAdjustUsing( GetCurrScope(), stack->reset_scope );
     SetCurrScope( stack->reset_scope );
     check_stack = StackPop( &currParseStack );
 #ifndef NDEBUG

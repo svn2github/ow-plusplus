@@ -307,10 +307,13 @@ static void initClassFunction(  // START GENERATION OF CLASS FUNCTION
     TYPE fn_type;               // - type for function
     arg_list *alist;            // - prototype for function
     SYMBOL arg;                 // - function argument
+    SCOPE sym_scope;
 
     CtxFunction( fun );
     CErrCheckpoint( check );
-    SetCurrScope(SymScope( fun ));
+    sym_scope = SymScope( fun );
+    ScopeAdjustUsing( GetCurrScope(), sym_scope );
+    SetCurrScope( sym_scope );
     ScopeBeginFunction( fun );
     fn_type = FunctionDeclarationType( fun->sym_type );
     if( fun_is_copy ) {

@@ -111,7 +111,7 @@ static void openNameSpaceSym( char *name, TOKEN_LOCN *locn )
     if( ns_sym != NULL ) {
         SCOPE ns_scope = ns_sym->u.ns->scope;
         ScopeOpen( ns_scope );
-        ScopeRestoreUsing( ns_scope );
+        ScopeRestoreUsing( ns_scope, FALSE );
     } else {
         ns_sym = AllocSymbol();
         scope = ScopeOpenNameSpace( name, ns_sym );

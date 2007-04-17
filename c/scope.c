@@ -915,7 +915,8 @@ static SCOPE findCommonEnclosing( SCOPE scope1, SCOPE scope2 )
     return( GetFileScope() );
 }
 
-static void addLexicalTrigger( SCOPE gets_trigger, SCOPE using_scope )
+static void addLexicalTrigger( SCOPE gets_trigger, SCOPE using_scope,
+                               boolean append )
 {
     USING_NS *lexical_entry;
 
@@ -923,7 +924,11 @@ static void addLexicalTrigger( SCOPE gets_trigger, SCOPE using_scope )
     lexical_entry = CarveAlloc( carveUSING_NS );
     lexical_entry->using_scope = using_scope;
     lexical_entry->trigger = NULL;
-    RingPush( &gets_trigger->using_list, lexical_entry );
+    if( append ) {
+        RingAppend( &gets_trigger->using_list, lexical_entry );
+    } else {
+        RingPush( &gets_trigger->using_list, lexical_entry );
+    }
 }
 
 static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigger )
@@ -957,7 +962,7 @@ static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigge
         using_entry->trigger = trigger;
         RingAppend( &gets_using->using_list, using_entry );
 
-        addLexicalTrigger( trigger, using_scope );
+        addLexicalTrigger( trigger, using_scope, FALSE );
 #ifndef NDEBUG
     } else {
         USING_NS *curr;
@@ -972,14 +977,14 @@ static void addUsingDirective( SCOPE gets_using, SCOPE using_scope, SCOPE trigge
     }
 }
 
-void ScopeRestoreUsing( SCOPE scope )
-/***********************************/
+void ScopeRestoreUsing( SCOPE scope, boolean append )
+/***************************************************/
 {
     USING_NS *curr;
 
     RingIterBeg( scope->using_list, curr ) {
         if( curr->trigger != NULL ) {
-            addLexicalTrigger( curr->trigger, curr->using_scope );
+            addLexicalTrigger( curr->trigger, curr->using_scope, append );
         }
     } RingIterEnd( curr )
 }
@@ -1387,7 +1392,14 @@ void ScopeAdjustUsing( SCOPE prev_scope, SCOPE new_scope )
 {
     SCOPE scope;
 
-    // there is some room for optimisation
+    if( prev_scope == new_scope ) {
+        return;
+    }
+
+    /*
+     * when switching scopes we also need to update information about
+     * "using namespaces"
+     */
 
     if( prev_scope != NULL ) {
         scope = prev_scope;
@@ -1397,11 +1409,10 @@ void ScopeAdjustUsing( SCOPE prev_scope, SCOPE new_scope )
         }
     }
 
-    // note: we are probably restoring in the wrong order here
     if( new_scope != NULL ) {
         scope = new_scope;
         while( scope->enclosing != NULL ) {
-            ScopeRestoreUsing( scope );
+            ScopeRestoreUsing( scope, FALSE );
             scope = scope->enclosing;
         }
     }
