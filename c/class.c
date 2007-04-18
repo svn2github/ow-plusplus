@@ -712,6 +712,29 @@ static SYMBOL getClassSym( CLASS_DATA *data )
     return( sym );
 }
 
+static void injectClassName( char *name, TYPE type, TOKEN_LOCN *locn )
+{
+    SCOPE scope = type->u.c.scope;
+    SYMBOL sym = AllocSymbol();
+    SYMBOL_NAME sym_name =
+        AllocSymbolName( name, scope->enclosing );
+
+    sym->id = SC_TYPEDEF;
+    sym->sym_type = type;
+    sym_name->name_type = sym;
+
+    SymbolLocnDefine( locn, sym );
+    sym->name = sym_name;
+    sym->next = sym;
+    sym_name->name_type = sym;
+
+    HashInsert( scope->names, sym_name, name );
+    ClassMember( scope, sym );
+    DeclDefaultStorageClass( scope, sym );
+
+    sym->flag &= ~SF_ACCESS;
+}
+
 static void newClassSym( CLASS_DATA *data, CLASS_DECL declaration, PTREE id )
 {
     SYMBOL sym;
@@ -724,12 +747,8 @@ static void newClassSym( CLASS_DATA *data, CLASS_DECL declaration, PTREE id )
         data->sym = sym;
     }
 
-    if( ( declaration == CLASS_DEFINITION )
-     || ( declaration == CLASS_DECLARATION ) ) {
-        /* class name injection */
-        SYMBOL_NAME sym_name = AllocSymbolName( data->name, data->scope );
-        sym_name->name_type = sym;
-        HashInsert( data->scope->names, sym_name, data->name );
+    if( declaration == CLASS_DEFINITION ) {
+        injectClassName( data->name, data->type, &(id->locn) );
     }
 }
 
@@ -933,6 +952,9 @@ CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
                             }
                         }
                         SymbolLocnDefine( &(id->locn), sym );
+                        injectClassName( data->name,
+                                         TypedefRemove( sym->sym_type ),
+                                         NULL );
                     }
                     setClassType( data, type, declaration );
                     if( declaration == CLASS_DECLARATION ) {

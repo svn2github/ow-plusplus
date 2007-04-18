@@ -478,8 +478,7 @@ static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control,
                      * nested-name-specifier, when looked up in C, is
                      * the injected-class-name of C (clause 9), the
                      * name is instead considered to name the
-                     * constructor of class C. [ Note: For example,
-                     * the constructor is not an acceptable"
+                     * constructor of class C."
                      */
                     ExtraRptIncrementCtr( found_id );
                     return( LK_ID );
