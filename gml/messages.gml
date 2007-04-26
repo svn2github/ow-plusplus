@@ -12044,3 +12044,18 @@ template< class T = int >
 class X< T * > {
 };
 :eerrbad.
+
+:MSGSYM. WARN_DLT_PTR_TO_VOID
+:MSGTXT. delete of a pointer to void
+:MSGJTXT.
+:WARNING. 1
+If the dynamic type of the object to be deleted differs from its
+static type, the behavior is undefined. This implies that an object
+cannot be deleted using a pointer of type void* because there are no
+objects of type void.
+:errbad.
+void fn( void *p, void *q ) {
+    delete p;
+    delete [] q;
+}
+:eerrbad.

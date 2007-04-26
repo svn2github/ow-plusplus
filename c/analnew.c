@@ -718,10 +718,6 @@ PTREE AnalyseDelete(            // ANALYSE DELETE OPERATOR
         return( data );
     }
     pted = ptr_type->of;
-    if( TypeIsConst( pted ) ) {
-        // 5.3.5 para 4 note
-        PTreeErrorExpr( data, WARN_DLT_PTR_TO_CONST );
-    }
     if( TypeTruncByMemModel( pted ) ) {
         PTreeErrorExpr( data, ERR_DLT_OBJ_MEM_MODEL  );
         return( data );
@@ -735,6 +731,10 @@ PTREE AnalyseDelete(            // ANALYSE DELETE OPERATOR
         if( FunctionDeclarationType( pted ) != NULL ) {
             PTreeErrorExpr( data, ERR_DLT_PTR_TO_FUNCTION );
             return( data );
+        }
+        if( pted->id == TYP_VOID ) {
+            // 5.3.5 para 3 footnote
+            PTreeErrorExpr( data, WARN_DLT_PTR_TO_VOID );
         }
         opdel_scope = GetFileScope();
     } else {
