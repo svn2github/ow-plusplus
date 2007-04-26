@@ -2860,7 +2860,8 @@ static boolean isFriendly( SCOPE check, SCOPE friendly )
                 if( sym == curr_sym ) {
                     return( TRUE );
                 }
-                if( ( curr_sym->flag & SF_TEMPLATE_FN )
+                if( ( curr_sym != NULL )
+                 && ( curr_sym->flag & SF_TEMPLATE_FN )
                  && ( sym == curr_sym->u.alias ) ) {
                     return( TRUE );
                 }
