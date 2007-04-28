@@ -1661,6 +1661,8 @@ static type_id findTypeId( scalar_t scalar )
         return( TYP_BOOL );
     case STM_CHAR:
         return( TYP_CHAR );
+    case STM_WCHAR:
+        return( TYP_WCHAR );
     case STM_CHAR | STM_SIGNED:
         return( TYP_SCHAR );
     case STM_CHAR | STM_UNSIGNED:
@@ -2146,6 +2148,10 @@ static void checkScalar( DECL_SPEC *d1, DECL_SPEC *d2 )
     /* any scalar type specifiers remove the possibility of the
        decl-spec being a constructor name */
     d1->ctor_name = 0;
+    if( combo == ( STM_LONG | STM_CHAR ) ) {
+        /* warn about deprecated use of 'long char' */
+        CErr1( WARN_LONG_CHAR_DEPRECATED );
+    }
     if( findTypeId( combo ) != TYP_MAX ) return;
     d1->scalar = STM_NULL;
     CErr1( ERR_ILLEGAL_TYPE_COMBO );

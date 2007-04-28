@@ -12059,3 +12059,15 @@ void fn( void *p, void *q ) {
     delete [] q;
 }
 :eerrbad.
+
+:MSGSYM. WARN_LONG_CHAR_DEPRECATED
+:MSGTXT. 'long char' is deprecated, use wchar_t instead
+:MSGJTXT.
+:WARNING. 1
+The standard C++ 'wchar_t' type specifier should be used instead of the Open
+Watcom specific 'long char' type specifier.
+:errbad.
+void fn( ) {
+    long char c;
+}
+:eerrbad.

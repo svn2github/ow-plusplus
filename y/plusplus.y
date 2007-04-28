@@ -169,6 +169,7 @@ Modified        By              Reason
 %token Y_VIRTUAL
 %token Y_VOID
 %token Y_VOLATILE
+%token Y_WCHAR_T
 
 /*** punctuation and operators ***/
 %token Y_COMMA
@@ -3291,7 +3292,8 @@ cv-qualifier
 basic-type-specifier
     : Y_CHAR
     { $$ = PTypeScalar( STM_CHAR ); }
-    /* wchar_t */
+    | Y_WCHAR_T
+    { $$ = PTypeScalar( STM_WCHAR ); }
     | Y_BOOL
     { $$ = PTypeScalar( STM_BOOL ); }
     | Y_SHORT

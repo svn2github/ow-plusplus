@@ -114,6 +114,7 @@ typedef enum {
     STM_SEGMENT         = 0x0200,
     STM_BOOL            = 0x0400,
     STM_INT64           = 0x0800,
+    STM_WCHAR           = 0x1000,
     STM_NULL            = 0x0000
 } scalar_t;
 
