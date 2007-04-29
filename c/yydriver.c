@@ -896,15 +896,56 @@ static int globalChain( PARSE_STACK *state, boolean special_typename )
     return( Y_IMPOSSIBLE );
 }
 
+static int specialAngleBracket( PARSE_STACK *state, int token )
+{
+    angle_bracket_stack *angle_state;
+
+    angle_state = VstkTop( &(state->angle_stack) );
+    if( angle_state != NULL ) {
+        if( token == Y_GT ) {
+            if( angle_state->paren_depth == 0 ) {
+                VstkPop( &(state->angle_stack) );
+                token = Y_GT_SPECIAL;
+            }
+        } else if( CompFlags.enable_std0x && ( token == Y_RSHIFT ) ) {
+            // see Right Angle Brackets (N1757/05-0017)
+            if( angle_state->paren_depth == 0 ) {
+                VstkPop( &(state->angle_stack) );
+                token = Y_GT_SPECIAL;
+                state->special_gt_gt = TRUE;
+            }
+        } else if( token == Y_LEFT_BRACE ) {
+            angle_state->paren_depth++;
+        } else if( token == Y_RIGHT_BRACE ) {
+            if( angle_state->paren_depth > 0) {
+                angle_state->paren_depth--;
+            }
+        } else if( token == Y_LEFT_BRACKET ) {
+            angle_state->paren_depth++;
+        } else if( token == Y_RIGHT_BRACKET ) {
+            if( angle_state->paren_depth > 0) {
+                angle_state->paren_depth--;
+            }
+        } else if( token == Y_LEFT_PAREN ) {
+            angle_state->paren_depth++;
+        } else if( token == Y_RIGHT_PAREN ) {
+            if( angle_state->paren_depth > 0) {
+                angle_state->paren_depth--;
+            }
+        }
+    }
+
+    return token;
+}
+
 static int yylex( PARSE_STACK *state )
-/*****************************/
+/************************************/
 {
     lk_result id_check;
     int token;
     STRING_CONSTANT literal;
     PTREE tree;
     look_ahead_storage *saved_token;
-    angle_bracket_stack *angle_state;
     struct {
         unsigned no_super_token : 1;
         unsigned special_colon_colon : 1;
@@ -937,7 +978,7 @@ static int yylex( PARSE_STACK *state )
             }
             break;
         }
-        currToken = token;
+        currToken = specialAngleBracket( state, token );
         return( currToken );
     }
     flags.no_super_token = FALSE;
@@ -1034,42 +1075,7 @@ static int yylex( PARSE_STACK *state )
     }
 
     state->scope_member = NULL;
-
-    angle_state = VstkTop( &(state->angle_stack) );
-    if( angle_state != NULL ) {
-        if( token == Y_GT ) {
-            if( angle_state->paren_depth == 0 ) {
-                VstkPop( &(state->angle_stack) );
-                token = Y_GT_SPECIAL;
-            }
-        } else if( CompFlags.enable_std0x && ( token == Y_RSHIFT ) ) {
-            // see Right Angle Brackets (N1757/05-0017)
-            if( angle_state->paren_depth == 0 ) {
-                VstkPop( &(state->angle_stack) );
-                token = Y_GT_SPECIAL;
-                state->special_gt_gt = TRUE;
-            }
-        } else if( token == Y_LEFT_BRACE ) {
-            angle_state->paren_depth++;
-        } else if( token == Y_RIGHT_BRACE ) {
-            if( angle_state->paren_depth > 0) {
-                angle_state->paren_depth--;
-            }
-        } else if( token == Y_LEFT_BRACKET ) {
-            angle_state->paren_depth++;
-        } else if( token == Y_RIGHT_BRACKET ) {
-            if( angle_state->paren_depth > 0) {
-                angle_state->paren_depth--;
-            }
-        } else if( token == Y_LEFT_PAREN ) {
-            angle_state->paren_depth++;
-        } else if( token == Y_RIGHT_PAREN ) {
-            if( angle_state->paren_depth > 0) {
-                angle_state->paren_depth--;
-            }
-        }
-    }
-
+    token = specialAngleBracket( state, token );
     currToken = token;
     return( token );
 }
