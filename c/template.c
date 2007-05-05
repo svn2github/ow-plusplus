@@ -310,6 +310,7 @@ static void validateNonTypeParameterType( TYPE type )
 
     trimmed_type = TypedefModifierRemoveOnly( type );
     if( ( trimmed_type->id == TYP_POINTER ) // reference is also ok
+     || ( trimmed_type->id == TYP_MEMBER_POINTER )
      || ( trimmed_type->id == TYP_GENERIC ) ) {
         return;
     }
