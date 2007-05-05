@@ -1316,7 +1316,7 @@ void TemplateFunctionDeclaration( SYMBOL sym, boolean is_defn )
 {
     if( sym->u.defn == NULL ) {
         sym->u.defn = newTemplateFunction( sym );
-        if( ! is_defn ) {
+        if( ! is_defn && ( sym->u.defn != NULL ) ) {
             sym->u.defn->defn = ParseGetRecordingInProgress( NULL );
         }
     }
