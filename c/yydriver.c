@@ -2774,6 +2774,7 @@ DECL_INFO *ReparseFunctionDeclaration( REWRITE *defn )
         return( NULL );
     }
     CErrCheckpoint( &check );
+    CErrSuppress();
     declOnlyReset();
 
     save_token = RewritePackageToken();
@@ -2803,24 +2804,7 @@ DECL_INFO *ReparseFunctionDeclaration( REWRITE *defn )
     ResetTokenSource( last_source );
 
     dinfo = NULL;
-    if( what > P_SPECIAL ) {
-        if( what > P_ERROR ) {
-            switch( what ) {
-            case P_SYNTAX:
-                syntaxError();
-                break;
-            case P_OVERFLOW:
-                CErr1( ERR_COMPLICATED_EXPRESSION );
-                break;
-            }
-            makeStable( Y_SEMI_COLON );
-        }
-#ifndef NDEBUG
-        else {
-            CFatal( "invalid return from doAction" );
-        }
-#endif
-    } else {
+    if( what <= P_SPECIAL ) {
         dinfo = decl_state.vsp->dinfo;
     }
     deleteStack( &decl_state );
@@ -2834,8 +2818,8 @@ DECL_INFO *ReparseFunctionDeclaration( REWRITE *defn )
     currToken = save_yytoken;
     yylval.tree = save_tree;
 
-    if( dinfo != NULL ) {
-        if( CErrOccurred( &check ) ) {
+    if( CErrSuppressedOccurred( &check ) ) {
+        if( dinfo != NULL ) {
             FreeDeclInfo( dinfo );
             dinfo = NULL;
         }

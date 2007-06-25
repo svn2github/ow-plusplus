@@ -1430,31 +1430,36 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
             SetCurrScope( parm_scope );
 
             dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
-            DbgAssert( dinfo );
-
-            verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
-                                   dinfo );
-            fn_type = dinfo->sym->sym_type;
-            FreeDeclInfo( dinfo );
+            if( dinfo != NULL ) {
+                verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
+                                       dinfo );
+                fn_type = dinfo->sym->sym_type;
+                FreeDeclInfo( dinfo );
+            } else {
+                fn_type = NULL;
+            }
             dinfo = NULL;
 
             ScopeAdjustUsing( GetCurrScope(), save_scope );
             SetCurrScope( save_scope );
         }
 
-        parms = fn_type->u.f.args;
+        if( fn_type != NULL ) {
+            parms = fn_type->u.f.args;
 
-        pparms = NULL;
-        for( i = 0; i < parms->num_args; i++ ) {
-            PTREE parm = PTreeType( parms->type_list[i] );
-            pparms = PTreeBinary( CO_LIST, pparms, parm );
+            pparms = NULL;
+            for( i = 0; i < parms->num_args; i++ ) {
+                PTREE parm = PTreeType( parms->type_list[i] );
+                pparms = PTreeBinary( CO_LIST, pparms, parm );
+            }
+
+            pparms = NodeReverseArgs( &num_parms, pparms );
+
+            bound = BindGenericTypes( parm_scope, pparms, pargs, TRUE,
+                                      num_explicit );
         }
 
-        pparms = NodeReverseArgs( &num_parms, pparms );
-
-        bound = BindGenericTypes( parm_scope, pparms, pargs, TRUE,
-                                  num_explicit );
-        if( bound ) {
+        if( ( fn_type != NULL) && bound ) {
             void verifySpecialFunction( SCOPE, DECL_INFO * ); /* TODO */
 
             /* just reparse the function declaration once more to get
@@ -1464,15 +1469,16 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
             SetCurrScope( parm_scope );
 
             dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
-            DbgAssert( dinfo );
 
-            verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
-                                   dinfo );
+            if( dinfo != NULL ) {
+                verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
+                                       dinfo );
+                *templ_parm_scope = parm_scope;
+            }
 
             ScopeAdjustUsing( GetCurrScope(), save_scope );
             SetCurrScope( save_scope );
-            *templ_parm_scope = parm_scope;
-        } else {
+        } else if( fn_type != NULL ) {
 #ifndef NDEBUG
             if( PragDbgToggle.templ_function ) {
                 printf( "attemptGen: BindGenericTypes failed\n" );
