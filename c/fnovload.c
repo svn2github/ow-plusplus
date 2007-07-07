@@ -595,7 +595,7 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
             }
         } else {
             // have to compare template parameters for function templates
-            FN_TEMPLATE *fntempl = sym->u.defn;
+            FN_TEMPLATE *fntempl = base_sym->u.defn;
             SYMBOL old_curr = NULL, new_curr = NULL;
             SYMBOL old_stop, new_stop;
 
