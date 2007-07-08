@@ -1055,14 +1055,14 @@ static TEMPLATE_SPECIALIZATION *mergeClassTemplates( TEMPLATE_DATA *data,
     return tspec;
 }
 
-static void addMemberEntry( TEMPLATE_SPECIALIZATION *tspec, REWRITE *r,
-                            char **arg_names )
+static void addMemberEntry( TEMPLATE_SPECIALIZATION *tspec, SCOPE scope,
+                            REWRITE *r, char **arg_names )
 {
     TEMPLATE_MEMBER *extra_defn;
 
     extra_defn = RingCarveAlloc( carveTEMPLATE_MEMBER
                                , &(tspec->member_defns) );
-    extra_defn->scope = GetCurrScope();
+    extra_defn->scope = scope;
     extra_defn->defn = r;
     extra_defn->arg_names = arg_names;
 }
@@ -1081,7 +1081,7 @@ static void addClassTemplateMember( TEMPLATE_DATA *data, SYMBOL sym,
     }
 
     arg_names = getUniqueArgNames( data->args, tspec );
-    addMemberEntry( tspec, data->member_defn, arg_names );
+    addMemberEntry( tspec, GetCurrScope(), data->member_defn, arg_names );
 }
 
 static TYPE doParseClassTemplate( TEMPLATE_SPECIALIZATION *tspec,
@@ -3526,9 +3526,10 @@ static void saveTemplateSpecialization( void *p, carve_walk_base *d )
     PTREE save_spec_args;
     unsigned char *save_ordering;
     TEMPLATE_MEMBER *member;
+    REWRITE *member_defn;
+    SCOPE scope;
     void *nti;
     unsigned i;
-    auto void *member_buff[2];
 
     if( s->free ) {
         return;
@@ -3560,22 +3561,23 @@ static void saveTemplateSpecialization( void *p, carve_walk_base *d )
         PCHWrite( &nti, sizeof( nti ) );
     }
     RingIterBeg( s->member_defns, member ){
-        member_buff[0] = RewriteGetIndex( member->defn );
+        scope = ScopeGetIndex( member->scope );
+        PCHWrite( &scope, sizeof( SCOPE ) );
+        member_defn = RewriteGetIndex( member->defn );
+        PCHWrite( &member_defn, sizeof( REWRITE * ) );
         if( member->arg_names != s->arg_names ) {
-            member_buff[1] = s->arg_names;
-            PCHWrite( member_buff, sizeof( member_buff ) );
+            PCHWrite( &s->num_args, sizeof( int ) );
             for( i = 0; i < s->num_args; ++i ) {
                 nti = NameGetIndex( member->arg_names[i] );
                 PCHWrite( &nti, sizeof( nti ) );
             }
         } else {
-            member_buff[1] = NULL;
-            PCHWrite( member_buff, sizeof( member_buff ) );
+            i = 0;
+            PCHWrite( &i, sizeof( int ) );
         }
     } RingIterEnd( member )
-    member_buff[0] = NULL;
-    member_buff[1] = NULL;
-    PCHWrite( member_buff, sizeof( member_buff ) );
+    scope = NULL;
+    PCHWrite( &scope, sizeof( SCOPE ) );
     if( save_ordering != NULL ) {
         PCHWrite( save_ordering,
                   16 * ( ( save_tinfo->nr_specs - 2 ) / 128 + 1 ) );
@@ -3810,9 +3812,9 @@ pch_status PCHReadTemplates( void )
     TEMPLATE_SPECIALIZATION *ts;
     TEMPLATE_SPECIALIZATION *tprimary;
     TEMPLATE_INFO *ti;
+    SCOPE scope;
     REWRITE *memb_defn;
     char **memb_arg_names;
-    auto void *member_buff[2];
     auto cvinit_t data;
 
     PCHRead( &templateData.max_depth, sizeof( templateData.max_depth ) );
@@ -3900,12 +3902,14 @@ pch_status PCHReadTemplates( void )
             type_list[j] = TypeMapIndex( type_list[j] );
         }
         for(;;) {
-            PCHRead( member_buff, sizeof( member_buff ) );
-            if( member_buff[0] == NULL ) break;
-            memb_defn = RewriteMapIndex( member_buff[0] );
-            if( member_buff[1] != NULL ) {
+            PCHRead( &scope, sizeof( scope ) );
+            if( scope == NULL ) break;
+            scope = ScopeMapIndex( scope );
+            PCHRead( &memb_defn, sizeof( memb_defn ) );
+            memb_defn = RewriteMapIndex( memb_defn );
+            PCHRead( &j, sizeof( j ) );
+            if( j != 0 ) {
                 memb_arg_names = CPermAlloc( arg_names_size );
-                member_buff[1] = memb_arg_names;
                 PCHRead( memb_arg_names, arg_names_size );
                 for( j = 0; j < ts->num_args; ++j ) {
                     memb_arg_names[j] = NameMapIndex( memb_arg_names[j] );
@@ -3913,7 +3917,7 @@ pch_status PCHReadTemplates( void )
             } else {
                 memb_arg_names = arg_names;
             }
-            addMemberEntry( ts, memb_defn, memb_arg_names );
+            addMemberEntry( ts, scope, memb_defn, memb_arg_names );
         }
         if( ts->ordering != NULL ) {
             j = 16 * ( ( ( (unsigned) ts->ordering ) - 2 ) / 128 + 1 );

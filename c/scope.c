@@ -7292,6 +7292,7 @@ static void saveUsingNS( void *e, carve_walk_base *d )
 {
     USING_NS *u = e;
     USING_NS *save_next;
+    SCOPE save_trigger;
     SCOPE save_using_scope;
 
     if( u->using_scope == NULL ) {
@@ -7299,11 +7300,14 @@ static void saveUsingNS( void *e, carve_walk_base *d )
     }
     save_next = u->next;
     u->next = CarveGetIndex( carveUSING_NS, save_next );
+    save_trigger = u->trigger;
+    u->trigger = ScopeGetIndex( save_trigger );
     save_using_scope = u->using_scope;
     u->using_scope = ScopeGetIndex( save_using_scope );
     PCHWriteCVIndex( d->index );
     PCHWrite( u, sizeof( *u ) );
     u->next = save_next;
+    u->trigger = save_trigger;
     u->using_scope = save_using_scope;
 }
 
@@ -7697,6 +7701,7 @@ static void readUsingNS( void )
     for(;;) {
         PCHReadMapped( pch, u, i, data );
         u->next = CarveMapIndex( carveUSING_NS, pch->next );
+        u->trigger = ScopeMapIndex( pch->trigger );
         u->using_scope = ScopeMapIndex( pch->using_scope );
     }
 }

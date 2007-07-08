@@ -9266,7 +9266,7 @@ void PCHWriteDeclInfo( DECL_INFO *dinfo )
         save_next = curr_dinfo->next;
         curr_dinfo->next =
             (void *) ( ( save_next == NULL ) ? 0 :
-                       ( save_next == dinfo ) ? -1 : 1 );
+                       ( curr_dinfo == dinfo ) ? -1 : 1 );
         save_parms = curr_dinfo->parms;
         curr_dinfo->parms =
             (void *) ( save_parms != NULL );
