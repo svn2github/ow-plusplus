@@ -128,6 +128,7 @@ PCH_struct fn_template_inst {
     SCOPE               parm_scope;     // template parameter scope
     SCOPE               inst_scope;     // template instantiation scope
     unsigned            processed : 1;  // already processed instantiation
+    unsigned            free : 1;       // used for precompiled headers
 };
 
 PCH_struct fn_template {

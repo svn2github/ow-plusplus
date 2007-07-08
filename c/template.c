@@ -1564,6 +1564,7 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym, DECL_INFO *dinfo,
     fn_inst->parm_scope = parm_scope;
     fn_inst->inst_scope = inst_scope;
     fn_inst->processed = FALSE;
+    fn_inst->free = FALSE;
 
     return new_sym;
 }
@@ -3499,6 +3500,13 @@ static void markFreeClassInst( void *p )
     s->free = TRUE;
 }
 
+static void markFreeFnTemplateInst( void *p )
+{
+    FN_TEMPLATE_INST *s = p;
+
+    s->free = TRUE;
+}
+
 static void markFreeFnTemplateDefn( void *p )
 {
     FN_TEMPLATE *s = p;
@@ -3528,7 +3536,7 @@ static void saveTemplateSpecialization( void *p, carve_walk_base *d )
     save_next = s->next;
     s->next = CarveGetIndex( carveTEMPLATE_SPECIALIZATION, save_next );
     save_tinfo = s->tinfo;
-    s->tinfo = CarveGetIndex( carveTEMPLATE_INFO, save_tinfo );
+    s->tinfo = TemplateClassInfoGetIndex( save_tinfo );
     save_decl_scope = s->decl_scope;
     s->decl_scope = ScopeGetIndex( save_decl_scope );
     save_locn_src_file = s->locn.src_file;
@@ -3600,7 +3608,7 @@ static void saveTemplateInfo( void *p, carve_walk_base *d )
     tprimary = RingFirst( s->specializations );
 
     save_next = s->next;
-    s->next = CarveGetIndex( carveTEMPLATE_INFO, save_next );
+    s->next = TemplateClassInfoGetIndex( save_next );
     save_specializations = s->specializations;
     s->specializations = CarveGetIndex( carveTEMPLATE_SPECIALIZATION,
                                         save_specializations );
@@ -3692,27 +3700,62 @@ static void saveClassInst( void *p, carve_walk_base *d )
     s->locn.src_file = save_locn_src_file;
 }
 
-static void saveFnTemplateDefn( void *p, carve_walk_base *d )
+static void saveFnTemplateInst( void *p, carve_walk_base *d )
 {
-    FN_TEMPLATE *s = p;
-    FN_TEMPLATE *save_next;
-    SYMBOL save_sym;
-    REWRITE *save_defn;
+    FN_TEMPLATE_INST *s = p;
+    FN_TEMPLATE_INST *save_next;
+    SYMBOL save_bound_sym;
+    SCOPE save_parm_scope;
+    SCOPE save_inst_scope;
 
     if( s->free ) {
         return;
     }
     save_next = s->next;
-    s->next = CarveGetIndex( carveFN_TEMPLATE, save_next );
+    s->next = CarveGetIndex( carveFN_TEMPLATE_INST, save_next );
+    save_bound_sym = s->bound_sym;
+    s->bound_sym = SymbolGetIndex( save_bound_sym );
+    save_parm_scope = s->parm_scope;
+    s->parm_scope = ScopeGetIndex( save_parm_scope );
+    save_inst_scope = s->inst_scope;
+    s->inst_scope = ScopeGetIndex( save_inst_scope );
+    PCHWriteCVIndex( d->index );
+    PCHWrite( s, sizeof( *s ) );
+    s->next = save_next;
+    s->bound_sym = save_bound_sym;
+    s->parm_scope = save_parm_scope;
+    s->inst_scope = save_inst_scope;
+}
+
+static void saveFnTemplateDefn( void *p, carve_walk_base *d )
+{
+    FN_TEMPLATE *s = p;
+    FN_TEMPLATE *save_next;
+    FN_TEMPLATE_INST *save_instantiations;
+    SYMBOL save_sym;
+    REWRITE *save_defn;
+    SCOPE save_decl_scope;
+
+    if( s->free ) {
+        return;
+    }
+    save_next = s->next;
+    s->next = TemplateFunctionInfoGetIndex( save_next );
+    save_instantiations = s->instantiations;
+    s->instantiations = CarveGetIndex( carveFN_TEMPLATE_INST, save_instantiations );
     save_sym = s->sym;
     s->sym = SymbolGetIndex( save_sym );
     save_defn = s->defn;
     s->defn = RewriteGetIndex( save_defn );
+    save_decl_scope = s->decl_scope;
+    s->decl_scope = ScopeGetIndex( save_decl_scope );
     PCHWriteCVIndex( d->index );
     PCHWrite( s, sizeof( *s ) );
     s->next = save_next;
+    s->instantiations = save_instantiations;
     s->sym = save_sym;
     s->defn = save_defn;
+    s->decl_scope = save_decl_scope;
 }
 
 pch_status PCHWriteTemplates( void )
@@ -3732,6 +3775,9 @@ pch_status PCHWriteTemplates( void )
     PCHWriteCVIndex( terminator );
     CarveWalkAllFree( carveCLASS_INST, markFreeClassInst );
     CarveWalkAll( carveCLASS_INST, saveClassInst, &data );
+    PCHWriteCVIndex( terminator );
+    CarveWalkAllFree( carveFN_TEMPLATE_INST, markFreeFnTemplateInst );
+    CarveWalkAll( carveFN_TEMPLATE_INST, saveFnTemplateInst, &data );
     PCHWriteCVIndex( terminator );
     CarveWalkAllFree( carveFN_TEMPLATE, markFreeFnTemplateDefn );
     CarveWalkAll( carveFN_TEMPLATE, saveFnTemplateDefn, &data );
@@ -3759,6 +3805,7 @@ pch_status PCHReadTemplates( void )
     REWRITE **defarg_list;
     MEMBER_INST *mi;
     CLASS_INST *ci;
+    FN_TEMPLATE_INST *fti;
     FN_TEMPLATE *ftd;
     TEMPLATE_SPECIALIZATION *ts;
     TEMPLATE_SPECIALIZATION *tprimary;
@@ -3802,14 +3849,27 @@ pch_status PCHReadTemplates( void )
             ci->inlines = PCHReadDeclInfo();
         }
     }
+    CarveInitStart( carveFN_TEMPLATE_INST, &data );
+    for(;;) {
+        i = PCHReadCVIndex();
+        if( i == CARVE_NULL_INDEX ) break;
+        fti = CarveInitElement( &data, i );
+        PCHRead( fti, sizeof( *fti ) );
+        fti->next = CarveMapIndex( carveFN_TEMPLATE_INST, fti->next );
+        fti->bound_sym = SymbolMapIndex( fti->bound_sym );
+        fti->parm_scope = ScopeMapIndex( fti->parm_scope );
+        fti->inst_scope = ScopeMapIndex( fti->inst_scope );
+    }
     CarveInitStart( carveFN_TEMPLATE, &data );
     for(;;) {
         i = PCHReadCVIndex();
         if( i == CARVE_NULL_INDEX ) break;
         ftd = CarveInitElement( &data, i );
         PCHRead( ftd, sizeof( *ftd ) );
-        ftd->next = CarveMapIndex( carveFN_TEMPLATE, ftd->next );
+        ftd->next = TemplateFunctionInfoMapIndex( ftd->next );
+        ftd->instantiations = CarveMapIndex( carveFN_TEMPLATE_INST, ftd->instantiations );
         ftd->sym = SymbolMapIndex( ftd->sym );
+        ftd->decl_scope = ScopeMapIndex( ftd->decl_scope );
         ftd->defn = RewriteMapIndex( ftd->defn );
     }
     CarveInitStart( carveTEMPLATE_SPECIALIZATION, &data );
@@ -3819,7 +3879,7 @@ pch_status PCHReadTemplates( void )
         ts = CarveInitElement( &data, i );
         PCHRead( ts, sizeof( *ts ) );
         ts->next = CarveMapIndex( carveTEMPLATE_SPECIALIZATION, ts->next );
-        ts->tinfo = CarveMapIndex( carveTEMPLATE_INFO, ts->tinfo );
+        ts->tinfo = TemplateClassInfoMapIndex( ts->tinfo );
         ts->locn.src_file = SrcFileMapIndex( ts->locn.src_file );
         ts->decl_scope = ScopeMapIndex( ts->decl_scope );
         ts->defn = RewriteMapIndex( ts->defn );
@@ -3867,7 +3927,7 @@ pch_status PCHReadTemplates( void )
         if( i == CARVE_NULL_INDEX ) break;
         ti = CarveInitElement( &data, i );
         PCHRead( ti, sizeof( *ti ) );
-        ti->next = CarveMapIndex( carveTEMPLATE_INFO, ti->next );
+        ti->next = TemplateClassInfoMapIndex( ti->next );
         ti->specializations = CarveMapIndex( carveTEMPLATE_SPECIALIZATION,
                                              ti->specializations );
         ti->unbound_type = TypeMapIndex( ti->unbound_type );
@@ -3891,6 +3951,8 @@ pch_status PCHInitTemplates( boolean writing )
     if( writing ) {
         n = CarveLastValidIndex( carveCLASS_INST );
         PCHWriteCVIndex( n );
+        n = CarveLastValidIndex( carveFN_TEMPLATE_INST );
+        PCHWriteCVIndex( n );
         n = CarveLastValidIndex( carveFN_TEMPLATE );
         PCHWriteCVIndex( n );
         n = CarveLastValidIndex( carveTEMPLATE_MEMBER );
@@ -3903,6 +3965,9 @@ pch_status PCHInitTemplates( boolean writing )
         carveCLASS_INST = CarveRestart( carveCLASS_INST );
         n = PCHReadCVIndex();
         CarveMapOptimize( carveCLASS_INST, n );
+        carveFN_TEMPLATE_INST = CarveRestart( carveFN_TEMPLATE_INST );
+        n = PCHReadCVIndex();
+        CarveMapOptimize( carveFN_TEMPLATE_INST, n );
         carveFN_TEMPLATE = CarveRestart( carveFN_TEMPLATE );
         n = PCHReadCVIndex();
         CarveMapOptimize( carveFN_TEMPLATE, n );
@@ -3923,6 +3988,7 @@ pch_status PCHFiniTemplates( boolean writing )
 {
     if( ! writing ) {
         CarveMapUnoptimize( carveCLASS_INST );
+        CarveMapUnoptimize( carveFN_TEMPLATE_INST );
         CarveMapUnoptimize( carveFN_TEMPLATE );
         CarveMapUnoptimize( carveTEMPLATE_MEMBER );
         CarveMapUnoptimize( carveTEMPLATE_SPECIALIZATION );
