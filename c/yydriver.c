@@ -978,7 +978,8 @@ static int yylex( PARSE_STACK *state )
             }
             break;
         }
-        currToken = specialAngleBracket( state, token );
+        token = specialAngleBracket( state, token );
+        currToken = token;
         return( currToken );
     }
     flags.no_super_token = FALSE;
@@ -1075,7 +1076,9 @@ static int yylex( PARSE_STACK *state )
     }
 
     state->scope_member = NULL;
-    token = specialAngleBracket( state, token );
+    if( ! state->look_ahead_active ) {
+        token = specialAngleBracket( state, token );
+    }
     currToken = token;
     return( token );
 }
