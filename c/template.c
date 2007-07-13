@@ -3015,6 +3015,11 @@ static void processFunctionTemplateInstantiations( void )
     FN_TEMPLATE_INST *curr_inst;
 
     RingIterBeg( allFunctionTemplates, curr_defn ) {
+
+        if( !curr_defn->has_defn ) {
+            continue;
+        }
+
         RingIterBeg( curr_defn->instantiations, curr_inst ) {
 
             if( ! curr_inst->processed
