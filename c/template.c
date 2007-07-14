@@ -1350,9 +1350,45 @@ void TemplateFunctionAttachDefn( DECL_INFO *dinfo )
         RewriteFree( r );
         CErr2p( ERR_FUNCTION_TEMPLATE_ALREADY_HAS_DEFN, sym );
     } else {
+        FN_TEMPLATE_INST *fn_inst;
+
         RewriteFree( fn_templ->defn );
         fn_templ->has_defn = TRUE;
         fn_templ->defn = r;
+
+        // if we already tried to instantiate the template function, we
+        // will probably have to regenerate the parm_scope as the
+        // template parameter names could have changed
+        RingIterBeg( fn_templ->instantiations, fn_inst ) {
+            SCOPE parm_scope;
+            SYMBOL decl_stop, decl_curr;
+            SYMBOL parm_stop, parm_curr;
+
+            parm_scope = ScopeCreate( ScopeId( fn_inst->parm_scope ) );
+            ScopeSetEnclosing( parm_scope, fn_inst->parm_scope->enclosing );
+
+            decl_stop = ScopeOrderedStart( fn_templ->decl_scope );
+            parm_stop = ScopeOrderedStart( fn_inst->parm_scope );
+            decl_curr = NULL;
+            parm_curr = NULL;
+
+            for(;;) {
+                decl_curr = ScopeOrderedNext( decl_stop, decl_curr );
+                parm_curr = ScopeOrderedNext( parm_stop, parm_curr );
+                if( ( parm_curr == NULL ) || ( decl_curr == NULL ) ) break;
+
+                // reuse the symbol with a new name in a new scope
+                parm_curr->name->name_type = NULL;
+                parm_curr->name = NULL;
+
+                ScopeInsert( parm_scope, parm_curr, decl_curr->name->name );
+            }
+
+            ScopeSetEnclosing( fn_inst->inst_scope, parm_scope );
+            ScopeBurn( fn_inst->parm_scope );
+            fn_inst->parm_scope = parm_scope;
+
+        } RingIterEnd( fn_inst )
     }
     FreeDeclInfo( dinfo );
 }
@@ -1619,7 +1655,6 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
                 if( ( curr1 == NULL ) || ( curr2 == NULL ) ) {
                     if( ( curr1 == NULL ) && ( curr2 == NULL ) ) {
                         // alread instantiated
-                        FreeDeclInfo( dinfo );
                         generated_fn = fn_inst->bound_sym;
                     }
 
@@ -1665,6 +1700,9 @@ SYMBOL TemplateFunctionGenerate( SYMBOL sym, arg_list *args,
     if( generated_fn == NULL ) {
         generated_fn = buildTemplateFn( fn_type, sym, dinfo, parm_scope,
                                         locn );
+    } else {
+        FreeDeclInfo( dinfo );
+        ScopeBurn( parm_scope );
     }
 
     while( generated_fn != NULL ) {
