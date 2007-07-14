@@ -634,10 +634,6 @@ static msg_status_t doError(    // ISSUE ERROR
         unsigned too_many : 1;  // - TRUE ==> too many messages
     } flag;
 
-    if (suppressCount > 0) {
-        return MS_NULL;
-    }
-
 #ifndef NDEBUG
     fflush(stdout);
     fflush(stderr);
@@ -647,7 +643,11 @@ static msg_status_t doError(    // ISSUE ERROR
     if( ! errLimitExceeded ) {
         flag.too_many = TRUE;
         flag.print_err = okToPrintMsg( msgnum, &level );
-        if( ErrLimit == -1 ) {
+        if( suppressCount > 0 ) {
+            /* suppressed message */
+            ErrCount++;
+            return MS_NULL;
+        } else if( ErrLimit == -1 ) {
             /* unlimited messages */
             flag.too_many = FALSE;
         } else if( ErrCount < ErrLimit ) {

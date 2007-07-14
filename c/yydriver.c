@@ -2776,6 +2776,11 @@ DECL_INFO *ReparseFunctionDeclaration( REWRITE *defn )
     if( defn == NULL ) {
         return( NULL );
     }
+
+    /* Note that errors are suppressed during re-parsing. This is
+     * because an error should only result in the candidate function
+     * to be ignored.
+     */
     CErrCheckpoint( &check );
     CErrSuppress();
     declOnlyReset();
