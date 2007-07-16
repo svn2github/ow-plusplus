@@ -264,6 +264,8 @@ void ClassInitState( type_flag class_variant, CLASS_INIT extra, TYPE class_mod_l
     data->base_vbptr = NULL;
     data->base_vfptr = NULL;
     data->name = NULL;
+    data->saved_inlines = NULL;
+    data->nested_inlines = NULL;
     data->inlines = NULL;
     data->defargs = NULL;
     data->vf_hide_list = NULL;
@@ -316,8 +318,37 @@ void ClassInitState( type_flag class_variant, CLASS_INIT extra, TYPE class_mod_l
         } else {
             /* our inline fns go where any previous class' inline fns
              * go, but only if the previous class isn't already fully
-             * defined */
+             * defined.
+             *
+             * Use strict sequential ordering within a class, but
+             * nested classes need to be processed first, e.g.
+             *
+             * struct A {
+             *   struct B {
+             *     struct C { };
+             *   };
+             *   struct D {
+             *     struct E { };
+             *   };
+             * };
+             *
+             * will result in inline fns being processed in the
+             * following order:
+             *
+             * A::B::C, A::B, A::D::E, A::D, A
+             *
+             * also see bugzilla #63.
+             */
             data->inline_data = prev_data->inline_data;
+            if( data->inline_data != NULL ) {
+                if( prev_data->nested_inlines != data->inline_data->inlines ) {
+                    data->saved_inlines = data->inline_data->inlines;
+                }
+                if( prev_data->nested_inlines != NULL ) {
+                    data->inline_data->inlines = prev_data->nested_inlines;
+                }
+                data->nested_inlines = data->inline_data->inlines;
+            }
         }
     } else {
         data->inline_data = NULL;
@@ -1743,6 +1774,12 @@ DECL_SPEC *ClassEnd( void )
         setRefPassing( type, info );
     }
     defineInlineFuncsAndDefArgExprs( data );
+    if( ( data->inline_data != NULL ) && ( data->next != NULL ) ) {
+        data->next->nested_inlines = data->inline_data->inlines;
+        if( data->saved_inlines != NULL ) {
+            data->inline_data->inlines = data->saved_inlines;
+        }
+    }
     if( ! info->corrupted ) {
         BrinfDeclClass( type );
     }

@@ -50,6 +50,8 @@ struct class_data {
     BASE_CLASS      *last_empty;        /* last empty base class (for optimizing) */
 #endif
     DECL_INFO       *inlines;           /* ring of pending inline functions */
+    DECL_INFO       *nested_inlines;    /* pointer into ring of inline functions for nested classes */
+    DECL_INFO       *saved_inlines;     /* saved pointer to ring of inline functions */
     DECL_INFO       *defargs;           /* ring of pending default arg exprs */
     AUX_INFO        *fn_pragma;         /* function pragma for member functions */
     TYPE            class_mod_type;     /* type representing mod in class <mod> X */
