@@ -556,8 +556,10 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
     }
 
     if( SymIsFunctionTemplateModel( base_sym ) ) {
-        if( control & FNC_ONLY_NON_TEMPLATE ) {
-            // ignore template functions
+        FN_TEMPLATE *fntempl = base_sym->u.defn;
+
+        if( ( control & FNC_ONLY_NON_TEMPLATE ) // ignore template functions
+         || ( fntempl == NULL ) ) {
             return;
         }
 
@@ -595,7 +597,6 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
             }
         } else {
             // have to compare template parameters for function templates
-            FN_TEMPLATE *fntempl = base_sym->u.defn;
             SYMBOL old_curr = NULL, new_curr = NULL;
             SYMBOL old_stop, new_stop;
 
