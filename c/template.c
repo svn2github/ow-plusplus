@@ -1100,8 +1100,6 @@ static TYPE doParseClassTemplate( TEMPLATE_SPECIALIZATION *tspec,
         if( dspec != NULL ) {
             new_type = dspec->partial;
             PTypeRelease( dspec );
-        } else {
-            tspec->corrupted = TRUE;
         }
     }
     return( new_type );
@@ -2643,6 +2641,18 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
         tprimary = RingFirst( tinfo->specializations );
         parms = processClassTemplateParms( tinfo, parms, &is_unbound );
         if( parms != NULL ) {
+#ifndef NDEBUG
+            if( PragDbgToggle.templ_inst ) {
+                VBUF vbuf;
+
+                FormatPTreeList( parms, &vbuf );
+                printf( "instantiating %sbound template %s<%s>\n",
+                        is_unbound ? "un" : "", template_name,
+                        vbuf.buf );
+                VbufFree( &vbuf );
+            }
+#endif
+
             /* parms have been validated; we can instantiate the class! */
             if( is_unbound ) {
                 type_instantiated = tinfo->unbound_type;
@@ -2662,6 +2672,19 @@ TYPE TemplateClassInstantiation( PTREE tid, PTREE parms,
                     instantiateClass( tinfo, parms, tspec, parm_scope,
                                       &(tid->locn), control );
             }
+
+#ifndef NDEBUG
+            if( PragDbgToggle.templ_inst ) {
+                VBUF vbuf;
+
+                FormatPTreeList( parms, &vbuf );
+                printf( "instantiated %sbound template %s<%s>:\n",
+                        is_unbound ? "un" : "", template_name,
+                        vbuf.buf );
+                VbufFree( &vbuf );
+                DumpFullType( type_instantiated );
+            }
+#endif
 
             NodeFreeDupedExpr( parms );
         }
