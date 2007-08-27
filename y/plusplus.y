@@ -2342,12 +2342,7 @@ class-name
         switch( t ) {
         case Y_LEFT_BRACE:
         case Y_COLON:
-            if( state->template_class_inst_defer ) {
-                what = P_DEFER_DEFN;
-                decl_type = CLASS_DECLARATION;
-            } else {
-                decl_type = CLASS_DEFINITION;
-            }
+            decl_type = CLASS_DEFINITION;
             break;
         case Y_SEMI_COLON:
             decl_type = CLASS_DECLARATION;

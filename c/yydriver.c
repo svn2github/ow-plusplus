@@ -154,7 +154,6 @@ typedef enum {
     P_ACCEPT,           /* parse is completed */
     P_SPECIAL,          /* special actions follow ... */
     P_CLASS_TEMPLATE,   /* class template member found */
-    P_DEFER_DEFN,       /* don't want to fully define the class instantiation */
     P_ERROR,            /* parse errors follow ... */
     P_SYNTAX,           /* parse cannot continue due to syntax error */
     P_OVERFLOW,         /* parse cannot continue due to parser stack overflow */
@@ -1360,7 +1359,6 @@ static void commonInit( PARSE_STACK *stack )
     stack->look_ahead_stack = FALSE;
     stack->look_ahead_active = FALSE;
     stack->template_decl = FALSE;
-    stack->template_class_inst_defer = FALSE;
     stack->special_colon_colon = FALSE;
     stack->special_gt_gt = FALSE;
     stack->special_typename = FALSE;
@@ -1383,7 +1381,6 @@ static void restartInit( PARSE_STACK *stack )
     DbgAssert( stack->look_ahead_stack == FALSE );
     DbgAssert( stack->look_ahead_active == FALSE );
     DbgAssert( stack->template_decl == FALSE );
-    DbgAssert( stack->template_class_inst_defer == FALSE );
     DbgAssert( stack->special_colon_colon == FALSE );
     DbgAssert( stack->special_gt_gt == FALSE );
     DbgAssert( stack->special_typename == FALSE);
@@ -2510,8 +2507,8 @@ void ParseDecls( void )
     parseEpilogue();
 }
 
-DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
-/*********************************************************************/
+DECL_SPEC *ParseClassInstantiation( REWRITE *defn )
+/*************************************************/
 {
     int t;
     PARSE_STACK instantiate_state;
@@ -2539,9 +2536,6 @@ DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
 
     LinkagePushCpp();
     newClassInstStack( &instantiate_state );
-    if( defer_defn ) {
-        instantiate_state.template_class_inst_defer = TRUE;
-    }
     syncLocation();
     pushDefaultDeclSpec( &instantiate_state );
     last_source = SetTokenSource( RewriteToken );
@@ -2568,18 +2562,6 @@ DECL_SPEC *ParseClassInstantiation( REWRITE *defn, boolean defer_defn )
                 CErr1( ERR_COMPLICATED_DECLARATION );
                 break;
             }
-        } else if( what == P_DEFER_DEFN ) {
-            ParseFlush();
-            t = Y_SEMI_COLON;
-            do {
-                what = doAction( t, &instantiate_state );
-            } while( what == P_RELEX );
-#ifndef NDEBUG
-            if( what != P_ACCEPT ) {
-                CFatal( "invalid return from doAction" );
-            }
-#endif
-            new_type = instantiate_state.vsp->dspec;
         }
 #ifndef NDEBUG
         else {
