@@ -320,8 +320,11 @@ static void addListEntry( FNOV_CONTROL control, FNOV_INFO *info, SYMBOL sym,
     FNOV_LIST    **hdr;     // - header for list addition
     unsigned     i;
 
-    for( i = 0; i < alist->num_args; i++ ) {
-        alist->type_list[i] = BindTemplateClass( alist->type_list[i], TRUE );
+    if( ! ( control & FNC_DISTINCT_CHECK ) ) {
+        for( i = 0; i < alist->num_args; i++ ) {
+            alist->type_list[i] = BindTemplateClass( alist->type_list[i],
+                                                     TRUE );
+        }
     }
 
     if( flags & LENT_MATCH ) {
@@ -616,10 +619,12 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
                     break;
                 }
 
-                old_curr->sym_type = BindTemplateClass( old_curr->sym_type,
-                                                        TRUE );
-                new_curr->sym_type = BindTemplateClass( new_curr->sym_type,
-                                                        TRUE );
+                if( ! ( control & FNC_DISTINCT_CHECK ) ) {
+                    old_curr->sym_type = BindTemplateClass( old_curr->sym_type,
+                                                            TRUE );
+                    new_curr->sym_type = BindTemplateClass( new_curr->sym_type,
+                                                            TRUE );
+                }
 
                 if( ! TypeCompareExclude( old_curr->sym_type,
                                           new_curr->sym_type,
