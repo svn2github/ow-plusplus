@@ -1073,7 +1073,8 @@ void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration,
         data->nameless_OK = TRUE;
         /* fall through */
     case CLASS_REFERENCE:
-        dspec = PTypeClassInstantiation( TemplateClassReference( id, args, tci_control ), id );
+        type = TemplateClassReference( id, args, tci_control );
+        dspec = PTypeClassInstantiation( type, id );
         type = dspec->partial;
         PTypeRelease( dspec );
         data = classDataStack;

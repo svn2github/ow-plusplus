@@ -1433,6 +1433,7 @@ extern boolean TypeParmSize( TYPE, target_size_t * );
 extern boolean TypeBasesEqual( type_flag, void *, void * );
 
 extern SCOPE TypeScope( TYPE );
+extern CLASS_INST *TypeClassInstantiation( TYPE );
 extern char *SimpleTypeName( TYPE );
 extern char *AnonymousEnumExtraName( TYPE );
 

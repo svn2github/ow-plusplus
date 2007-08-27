@@ -1853,6 +1853,21 @@ SCOPE TypeScope( TYPE typ )
     return( scope );
 }
 
+CLASS_INST *TypeClassInstantiation( TYPE type )
+/****************************************/
+{
+    if( type != NULL ) {
+        TypeStripTdMod( type );
+        if( type->id == TYP_CLASS ) {
+            if( type->flag & TF1_INSTANTIATION ) {
+                SCOPE inst_scope = type->u.c.scope->enclosing;
+                return inst_scope->owner.inst;
+            }
+        }
+    }
+    return NULL;
+}
+
 static char *betterAnonEnumName( SYMBOL sym, TYPE typ ) {
     SYMBOL next = sym->thread;
     if( next->id != SC_ENUM ) {

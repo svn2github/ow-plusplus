@@ -1089,8 +1089,7 @@ static void addClassTemplateMember( TEMPLATE_DATA *data, SYMBOL sym,
 }
 
 static TYPE doParseClassTemplate( TEMPLATE_SPECIALIZATION *tspec,
-                                  REWRITE *defn, TOKEN_LOCN *locn,
-                                  tc_instantiate control )
+                                  REWRITE *defn, TOKEN_LOCN *locn )
 {
     TYPE new_type;
     DECL_SPEC *dspec;
@@ -1099,7 +1098,7 @@ static TYPE doParseClassTemplate( TEMPLATE_SPECIALIZATION *tspec,
     new_type = TypeError;
     if( ! tspec->corrupted ) {
         pushInstContext( &context, TCTX_CLASS_DEFN, locn, GetCurrScope() );
-        dspec = ParseClassInstantiation( defn, ( control & TCI_NO_CLASS_DEFN ) != 0 );
+        dspec = ParseClassInstantiation( defn, FALSE );
         popInstContext();
         if( dspec != NULL ) {
             new_type = dspec->partial;
@@ -1199,7 +1198,7 @@ static void defineAllClassDecls( TEMPLATE_SPECIALIZATION *tspec )
         SetCurrScope( inst_scope );
         ScopeAdjustUsing( NULL, inst_scope );
 
-        doParseClassTemplate( tspec, tspec->defn, &location, TCI_NULL );
+        doParseClassTemplate( tspec, tspec->defn, &location );
 
         ScopeAdjustUsing( inst_scope, NULL );
         ScopeSetEnclosing( inst_scope, save_enclosing );
@@ -2209,16 +2208,6 @@ static SCOPE findInstScope( TEMPLATE_SPECIALIZATION *tspec, PTREE parms,
     return( NULL );
 }
 
-static void setDirectiveFlags( CLASS_INST *inst, tc_instantiate control )
-{
-    if( control & TCI_NO_MEMBERS ) {
-        inst->dont_process = TRUE;
-    } else if( control & TCI_EXPLICIT_FULL ) {
-        inst->dont_process = FALSE;
-        inst->must_process = TRUE;
-    }
-}
-
 static CLASS_INST *newClassInstantiation( TEMPLATE_SPECIALIZATION *tspec,
                                           TYPE unbound_type, SCOPE scope,
                                           tc_instantiate control )
@@ -2243,7 +2232,6 @@ static CLASS_INST *newClassInstantiation( TEMPLATE_SPECIALIZATION *tspec,
     if( control & TCI_SPECIFIC ) {
         new_inst->specific = TRUE;
     }
-    setDirectiveFlags( new_inst, control );
     templateData.keep_going = TRUE;
     return( new_inst );
 }
@@ -2328,7 +2316,7 @@ static void injectTemplateParms( TEMPLATE_SPECIALIZATION *tspec, SCOPE scope,
 static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
                               TEMPLATE_SPECIALIZATION *tspec,
                               TYPE unbound_type, SCOPE spec_parm_scope,
-                              TOKEN_LOCN *locn, tc_instantiate control )
+                              TOKEN_LOCN *locn )
 {
     TYPE new_type;
     SCOPE file_scope;
@@ -2360,14 +2348,14 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
     }
     inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
     curr_instantiation = newClassInstantiation( tspec, unbound_type,
-                                                inst_scope, control );
+                                                inst_scope, TCI_NULL );
     curr_instantiation->locn = *locn;
     curr_instantiation->locn_set = TRUE;
 
     injectTemplateParms( tspec, parm_scope, parms, spec_parm_scope != NULL );
     ScopeAdjustUsing( NULL, inst_scope );
 
-    new_type = doParseClassTemplate( tspec, tspec->defn, locn, control );
+    new_type = doParseClassTemplate( tspec, tspec->defn, locn );
 
     ScopeAdjustUsing( inst_scope, save_scope );
     SetCurrScope( save_scope );
@@ -2546,9 +2534,8 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
     return tspec;
 }
 
-TYPE TemplateClassReference( PTREE tid, PTREE parms,
-                             tc_instantiate control )
-/***************************************************/
+TYPE TemplateClassReference( PTREE tid, PTREE parms, tc_instantiate control )
+/***************************************************************************/
 {
     SYMBOL class_template;
     char *template_name;
@@ -2636,6 +2623,22 @@ TYPE TemplateClassReference( PTREE tid, PTREE parms,
         }
     } else {
         return( NULL );
+    }
+    if( typ != NULL ) {
+        if( control & ( TCI_NO_MEMBERS | TCI_EXPLICIT_FULL ) ) {
+            CLASS_INST *inst;
+
+            typ = BindTemplateClass( typ, FALSE );
+            inst = TypeClassInstantiation( typ );
+            DbgAssert( inst != NULL );
+
+            if( control & TCI_EXPLICIT_FULL ) {
+                inst->must_process = 1;
+            }
+            if( control & TCI_NO_MEMBERS ) {
+                inst->dont_process = 1;
+            }
+        }
     }
     if( control & TCI_NO_DECL_SPEC ) {
         PTreeFreeSubtrees( tid );
@@ -2758,7 +2761,7 @@ static TYPE makeBoundClass( TYPE unbound_class, SCOPE parm_scope,
                                                  &spec_parm_scope );
         type_instantiated =
             instantiateClass( tinfo, parms, tspec, unbound_class,
-                              spec_parm_scope, locn, TCI_NULL );
+                              spec_parm_scope, locn );
         PTreeFreeSubtrees( parms );
     }
     return( type_instantiated );
@@ -2801,7 +2804,7 @@ TYPE BindTemplateClass( TYPE typ, boolean deref_ptrs )
          && ( unbound->flag & TF1_UNBOUND )
          && !( unbound->flag & TF1_GENERIC ) ) {
             if( unbound->of == NULL ) {
-                TOKEN_LOCN locn = { 0 };
+                TOKEN_LOCN locn = { 0 }; // TODO: need to get a location
 
                 bound = TemplateUnboundInstantiate( unbound, NULL, &locn );
                 DbgAssert( ( unbound->of == NULL )
