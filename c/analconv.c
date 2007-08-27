@@ -351,6 +351,10 @@ boolean ConvertCommonType(      // CONVERT TO COMMON TYPE (:, ==, !=)
     PTREE expr;                 // - expression
 
     expr = *a_expr;
+    expr->u.subtree[0]->type =
+        BindTemplateClass( expr->u.subtree[0]->type, TRUE );
+    expr->u.subtree[1]->type =
+        BindTemplateClass( expr->u.subtree[1]->type, TRUE );
     if( NULL != StructType( expr->u.subtree[0]->type )
      || NULL != StructType( expr->u.subtree[1]->type ) ) {
         retn = convertCommonClass( a_expr, diag_class );

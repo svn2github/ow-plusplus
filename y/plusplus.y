@@ -818,7 +818,10 @@ postfix-expression-before-dot
         }
         $1 = PTreeTraversePostfix( $1, &setAnalysedFlag );
         if( $1->type ) {
-            TYPE cls = TypedefModifierRemoveOnly( $1->type );
+            TYPE cls;
+
+            $1->type = BindTemplateClass( $1->type, TRUE );
+            cls = TypedefModifierRemoveOnly( $1->type );
 
             if( ( cls->id == TYP_POINTER ) && ( cls->flag & TF1_REFERENCE ) ) {
                 cls = TypedefModifierRemoveOnly( cls->of );
@@ -848,7 +851,10 @@ postfix-expression-before-arrow
         $$->u.subtree[0] = PTreeTraversePostfix( $$->u.subtree[0],
                                                  &setAnalysedFlag );
         if( $$->u.subtree[0] ) {
-            TYPE cls = TypedefModifierRemoveOnly( $$->u.subtree[0]->type );
+            TYPE cls;
+
+            $$->u.subtree[0]->type = BindTemplateClass( $$->u.subtree[0]->type, TRUE );
+            cls = TypedefModifierRemoveOnly( $$->u.subtree[0]->type );
 
             if( ( cls->id == TYP_POINTER )
              && ( cls->flag & TF1_REFERENCE ) ) {
@@ -3128,7 +3134,7 @@ template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3147,13 +3153,13 @@ scoped-template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
         if( inst_type == NULL ) {
             DbgAssert( ( $$->op == PT_BINARY )
-                       && ( $$->cgop == CO_STORAGE ) );
+                    && ( $$->cgop == CO_STORAGE ) );
             $$->u.subtree[1] =
                 PTreeBinary( CO_TEMPLATE, $$->u.subtree[1], $3 );
         } else {
@@ -3164,13 +3170,13 @@ scoped-template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
         if( inst_type == NULL ) {
             DbgAssert( ( $$->op == PT_BINARY )
-                       && ( $$->cgop == CO_STORAGE ) );
+                    && ( $$->cgop == CO_STORAGE ) );
             $$->u.subtree[1] =
                 PTreeBinary( CO_TEMPLATE, $$->u.subtree[1], $3 );
         } else {
@@ -3188,13 +3194,13 @@ template-scoped-template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassInstantiation( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
         if( inst_type == NULL ) {
             DbgAssert( ( $$->op == PT_BINARY )
-                       && ( $$->cgop == CO_STORAGE ) );
+                    && ( $$->cgop == CO_STORAGE ) );
             $$->u.subtree[1] =
                 PTreeBinary( CO_TEMPLATE, $$->u.subtree[1], $3 );
         } else {

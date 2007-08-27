@@ -703,6 +703,14 @@ static void newClassType( CLASS_DATA *data, CLASS_DECL declaration )
         data->info = info;
         data->scope = class_type->u.c.scope;
         if( declaration == CLASS_DEFINITION ) {
+            if( ScopeType( data->scope->enclosing, SCOPE_TEMPLATE_INST ) ) {
+                TYPE unbound_class =
+                    data->scope->enclosing->owner.inst->unbound_type;
+                DbgAssert( unbound_class != NULL );
+                DbgAssert( unbound_class->of == NULL );
+                unbound_class->of = class_type;
+            }
+
             classOpen( data, info );
         }
     }
@@ -1065,7 +1073,7 @@ void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration,
         data->nameless_OK = TRUE;
         /* fall through */
     case CLASS_REFERENCE:
-        dspec = PTypeClassInstantiation( TemplateClassInstantiation( id, args, tci_control ), id );
+        dspec = PTypeClassInstantiation( TemplateClassReference( id, args, tci_control ), id );
         type = dspec->partial;
         PTypeRelease( dspec );
         data = classDataStack;
@@ -1208,44 +1216,6 @@ static void defineInlineFuncsAndDefArgExprs( CLASS_DATA *data )
     SrcFileResetTokenLocn( &locn );
     CurToken = T_RIGHT_BRACE;
     strcpy( Buffer, Tokens[ T_RIGHT_BRACE ] );
-}
-
-static void unfinishedClass( SYMBOL_NAME sym_name )
-{
-    char *name;
-    SYMBOL sym;
-    TYPE type;
-    CLASSINFO *info;
-
-    sym = sym_name->name_type;
-    if( sym == NULL ) {
-        return;
-    }
-    type = sym->sym_type;
-    if( type->id != TYP_TYPEDEF ) {
-        return;
-    }
-    name = type->u.t.sym->name->name;
-    type = type->of;
-    if( type->id != TYP_CLASS ) {
-        return;
-    }
-    info = type->u.c.info;
-    if( info->name != name ) {
-        return;
-    }
-    if( info->defined ) {
-        return;
-    }
-    CErr2p( ERR_NESTED_CLASS_NOT_DEFINED, sym_name->name );
-}
-
-static void checkForUnfinishedNestedClasses( CLASS_DATA *data )
-{
-    SCOPE class_scope;
-
-    class_scope = data->scope;
-    ScopeWalkNames( class_scope, unfinishedClass );
 }
 
 static void checkClassStatus( CLASS_DATA *data )
@@ -1762,7 +1732,6 @@ DECL_SPEC *ClassEnd( void )
     info->class_mod = data->class_mod_type;
     checkClassStatus( data );
     warnAboutHiding( data );
-    checkForUnfinishedNestedClasses( data );
     ScopeEnd( SCOPE_CLASS );
     if( data->specific_defn ) {
         TemplateSpecificDefnEnd();
@@ -2635,7 +2604,7 @@ BASE_CLASS *ClassBaseSpecifier( inherit_flag flags, DECL_SPEC *dspec )
     BASE_CLASS *base;
     CLASS_DATA *data;
 
-    base_type = dspec->partial;
+    base_type = BindTemplateClass( dspec->partial, FALSE );
     PTypeRelease( dspec );
     error_detected = FALSE;
     base_type = StructType( base_type );
@@ -3418,6 +3387,7 @@ static PTREE verifyMemInit( PTREE mem_init )
                 break;
             }
         }
+        member->type = BindTemplateClass( member->type, TRUE );
         if( member->op == PT_ID ) {
             if( verifyMemberInit( member, scope ) ) {
                 error_detected = TRUE;

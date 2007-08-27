@@ -274,6 +274,17 @@ boolean TypeCompareExclude( TYPE type1, TYPE type2, type_exclude mask )
             }
         }
 
+        if( ( type1->id == TYP_CLASS )
+         && ( type1->flag & TF1_UNBOUND )
+         && ( type1->of != NULL ) ) {
+            type1 = type1->of;
+        }
+        if( ( type2->id == TYP_CLASS )
+         && ( type2->flag & TF1_UNBOUND )
+         && ( type2->of != NULL ) ) {
+            type2 = type2->of;
+        }
+
         // compare type1 and type2
         flag1 &= ~TF1_MOD_IGNORE;
         flag2 &= ~TF1_MOD_IGNORE;
@@ -284,8 +295,10 @@ boolean TypeCompareExclude( TYPE type1, TYPE type2, type_exclude mask )
             break;
         } else if( type1 == type2 ) {
             state = FOLLOW_STACK;
-        } else if( !typeCompareCurrent( &stack, type1, type2, mask ) ) {
-            break;
+        } else {
+            if( !typeCompareCurrent( &stack, type1, type2, mask ) ) {
+                break;
+            }
         }
 
         // advance the type pointers

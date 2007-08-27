@@ -3887,6 +3887,8 @@ DECL_INFO *FinishDeclarator( DECL_SPEC *dspec, DECL_INFO *dinfo )
             }
             if( flag.diagnose_sym ) {
                 prev_type = TypeError;
+            } else {
+                prev_type = BindTemplateClass( prev_type, FALSE );
             }
         }
         sym = AllocSymbol();

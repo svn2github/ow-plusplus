@@ -318,6 +318,11 @@ static void addListEntry( FNOV_CONTROL control, FNOV_INFO *info, SYMBOL sym,
 {
     FNOV_LIST    *new;
     FNOV_LIST    **hdr;     // - header for list addition
+    unsigned     i;
+
+    for( i = 0; i < alist->num_args; i++ ) {
+        alist->type_list[i] = BindTemplateClass( alist->type_list[i], TRUE );
+    }
 
     if( flags & LENT_MATCH ) {
         hdr = info->pmatch;
@@ -611,8 +616,14 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
                     break;
                 }
 
+                old_curr->sym_type = BindTemplateClass( old_curr->sym_type,
+                                                        TRUE );
+                new_curr->sym_type = BindTemplateClass( new_curr->sym_type,
+                                                        TRUE );
+
                 if( ! TypeCompareExclude( old_curr->sym_type,
-                                          new_curr->sym_type, 0 ) ) {
+                                          new_curr->sym_type,
+                                          TC1_NOT_ENUM_CHAR ) ) {
                     // template parameter types don't match
                     return;
                 }
@@ -995,7 +1006,7 @@ FNOV_RANK *second, TYPE *second_type )
 static OV_RESULT compareArgument(
 /*******************************/
     FNOV_RANK *first
-  , TYPE * first_type
+  , TYPE *first_type
   , FNOV_RANK *second
   , TYPE *second_type
   , FNOV_CONTROL control )
@@ -1686,6 +1697,11 @@ FNOV_CONTROL control, PTREE templ_args, FNOV_DIAG *fnov_diag )
     FNOV_INFO   info;
     FNOV_LIST   *match;
     FNOV_RESULT result;
+    int         i;
+
+    for( i = 0; i < alist->num_args; i++ ) {
+        alist->type_list[i] = BindTemplateClass( alist->type_list[i], TRUE );
+    }
 
     *resolved = NULL;
 
@@ -1713,6 +1729,8 @@ FNOV_CONTROL control, PTREE templ_args, FNOV_DIAG *fnov_diag )
     fnovNumCandidatesSet( info.fnov_diag, *info.pcandidates );
     result = doOverload( &info );
     if( match != NULL ) {
+        match->sym->sym_type->of =
+            BindTemplateClass( match->sym->sym_type->of, TRUE );
         *resolved = match->sym;
         FnovListFree( &match );
     }
@@ -1749,7 +1767,7 @@ SYMBOL sym, TYPE type, type_flag this_qualifier, FNOV_DIAG *fnov_diag )
     InitArgList( &alist );
     alist.num_args = 1;
     alist.qualifier = this_qualifier;
-    alist.type_list[0] = type;
+    alist.type_list[0] = BindTemplateClass( type, TRUE );
     fnov_diag = FnovInitDiag( fnov_diag );
     return( FuncOverloadedLimitDiag( resolved
                                    , result
@@ -1784,6 +1802,11 @@ static FNOV_RESULT opOverloadedLimitExDiag( SYMBOL *resolved, SEARCH_RESULT *mem
     FNOV_LIST       *candidates = NULL;
     SYMBOL          sym;
     FNOV_INFO       info;
+    int             i;
+
+    for( i = 0; i < alist->num_args; i++ ) {
+        alist->type_list[i] = BindTemplateClass( alist->type_list[i], TRUE );
+    }
 
     info.alist = alist;
     info.plist = ptlist;

@@ -159,7 +159,10 @@ void NodeBuildArgList(          // BUILD ARGUMENT LIST FROM CALLER ARG.S
     alist->num_args = count;
     aptr = alist->type_list;
     for( ; count > 0; --count ) {
+        arg->type = BindTemplateClass( arg->type, TRUE );
         *aptr++ = NodeType( arg );
+        arg->u.subtree[1]->type = BindTemplateClass( arg->u.subtree[1]->type,
+                                                     TRUE );
         *ptlist++ = arg->u.subtree[1];
         arg = arg->u.subtree[0];
     }

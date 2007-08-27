@@ -284,6 +284,7 @@ typedef enum {
     TF1_UNBOUND         = 0x00000004,               // unbound class template
     TF1_INSTANTIATION   = 0x00000008,               // class is an instance of a class template
     TF1_SPECIFIC        = 0x00000010,               // class is a specific instantiation
+    TF1_GENERIC         = 0x00000020,               // generic unbound class template
     TF1_VISITED         = 0x80000000,               // used temporarily in traversals
     TF1_STDOP           = 0x00000001,               // TYP_VOID for Std Ops
     TF1_STDOP_ARITH     = 0x00000002,               // TYP_VOID for arith Std Ops
@@ -1736,6 +1737,9 @@ extern TYPE TypeCache[];
 #define MakeCDtorExtraArgType() TypeGetCache( TYPC_CDTOR_ARG )
 #define TypePtrVoidFunOfCDtorArg() TypeGetCache( TYPC_PTR_VOID_FUN_OF_CDTOR_ARG )
 #define TypeVoidHandlerFunOfVoid() TypeGetCache( TYPC_VOID_HANDLER_FUN_OF_VOID )
+
+// defined in template.c
+extern TYPE BindTemplateClass( TYPE typ, boolean deref_ptrs );
 
 // pre-compiled header support
 TYPE TypeGetIndex( TYPE );

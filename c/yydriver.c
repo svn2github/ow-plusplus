@@ -623,7 +623,7 @@ static SCOPE checkColonColon( SCOPE scope, PTREE id, SCOPE not_nested,
         ScopeFreeResult( result );
     }
     id_type = scope_type;
-    class_type = StructType( scope_type );
+    class_type = BindTemplateClass( StructType( scope_type ), FALSE );
     if( class_type != NULL ) {
         // member pointers do not need the class to be defined
         if( StructOpened( class_type ) == NULL && CurToken != T_TIMES ) {
@@ -766,7 +766,7 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
     boolean undefined_scope;
     boolean special_template;
 
-    template_type = state->class_colon;
+    template_type = BindTemplateClass( state->class_colon, FALSE );
     name = SimpleTypeName( template_type );
     template_class_type = StructType( template_type );
     scope_tree = PTreeId( name );

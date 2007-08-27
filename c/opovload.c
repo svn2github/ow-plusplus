@@ -191,6 +191,7 @@ static void setupOVOP(          // SETUP OVOP
             olinf->have_user_type = TRUE;
             if( user_type->id == TYP_CLASS ) {
                 olinf->have_class_type = TRUE;
+                class_type = BindTemplateClass( class_type, FALSE );
                 class_type = user_type;
             }
         }

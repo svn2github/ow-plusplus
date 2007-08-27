@@ -1040,7 +1040,7 @@ PTREE AnalyseOffsetOf(          // ANALYSE OFFSETOF
     SCOPE scope;                // - search scope
     SEARCH_RESULT *result;      // - search result
 
-    type = expr->u.subtree[0]->type;
+    type = BindTemplateClass( expr->u.subtree[0]->type, FALSE );
     field = PtdGetOffsetofExpr( expr );
     DbgAssert( field != NULL );
     offset = 0;

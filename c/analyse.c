@@ -2694,7 +2694,11 @@ PTREE AnalyseOperator(          // ANALYSE AN OPERATOR
     if( left == NULL ) {
         type = NULL;
     } else {
+        left->type = BindTemplateClass( left->type, FALSE );
         type = TypedefModifierRemoveOnly( left->type );
+    }
+    if( right != NULL ) {
+        right->type = BindTemplateClass( right->type, FALSE );
     }
     temp_class = TEMP_TYPE_NONE;
     action_code = opr_rtn_table[ expr->cgop ][ index ];
@@ -2855,6 +2859,7 @@ start_opac_string:
             if( left->flags & PTF_LVALUE ) continue;
             if( allowClassCastAsLValue( &expr->u.subtree[0] ) ) {
                 left = PTreeOpLeft( expr );
+                left->type = BindTemplateClass( left->type, FALSE );
                 type = TypedefModifierRemoveOnly( left->type );
                 continue;
             }
@@ -2984,12 +2989,14 @@ start_opac_string:
             right = PTreeOpRight( expr );
             continue;
           case REQD_PTR_SCALES_LEFT :
+            left->type = BindTemplateClass( left->type, TRUE );
             if( ptr_scales( left ) ) continue;
             analyse_err_left( expr
                             , ERR_PTR_SCALES
                             , ERR_PTR_SCALES_LEFT );
             break;
           case REQD_PTR_SCALES_RIGHT :
+            right->type = BindTemplateClass( right->type, TRUE );
             if( ptr_scales( right ) ) continue;
             operandError( expr, ERR_PTR_SCALES_RIGHT );
             break;
@@ -3080,6 +3087,8 @@ start_opac_string:
           { type_flag flags_l;      // type flags (left)
             type_flag flags_r;      // type flags (right)
             type_flag flags_bad;    // type flags (missing on left)
+            left->type = BindTemplateClass( left->type, FALSE );
+            right->type = BindTemplateClass( right->type, FALSE );
             TypePointedAt( right->type, &flags_r );
             TypePointedAt( left->type, &flags_l );
             flags_bad = flags_r & ~ flags_l;
@@ -3149,10 +3158,12 @@ start_opac_string:
             continue;
           case CONV_RVALUE_LEFT :
             left = NodeRvalueLeft( expr );
+            left->type = BindTemplateClass( left->type, FALSE );
             type = TypedefModifierRemoveOnly( left->type );
             continue;
           case CONV_RVALUE_RIGHT :
             right = NodeRvalueRight( expr );
+            right->type = BindTemplateClass( right->type, FALSE );
             continue;
           case CONV_INDEX :
             DbgAssert( expr->cgop == CO_INDEX );
@@ -3160,19 +3171,21 @@ start_opac_string:
             expr->flags |= PTF_WAS_INDEX;
             continue;
           case CONV_TYPE_LEFT :
+            left->type = BindTemplateClass( left->type, FALSE );
             type = left->type;
             continue;
           case CONV_TYPE_RIGHT :
             if( right->flags & PTF_LVALUE ) {
                 expr->flags |= PTF_LVALUE;
             }
+            right->type = BindTemplateClass( right->type, FALSE );
             type = right->type;
             continue;
           case CONV_REFERENCE :
           { TYPE refed;     // referenced type
             refed = TypeReference( type );
             if( refed == NULL ) continue;
-            type = refed;
+            type = BindTemplateClass( refed, FALSE );
             expr->flags |= PTF_LVALUE;
           } continue;
           case CONV_MEANINGLESS :
@@ -3221,6 +3234,7 @@ start_opac_string:
           case ASSIGN_OTHER :
           { CNV_RETN retn;  // - conversion return
             type = TypedefModifierRemoveOnly( TypeReferenced( type ) );
+            type = BindTemplateClass( type, FALSE );
             if( type->id == TYP_CLASS ) {
                 expr = ClassAssign( expr );
             } else if( type->id == TYP_MEMBER_POINTER ) {
@@ -3252,6 +3266,7 @@ start_opac_string:
             continue;
           case RESULT_RETURN :
           { TYPE type_l;        // - left type
+            type = BindTemplateClass( type, FALSE );
             if( NULL != StructType( type ) ) {
                 expr = AnalyseReturnClassVal( expr );
                 if( expr->op == PT_ERROR ) break;
@@ -3384,6 +3399,7 @@ start_opac_string:
                 break;
             }
             class_type = StructType( ArrayBaseType( type ) );
+            class_type = BindTemplateClass( class_type, FALSE );
             if( class_type != NULL && ! TypeDefined( class_type ) ) {
                 PTreeSetErrLoc( expr );
                 CErr2p( WARN_ASSUMING_NO_OVERLOADED_OP_ADDR, class_type );
@@ -3714,7 +3730,7 @@ start_opac_string:
           case RESULT_NEW :
             expr = AnalyseNew( expr, left->type );
             if( expr->op == PT_ERROR ) break;
-            type = expr->type;
+            type = BindTemplateClass( expr->type, TRUE );
             continue;
           case RESULT_DLT :
             expr = AnalyseDelete( expr, FALSE );
@@ -4113,11 +4129,14 @@ start_opac_string:
             continue;
           case RELOAD_EXPR_BINARY :             // drops thru
             right = PTreeOpRight( expr );
+            right->type = BindTemplateClass( right->type, FALSE );
           case RELOAD_EXPR_UNARY :
             left = PTreeOpLeft( expr );
+            left->type = BindTemplateClass( left->type, FALSE );
           case RELOAD_EXPR_TYPE :               // drops thru
             if( expr->op == PT_ERROR ) break;
             type = expr->type;
+            type = BindTemplateClass( type, FALSE );
             continue;
           case CONV_BASIC_TYPE :
             type = TypedefModifierRemove( type );

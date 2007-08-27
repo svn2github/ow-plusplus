@@ -72,6 +72,7 @@ PCH_struct member_inst {
 typedef struct class_inst CLASS_INST;   // class template instantiation
 PCH_struct class_inst {
     CLASS_INST          *next;          // (ring)
+    TYPE                unbound_type;   // unbound class type
     SCOPE               scope;          // scope containing instantiation
     SCOPE               inlines_scope;  // scope for instantiating inline functions
     SCOPE               inlines_enclosing; // scope for instantiating inline functions
@@ -112,10 +113,17 @@ PCH_struct template_specialization {
     unsigned            free : 1;       // used for precompiled headers
 };
 
+typedef struct unbound_template UNBOUND_TEMPLATE; // unbound template class
+PCH_struct unbound_template {
+    UNBOUND_TEMPLATE    *next;          // (ring)
+    TYPE                unbound_type;   // unbound class type
+    unsigned int        hash;           // hash code
+};
+
 PCH_struct template_info {
     TEMPLATE_INFO       *next;          // (ring)
+    UNBOUND_TEMPLATE    *unbound_templates; // unbound template classes
     TEMPLATE_SPECIALIZATION *specializations;// template specializations
-    TYPE                unbound_type;   // type to use in unbound circumstances
     REWRITE             **defarg_list;  // default arguments
     SYMBOL              sym;            // template symbol
     unsigned            nr_specs;       // number of template specializations (including the primary template)
@@ -171,7 +179,7 @@ extern void TemplateFunctionAttachDefn( DECL_INFO * );
 extern SYMBOL TemplateFunctionGenerate( SYMBOL, arg_list *, PTREE, TOKEN_LOCN * );
 extern void TemplateClassDeclaration( PTREE, SCOPE, char * );
 extern boolean TemplateClassDefinition( PTREE, SCOPE, char * );
-extern TYPE TemplateClassInstantiation( PTREE, PTREE, tc_instantiate );
+extern TYPE TemplateClassReference( PTREE, PTREE, tc_instantiate );
 extern void TemplateHandleClassMember( DECL_INFO * );
 extern void TemplateMemberAttachDefn( DECL_INFO * );
 extern void TemplateProcessInstantiations( void );
@@ -187,6 +195,7 @@ extern void TemplateFunctionInstantiate( FN_TEMPLATE *, FN_TEMPLATE_INST * );
 extern SYMBOL TemplateFunctionTranslate( SYMBOL, boolean, SCOPE * );
 extern tc_fn_control TemplateFunctionControl( void );
 extern TYPE TemplateUnboundInstantiate( TYPE, arg_list *, TOKEN_LOCN * );
+extern TYPE BindTemplateClass( TYPE, boolean ptr );
 extern SYMBOL ClassTemplateLookup( SCOPE scope, char * );
 extern SYMBOL TemplateSymFromClass( TYPE );
 extern void TemplateSetDepth( unsigned );
