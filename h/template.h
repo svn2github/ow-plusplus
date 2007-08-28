@@ -195,7 +195,6 @@ extern void TemplateFunctionInstantiate( FN_TEMPLATE *, FN_TEMPLATE_INST * );
 extern SYMBOL TemplateFunctionTranslate( SYMBOL, boolean, SCOPE * );
 extern tc_fn_control TemplateFunctionControl( void );
 extern TYPE TemplateUnboundInstantiate( TYPE, arg_list *, TOKEN_LOCN * );
-extern TYPE BindTemplateClass( TYPE, boolean ptr );
 extern SYMBOL ClassTemplateLookup( SCOPE scope, char * );
 extern SYMBOL TemplateSymFromClass( TYPE );
 extern void TemplateSetDepth( unsigned );

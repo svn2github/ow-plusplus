@@ -2605,7 +2605,7 @@ BASE_CLASS *ClassBaseSpecifier( inherit_flag flags, DECL_SPEC *dspec )
     BASE_CLASS *base;
     CLASS_DATA *data;
 
-    base_type = BindTemplateClass( dspec->partial, FALSE );
+    base_type = BindTemplateClass( dspec->partial, NULL, FALSE );
     PTypeRelease( dspec );
     error_detected = FALSE;
     base_type = StructType( base_type );
@@ -3388,7 +3388,7 @@ static PTREE verifyMemInit( PTREE mem_init )
                 break;
             }
         }
-        member->type = BindTemplateClass( member->type, TRUE );
+        member->type = BindTemplateClass( member->type, &member->locn, TRUE );
         if( member->op == PT_ID ) {
             if( verifyMemberInit( member, scope ) ) {
                 error_detected = TRUE;

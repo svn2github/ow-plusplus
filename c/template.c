@@ -1097,9 +1097,13 @@ static TYPE doParseClassTemplate( TEMPLATE_SPECIALIZATION *tspec,
 
     new_type = TypeError;
     if( ! tspec->corrupted ) {
-        pushInstContext( &context, TCTX_CLASS_DEFN, locn, GetCurrScope() );
+        if( locn != NULL ) {
+            pushInstContext( &context, TCTX_CLASS_DEFN, locn, GetCurrScope() );
+        }
         dspec = ParseClassInstantiation( defn );
-        popInstContext();
+        if( locn != NULL ) {
+            popInstContext();
+        }
         if( dspec != NULL ) {
             new_type = dspec->partial;
             PTypeRelease( dspec );
@@ -2349,8 +2353,10 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
     inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
     curr_instantiation = newClassInstantiation( tspec, unbound_type,
                                                 inst_scope, TCI_NULL );
-    curr_instantiation->locn = *locn;
-    curr_instantiation->locn_set = TRUE;
+    if( locn != NULL ) {
+        curr_instantiation->locn = *locn;
+        curr_instantiation->locn_set = TRUE;
+    }
 
     injectTemplateParms( tspec, parm_scope, parms, spec_parm_scope != NULL );
     ScopeAdjustUsing( NULL, inst_scope );
@@ -2628,7 +2634,7 @@ TYPE TemplateClassReference( PTREE tid, PTREE parms, tc_instantiate control )
         if( control & ( TCI_NO_MEMBERS | TCI_EXPLICIT_FULL ) ) {
             CLASS_INST *inst;
 
-            typ = BindTemplateClass( typ, FALSE );
+            typ = BindTemplateClass( typ, NULL, FALSE );
             inst = TypeClassInstantiation( typ );
             DbgAssert( inst != NULL );
 
@@ -2710,10 +2716,12 @@ static PTREE fakeUpTemplateParms( SCOPE parm_scope, arg_list *type_args )
         if( curr == NULL ) break;
         if( curr->id == SC_TYPEDEF ) {
             if( curr_type_arg ) {
-                parm = PTreeType( BindTemplateClass( *curr_type_arg, FALSE ) );
+                parm = PTreeType( BindTemplateClass( *curr_type_arg, NULL,
+                                                     FALSE ) );
                 ++curr_type_arg;
             } else {
-                parm = PTreeType( BindTemplateClass( curr->sym_type, FALSE ) );
+                parm = PTreeType( BindTemplateClass( curr->sym_type, NULL,
+                                                     FALSE ) );
             }
         } else {
             parm = fakeUpParm( curr );
@@ -2783,8 +2791,8 @@ TYPE TemplateUnboundInstantiate( TYPE unbound_class, arg_list *type_args,
     return( new_type );
 }
 
-TYPE BindTemplateClass( TYPE typ, boolean deref_ptrs )
-/****************************************************/
+TYPE BindTemplateClass( TYPE typ, TOKEN_LOCN *locn, boolean deref_ptrs )
+/**********************************************************************/
 {
     TYPE unbound = typ;
     TYPE bound = NULL;
@@ -2804,9 +2812,7 @@ TYPE BindTemplateClass( TYPE typ, boolean deref_ptrs )
          && ( unbound->flag & TF1_UNBOUND )
          && !( unbound->flag & TF1_GENERIC ) ) {
             if( unbound->of == NULL ) {
-                TOKEN_LOCN locn = { 0 }; // TODO: need to get a location
-
-                bound = TemplateUnboundInstantiate( unbound, NULL, &locn );
+                bound = TemplateUnboundInstantiate( unbound, NULL, locn );
                 DbgAssert( ( unbound->of == NULL )
                         || ( unbound->of == bound ) );
                 unbound->of = bound;

@@ -1988,7 +1988,7 @@ static TYPE handleDefnChecks( SYMBOL func )
 
     DbgAssert( FunctionDeclarationType( func->sym_type ) != NULL );
     fn_type = TypeGetActualFlags( func->sym_type, &flags );
-    fn_type->of = BindTemplateClass( fn_type->of, FALSE );
+    fn_type->of = BindTemplateClass( fn_type->of, &func->locn->tl, FALSE );
     if( ! TypeDefined( fn_type->of ) ) {
         SetErrLoc( &func->locn->tl );
         CErr2p( ERR_CLASS_NOT_DEFINED, TypeClassInfo( fn_type->of )->name );

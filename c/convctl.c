@@ -117,7 +117,7 @@ boolean ConvCtlTypeInit         // INITIALIZE CONVTYPE
     boolean retn;               // - TRUE ==> is bit_field, array, function
     TYPE cl_type;               // - class type
 
-    type = BindTemplateClass( type, TRUE );
+    type = BindTemplateClass( type, NULL, TRUE );
     ctype->orig = type;
     ctype->unmod = TypeGetActualFlags( type, &ctype->modflags );
     ctype->pted = NULL;
