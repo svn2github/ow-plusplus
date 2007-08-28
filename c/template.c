@@ -1097,13 +1097,9 @@ static TYPE doParseClassTemplate( TEMPLATE_SPECIALIZATION *tspec,
 
     new_type = TypeError;
     if( ! tspec->corrupted ) {
-        if( locn != NULL ) {
-            pushInstContext( &context, TCTX_CLASS_DEFN, locn, GetCurrScope() );
-        }
+        pushInstContext( &context, TCTX_CLASS_DEFN, locn, GetCurrScope() );
         dspec = ParseClassInstantiation( defn );
-        if( locn != NULL ) {
-            popInstContext();
-        }
+        popInstContext();
         if( dspec != NULL ) {
             new_type = dspec->partial;
             PTypeRelease( dspec );
