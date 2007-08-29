@@ -2810,7 +2810,8 @@ TYPE BindTemplateClass( TYPE typ, TOKEN_LOCN *locn, boolean deref_ptrs )
             if( unbound->of == NULL ) {
                 bound = TemplateUnboundInstantiate( unbound, NULL, locn );
                 DbgAssert( ( unbound->of == NULL )
-                        || ( unbound->of == bound ) );
+                        || ( unbound->of == bound )
+                        || ( bound == TypeError ) );
                 unbound->of = bound;
             } else {
                 bound = unbound->of;
