@@ -720,8 +720,13 @@ qualified-id
     { $$ = MakeScopedId( $1 ); }
     | Y_SCOPED_TEMPLATE_ID
     { $$ = MakeScopedId( $1 ); }
-    | Y_SCOPED_TILDE Y_TYPE_NAME /* nested-name-specifier :: ~ class-name */
+    | Y_SCOPED_TILDE Y_ID /* nested-name-specifier :: ~ class-name */
     { $$ = setLocation( MakeScopedDestructorId( $1, $2 ), &yylp[1] ); }
+    | nested-name-specifier Y_TEMPLATE_SCOPED_TILDE Y_ID /* nested-name-specifier :: ~ class-name */ /* TODO */
+    {
+        PTreeFreeSubtrees( $1 );
+        $$ = setLocation( MakeScopedDestructorId( $2, $3 ), &yylp[2] );
+    }
     | nested-name-specifier Y_TEMPLATE_SCOPED_TILDE Y_TEMPLATE_NAME /* nested-name-specifier :: ~ class-name */ /* TODO */
     {
         PTreeFreeSubtrees( $1 );

@@ -735,6 +735,7 @@ static int scopedChain( PARSE_STACK *state, PTREE start, PTREE id,
         case T_TILDE:
         case T_ALT_TILDE:
             yylval.tree = makeUnary( CO_TILDE, curr );
+            state->scope_member = curr->u.subtree[1]->u.id.scope;
             return( Y_SCOPED_TILDE );
         case T_OPERATOR:
             yylval.tree = makeUnary( CO_OPERATOR, curr );
@@ -836,6 +837,9 @@ static int templateScopedChain( PARSE_STACK *state, boolean special_typename )
         case T_TILDE:
         case T_ALT_TILDE:
             yylval.tree = makeUnary( CO_TILDE, curr );
+            if( ! undefined_scope ) {
+                state->scope_member = curr->u.subtree[1]->u.id.scope;
+            }
             return( Y_TEMPLATE_SCOPED_TILDE );
         case T_OPERATOR:
             yylval.tree = makeUnary( CO_OPERATOR, curr );
@@ -1021,7 +1025,6 @@ static int yylex( PARSE_STACK *state )
             token = doId( state->scope_member );
             yylval.tree->flags |= flags.special_typename ? PTF_TYPENAME : 0;
         }
-        state->scope_member = NULL;
         break;
     case T_STRING:
         literal = StringCreate( Buffer, TokenLen - 1 );
@@ -1074,7 +1077,9 @@ static int yylex( PARSE_STACK *state )
         token = yytranslate[ CurToken ];
     }
 
-    state->scope_member = NULL;
+    if( ( token != Y_SCOPED_TILDE ) && ( token != Y_TEMPLATE_SCOPED_TILDE ) ) {
+        state->scope_member = NULL;
+    }
     if( ! state->look_ahead_active ) {
         token = specialAngleBracket( state, token );
     }
