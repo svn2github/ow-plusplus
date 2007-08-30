@@ -2247,7 +2247,11 @@ function-definition
         if( $1->body != NULL ) {
             if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL ) ) {
                 TemplateFunctionAttachDefn( $1 );
-            } else if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) ) {
+            } else if( ( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST )
+                      || ( ScopeType( GetCurrScope(), SCOPE_CLASS )
+                        && ScopeType( GetCurrScope()->enclosing,
+                                      SCOPE_TEMPLATE_INST ) )
+                    && ! $1->friend_fn ) ) {
                 TemplateMemberAttachDefn( $1 );
             } else {
                 ClassStoreInlineFunc( $1 );

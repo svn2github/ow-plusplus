@@ -2850,14 +2850,23 @@ void TemplateMemberAttachDefn( DECL_INFO *dinfo )
 {
     CLASS_INST *instance;
     MEMBER_INST *member;
+    SCOPE member_scope;
 
-    DbgAssert( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) );
-    instance = GetCurrScope()->owner.inst;
-    DbgAssert( instance != NULL );
+    if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) ) {
+        member_scope = GetCurrScope();
+    } else if( ScopeType( GetCurrScope(), SCOPE_CLASS )
+            && ScopeType( GetCurrScope()->enclosing, SCOPE_TEMPLATE_INST ) ) {
+        member_scope = GetCurrScope()->enclosing;
+    } else {
+        member_scope = NULL;
+    }
+
+    DbgAssert( member_scope != NULL );
+    instance = member_scope->owner.inst;
 
     member = RingCarveAlloc( carveMEMBER_INST, &(instance->members) );
     member->dinfo = dinfo;
-    member->scope = GetCurrScope();
+    member->scope = member_scope;
     member->class_parm_scope = instance->scope->enclosing;
     member->class_parm_enclosing = member->class_parm_scope->enclosing;
 }
