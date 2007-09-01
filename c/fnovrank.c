@@ -198,6 +198,10 @@ static boolean trivialRankPtrToPtr( FNOV_CONV *conv )
         // need to look down all levels here
         src = conv->wsrc.original;
         tgt = conv->wtgt.original;
+        if( !( conv->rank->control & FNC_DISTINCT_CHECK ) ) {
+            src = BindTemplateClass( src, NULL, TRUE );
+            tgt = BindTemplateClass( tgt, NULL, TRUE );
+        }
         ConvCtlInitTypes( &info, src, tgt );
         ConvCtlTypeDecay( &info, &info.src );
         ConvCtlTypeDecay( &info, &info.tgt );

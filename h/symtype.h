@@ -439,8 +439,17 @@ typedef enum {
 
 PCH_struct friend_list {
     FRIEND              *next;          // - next in ring
-    SYMBOL              sym;            // - friendly symbol
+    union {
+        SYMBOL          sym;            // - friendly symbol
+        TYPE            type;           // - friendly type
+        unsigned int    is_type : 1;    // - flag: 0=symbol, 1=type
+    } u;
 };
+
+#define FriendIsType( friend )          ( (friend)->u.is_type )
+#define FriendIsSymbol( friend )        ( ! (friend)->u.is_type )
+#define FriendGetSymbol( friend )       ( (friend)->u.sym )
+#define FriendGetType( friend )         ( (TYPE) (((unsigned long) (friend)->u.type) & ~1) )
 
 struct reloc_list {
     RELOC_LIST *next;
@@ -1289,8 +1298,10 @@ extern SYMBOL ScopeInsert( SCOPE, SYMBOL, char * );
 extern boolean ScopeCarefulInsert( SCOPE, SYMBOL *, char * );
 extern SYMBOL ScopePromoteSymbol( SCOPE, SYMBOL, char * );
 extern void ScopeInsertErrorSym( SCOPE, PTREE );
-extern void ScopeRawAddFriend( CLASSINFO *, SYMBOL );
-extern void ScopeAddFriend( SCOPE, SYMBOL );
+extern void ScopeRawAddFriendSym( CLASSINFO *, SYMBOL );
+extern void ScopeRawAddFriendType( CLASSINFO *, TYPE );
+extern void ScopeAddFriendSym( SCOPE, SYMBOL );
+extern void ScopeAddFriendType( SCOPE, TYPE );
 extern SYMBOL AllocSymbol( void );
 extern SYMBOL AllocTypedSymbol( TYPE );
 extern SYMBOL_NAME AllocSymbolName( char *, SCOPE );

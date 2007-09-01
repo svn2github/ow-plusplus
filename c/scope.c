@@ -2178,25 +2178,36 @@ SYMBOL ScopeInsert( SCOPE scope, SYMBOL sym, char *name )
     return( sym );
 }
 
-void ScopeRawAddFriend( CLASSINFO *info, SYMBOL sym )
-/***************************************************/
+void ScopeRawAddFriendSym( CLASSINFO *info, SYMBOL sym )
+/******************************************************/
 {
     FRIEND *new_friend;
 
     new_friend = CPermAlloc( sizeof( FRIEND ) );
     new_friend->next = NULL;
-    new_friend->sym = sym;
+    new_friend->u.sym = sym;
     RingAppend( &(info->friends), new_friend );
 }
 
-void ScopeAddFriend( SCOPE scope, SYMBOL sym )
-/********************************************/
+void ScopeRawAddFriendType( CLASSINFO *info, TYPE type )
+/*******************************************************/
+{
+    FRIEND *new_friend;
+
+    new_friend = CPermAlloc( sizeof( FRIEND ) );
+    new_friend->next = NULL;
+    new_friend->u.type = type;
+    new_friend->u.is_type = TRUE;
+    RingAppend( &(info->friends), new_friend );
+}
+
+void ScopeAddFriendSym( SCOPE scope, SYMBOL sym )
+/***********************************************/
 {
     SCOPE sym_scope;
     SYMBOL friendly_sym;
     TYPE scopes_class_type;
     TYPE class_type;
-    TYPE type;
     FRIEND *a_friend;
     boolean OK_for_friend;
 
@@ -2223,35 +2234,52 @@ void ScopeAddFriend( SCOPE scope, SYMBOL sym )
         }
     }
     RingIterBeg( ScopeFriends( scope ), a_friend ) {
-        friendly_sym = a_friend->sym;
-        switch( friendly_sym->id ) {
-        case SC_TYPEDEF:
-            /* friendly classes */
-            type = StructType( friendly_sym->sym_type );
-            if( type == class_type ) {
-                CErr2p( WARN_CLASS_FRIEND_REPEATED, type );
-                return;
-            }
-            break;
-        case SC_CLASS_TEMPLATE:
-            /* friendly class templates */
-            if( friendly_sym == sym ) {
-                CErr2p( WARN_CLASS_TEMPLATE_FRIEND_REPEATED, sym );
-                return;
-            }
-            break;
-        default:
-            /* friendly functions */
-            if( SymIsFunction( friendly_sym ) ) {
+        if( FriendIsSymbol( a_friend ) ) {
+            friendly_sym = FriendGetSymbol( a_friend );
+            if( friendly_sym->id == SC_CLASS_TEMPLATE ) {
+                /* friendly class templates */
                 if( friendly_sym == sym ) {
-                    CErr2p( WARN_FN_FRIEND_REPEATED, sym );
+                    CErr2p( WARN_CLASS_TEMPLATE_FRIEND_REPEATED, sym );
                     return;
+                }
+            } else {
+                /* friendly functions */
+                if( SymIsFunction( friendly_sym ) ) {
+                    if( friendly_sym == sym ) {
+                        CErr2p( WARN_FN_FRIEND_REPEATED, sym );
+                        return;
+                    }
                 }
             }
         }
     } RingIterEnd( a_friend )
     scopes_class_type = ScopeClass( scope );
-    ScopeRawAddFriend( scopes_class_type->u.c.info, sym );
+    ScopeRawAddFriendSym( scopes_class_type->u.c.info, sym );
+}
+
+void ScopeAddFriendType( SCOPE scope, TYPE type )
+/***********************************************/
+{
+    TYPE friendly_type;
+    TYPE scopes_class_type;
+    TYPE class_type;
+    FRIEND *a_friend;
+
+    class_type = StructType( type );
+    if( ScopeLocalClass( scope ) ) {
+        /* TODO: local classes have restrictions on friends */
+    }
+    RingIterBeg( ScopeFriends( scope ), a_friend ) {
+        if( FriendIsType( a_friend ) ) {
+            friendly_type = FriendGetType( a_friend );
+            if( friendly_type == class_type ) {
+                CErr2p( WARN_CLASS_FRIEND_REPEATED, type );
+                return;
+            }
+        }
+    } RingIterEnd( a_friend )
+    scopes_class_type = ScopeClass( scope );
+    ScopeRawAddFriendType( scopes_class_type->u.c.info, type );
 }
 
 static BASE_PATH *newPath( PATH_CAP *cap )
@@ -2830,40 +2858,42 @@ static boolean isFriendly( SCOPE check, SCOPE friendly )
     TYPE type;
 
     RingIterBeg( ScopeFriends( friendly ), a_friend ) {
-        sym = a_friend->sym;
-        switch( sym->id ) {
-        case SC_TYPEDEF:
+        if( FriendIsType( a_friend ) ) {
             /* friendly classes */
-            type = StructType( sym->sym_type );
-            if( type != NULL ) {
-                if( type->u.c.scope == check ) {
-                    return( TRUE );
-                }
+            type = FriendGetType( a_friend );
+            if( ( type->id == TYP_CLASS )
+             && ( type->flag & TF1_UNBOUND )
+             && ( type->of != NULL ) ) {
+                type = type->of;
             }
-            break;
-        case SC_CLASS_TEMPLATE:
-            /* friendly class templates */
-            type = ScopeClass( check );
-            if( type != NULL ) {
-                if( type->flag & TF1_INSTANTIATION ) {
-                    if( type->u.c.info->name == sym->name->name ) {
-                        /* class scope must be instantiated from class template */
-                        return( TRUE );
+            if( type->u.c.scope == check ) {
+                return( TRUE );
+            }
+        } else {
+            sym = FriendGetSymbol( a_friend );
+            if( sym->id == SC_CLASS_TEMPLATE ) {
+                /* friendly class templates */
+                type = ScopeClass( check );
+                if( type != NULL ) {
+                    if( type->flag & TF1_INSTANTIATION ) {
+                        if( type->u.c.info->name == sym->name->name ) {
+                            /* class scope must be instantiated from class template */
+                            return( TRUE );
+                        }
                     }
                 }
-            }
-            break;
-        default:
-            /* friendly functions */
-            if( SymIsFunction( sym ) ) {
-                SYMBOL curr_sym = ScopeFunctionInProgress();
-                if( sym == curr_sym ) {
-                    return( TRUE );
-                }
-                if( ( curr_sym != NULL )
-                 && ( curr_sym->flag & SF_TEMPLATE_FN )
-                 && ( sym == curr_sym->u.alias ) ) {
-                    return( TRUE );
+            } else {
+                /* friendly functions */
+                if( SymIsFunction( sym ) ) {
+                    SYMBOL curr_sym = ScopeFunctionInProgress();
+                    if( sym == curr_sym ) {
+                        return( TRUE );
+                    }
+                    if( ( curr_sym != NULL )
+                     && ( curr_sym->flag & SF_TEMPLATE_FN )
+                     && ( sym == curr_sym->u.alias ) ) {
+                        return( TRUE );
+                    }
                 }
             }
         }

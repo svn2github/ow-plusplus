@@ -2366,16 +2366,22 @@ static DECL_SPEC *checkForClassFriends( DECL_SPEC *dspec, boolean decl_done )
     }
     dspec->specifier &= ~STY_FRIEND;
     if( !bad_friend ) {
-        if( sym == NULL && ( type->flag & TF1_INSTANTIATION ) != 0 ) {
-            sym = TemplateSymFromClass( type );
-        } else {
+        if( sym != NULL ) {
             sym = checkPreviouslyDeclared( sym, name );
         }
-        if( sym != NULL ) {
-            ScopeAddFriend( GetCurrScope(), sym );
-            /* make sure we don't need a declarator for this declaration */
-            dspec->nameless_allowed = TRUE;
+        if( ( sym != NULL ) && ( sym->id != SC_TYPEDEF ) ) {
+            ScopeAddFriendSym( GetCurrScope(), sym );
+        } else {
+            if( sym != NULL ) {
+                type = StructType( sym->sym_type );
+            }
+
+            if( type != NULL ) {
+                ScopeAddFriendType( GetCurrScope(), type );
+            }
         }
+        /* make sure we don't need a declarator for this declaration */
+        dspec->nameless_allowed = TRUE;
     }
     return( dspec );
 }
@@ -6564,7 +6570,7 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
                 if( dinfo->scope != NULL && dinfo->fn_defn ) {
                     CErr2p( ERR_INLINE_MEMBER_FRIEND, check_sym );
                 }
-                ScopeAddFriend( class_scope, check_sym );
+                ScopeAddFriendSym( class_scope, check_sym );
             } else {
                 CErr1( ERR_FRIEND_NOT_IN_CLASS );
             }
@@ -8903,7 +8909,9 @@ static void saveClassInfo( void *e, carve_walk_base *d )
     char *save_name;
     TYPE save_class_mod;
     FRIEND *friend;
+    signed char friend_is_type;
     SYMBOL friend_sym;
+    TYPE friend_type;
     CDOPT_CACHE *save_cdopt_cache;
 
     if( s->free ) {
@@ -8920,11 +8928,18 @@ static void saveClassInfo( void *e, carve_walk_base *d )
     PCHWriteCVIndex( d->index );
     PCHWrite( s, sizeof( *s ) );
     RingIterBeg( s->friends, friend ) {
-        friend_sym = SymbolGetIndex( friend->sym );
-        PCHWrite( &friend_sym, sizeof( friend_sym ) );
+        friend_is_type = FriendIsType( friend );
+        PCHWrite( &friend_is_type, sizeof( friend_is_type ) );
+        if( friend_is_type ) {
+            friend_type = TypeGetIndex( FriendGetType( friend ) );
+            PCHWrite( &friend_type, sizeof( friend_type ) );
+        } else {
+            friend_sym = SymbolGetIndex( FriendGetSymbol( friend ) );
+            PCHWrite( &friend_sym, sizeof( friend_sym ) );
+        }
     } RingIterEnd( friend )
-    friend_sym = SymbolGetIndex( NULL );
-    PCHWrite( &friend_sym, sizeof( friend_sym ) );
+    friend_is_type = -1;
+    PCHWrite( &friend_is_type, sizeof( friend_is_type ) );
     s->class_mod = save_class_mod;
     s->cdopt_cache = save_cdopt_cache;
     s->name = save_name;
@@ -9080,9 +9095,10 @@ static void readTypes( type_pch_walk *type_data )
 static void readClassInfos( void )
 {
     cv_index i;
-    cv_index si;
     CLASSINFO *ci;
     SYMBOL sym;
+    TYPE type;
+    signed char friend_is_type;
     auto cvinit_t data;
 
     CarveInitStart( carveCLASSINFO, &data );
@@ -9097,10 +9113,17 @@ static void readClassInfos( void )
         ci->class_mod = TypeMapIndex( ci->class_mod );
         ci->friends = NULL;
         for(;;) {
-            PCHLocateCVIndex( si );
-            if( si == CARVE_NULL_INDEX ) break;
-            sym = SymbolMapIndex( (SYMBOL) si );
-            ScopeRawAddFriend( ci, sym );
+            PCHRead( &friend_is_type, sizeof( friend_is_type ) );
+            if( friend_is_type == -1 ) break;
+            if( friend_is_type ) {
+                PCHRead( &type, sizeof( type ) );
+                type = TypeMapIndex( type );
+                ScopeRawAddFriendType( ci, type );
+            } else {
+                PCHRead( &sym, sizeof( sym ) );
+                sym = SymbolMapIndex( sym );
+                ScopeRawAddFriendSym( ci, sym );
+            }
         }
     }
 }

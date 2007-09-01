@@ -645,7 +645,9 @@ static msg_status_t doError(    // ISSUE ERROR
         flag.print_err = okToPrintMsg( msgnum, &level );
         if( suppressCount > 0 ) {
             /* suppressed message */
-            ErrCount++;
+            if( flag.print_err && ( level == 0 ) ) {
+                ErrCount++;
+            }
             return MS_NULL;
         } else if( ErrLimit == -1 ) {
             /* unlimited messages */

@@ -863,14 +863,25 @@ static void dumpFriendRef(      // DUMP REFERENCE TO FRIEND SCOPE
     void *_fr )                 // - the reference
 {
     FRIEND *fr = _fr;
-    printf( "   FRIEND"     F_BADDR
-            " next"         F_PTR
-            " sym"          F_PTR
-            F_EOL
-          , fr
-          , fr->next
-          , fr->sym
-          );
+    if( FriendIsType( fr ) ) {
+        printf( "   FRIEND"     F_BADDR
+                " next"         F_PTR
+                " type"         F_PTR
+                F_EOL
+              , fr
+              , fr->next
+              , FriendGetType( fr )
+              );
+    } else {
+        printf( "   FRIEND"     F_BADDR
+                " next"         F_PTR
+                " sym"          F_PTR
+                F_EOL
+              , fr
+              , fr->next
+              , FriendGetSymbol( fr )
+              );
+    }
 }
 
 
@@ -961,7 +972,7 @@ static void dumpFriend(         // DUMP A FRIEND SCOPE
     void *_fr )                 // - symbol for the friend scope
 {
     FRIEND *fr = _fr;
-    dump_sym_scope( fr->sym );
+    dump_sym_scope( fr->u.sym );
 }
 
 
