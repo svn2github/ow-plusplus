@@ -2748,6 +2748,11 @@ qualified-class-type
     {
         $$ = PTypeClassInstantiation( state->class_colon, $1 );
     }
+    | nested-name-specifier Y_TEMPLATE_SCOPED_TYPE_NAME
+    {
+        PTreeFreeSubtrees( $1 );
+        $$ = sendClass( $2 );
+    }
     ;
 
 
