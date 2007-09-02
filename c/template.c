@@ -54,21 +54,13 @@
 #endif
 
 #define BLOCK_TEMPLATE_INFO     16
-#define BLOCK_UNBOUND_TEMPLATE  16
-#define BLOCK_TEMPLATE_SPECIALIZATION 16
-#define BLOCK_MEMBER_INST       32
 #define BLOCK_CLASS_INST        32
 #define BLOCK_TEMPLATE_MEMBER   32
 #define BLOCK_FN_TEMPLATE       16
-#define BLOCK_FN_TEMPLATE_INST  32
 static carve_t carveTEMPLATE_INFO;
-static carve_t carveUNBOUND_TEMPLATE;
-static carve_t carveTEMPLATE_SPECIALIZATION;
-static carve_t carveMEMBER_INST;
 static carve_t carveCLASS_INST;
 static carve_t carveTEMPLATE_MEMBER;
 static carve_t carveFN_TEMPLATE;
-static carve_t carveFN_TEMPLATE_INST;
 
 static TEMPLATE_DATA *currentTemplate;
 static TEMPLATE_INFO *allClassTemplates;
@@ -250,26 +242,18 @@ static void templateInit( INITFINI* defn )
     templateSuicide.call_back = templateSuicideHandler;
     RegisterSuicideCallback( &templateSuicide );
     carveTEMPLATE_INFO = CarveCreate( sizeof( TEMPLATE_INFO ), BLOCK_TEMPLATE_INFO );
-    carveUNBOUND_TEMPLATE = CarveCreate( sizeof( UNBOUND_TEMPLATE ), BLOCK_UNBOUND_TEMPLATE );
-    carveTEMPLATE_SPECIALIZATION = CarveCreate( sizeof( TEMPLATE_SPECIALIZATION ), BLOCK_TEMPLATE_SPECIALIZATION );
-    carveMEMBER_INST = CarveCreate( sizeof( MEMBER_INST ), BLOCK_MEMBER_INST );
     carveCLASS_INST = CarveCreate( sizeof( CLASS_INST ), BLOCK_CLASS_INST );
     carveTEMPLATE_MEMBER = CarveCreate( sizeof( TEMPLATE_MEMBER ), BLOCK_TEMPLATE_MEMBER );
     carveFN_TEMPLATE = CarveCreate( sizeof( FN_TEMPLATE ), BLOCK_FN_TEMPLATE );
-    carveFN_TEMPLATE_INST = CarveCreate( sizeof( FN_TEMPLATE_INST ), BLOCK_FN_TEMPLATE_INST );
 }
 
 static void templateFini( INITFINI *defn )
 {
     defn = defn;
     CarveDestroy( carveTEMPLATE_INFO );
-    CarveDestroy( carveUNBOUND_TEMPLATE );
-    CarveDestroy( carveTEMPLATE_SPECIALIZATION );
-    CarveDestroy( carveMEMBER_INST );
     CarveDestroy( carveCLASS_INST );
     CarveDestroy( carveTEMPLATE_MEMBER );
     CarveDestroy( carveFN_TEMPLATE );
-    CarveDestroy( carveFN_TEMPLATE_INST );
 }
 
 INITDEFN( template, templateInit, templateFini )
@@ -422,8 +406,8 @@ static TEMPLATE_SPECIALIZATION *newTemplateSpecialization(
 
     args = data->args;
     arg_count = getArgList( args, NULL, NULL, NULL, TRUE );
-    tspec = RingCarveAlloc( carveTEMPLATE_SPECIALIZATION,
-                            &tinfo->specializations );
+    tspec = CPermAlloc( sizeof( TEMPLATE_SPECIALIZATION ) );
+    RingAppend( &tinfo->specializations, tspec );
     tprimary = RingFirst( tinfo->specializations );
 
     tspec->tinfo = tinfo;
@@ -440,7 +424,6 @@ static TEMPLATE_SPECIALIZATION *newTemplateSpecialization(
     tspec->defn = NULL;
     tspec->corrupted = FALSE;
     tspec->defn_found = FALSE;
-    tspec->free = FALSE;
 
     getArgList( args, tspec->type_list, tspec->arg_names, NULL, TRUE );
     return( tspec );
@@ -1595,13 +1578,12 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym, DECL_INFO *dinfo,
     }
     FreeDeclInfo( dinfo );
 
-    fn_inst = RingCarveAlloc( carveFN_TEMPLATE_INST,
-                              &fn_templ->instantiations );
+    fn_inst = CPermAlloc( sizeof( FN_TEMPLATE_INST ) );
+    RingAppend( &fn_templ->instantiations, fn_inst );
     fn_inst->bound_sym = new_sym;
     fn_inst->parm_scope = parm_scope;
     fn_inst->inst_scope = inst_scope;
     fn_inst->processed = FALSE;
-    fn_inst->free = FALSE;
 
     return new_sym;
 }
@@ -2614,8 +2596,8 @@ TYPE TemplateClassReference( PTREE tid, PTREE parms, tc_instantiate control )
                 typ = createUnboundClass( tinfo, parms, is_generic );
                 if( typ != NULL ) {
                     UNBOUND_TEMPLATE *unbound_templ =
-                        RingCarveAlloc( carveUNBOUND_TEMPLATE,
-                                        &tinfo->unbound_templates );
+                        CPermAlloc( sizeof( UNBOUND_TEMPLATE ) );
+                    RingAppend( &tinfo->unbound_templates, unbound_templ );
                     unbound_templ->unbound_type = typ;
                     unbound_templ->hash = 0;
                 }
@@ -2864,7 +2846,8 @@ void TemplateMemberAttachDefn( DECL_INFO *dinfo )
     DbgAssert( member_scope != NULL );
     instance = member_scope->owner.inst;
 
-    member = RingCarveAlloc( carveMEMBER_INST, &(instance->members) );
+    member = CPermAlloc( sizeof( MEMBER_INST ) );
+    RingAppend( &(instance->members), member );
     member->dinfo = dinfo;
     member->scope = member_scope;
     member->class_parm_scope = instance->scope->enclosing;
@@ -3158,7 +3141,6 @@ static void freeDefns( void )
                     curr_member = RingPop( &(curr_instance->members) );
                     if( curr_member == NULL ) break;
                     FreeDeclInfo( curr_member->dinfo );
-                    CarveFree( carveMEMBER_INST, curr_member );
                 }
             } RingIterEnd( curr_instance)
         } RingIterEnd( tspec )
@@ -3416,8 +3398,8 @@ void TemplateSpecificDefnStart( PTREE tid, PTREE parms )
             ScopeSetParmClass( parm_scope, tinfo );
 
             unbound_class = ClassUnboundTemplate( name );
-            unbound_templ = RingCarveAlloc( carveUNBOUND_TEMPLATE,
-                                            &tinfo->unbound_templates );
+            unbound_templ = CPermAlloc( sizeof( UNBOUND_TEMPLATE ) );
+            RingAppend( &tinfo->unbound_templates, unbound_templ );
             unbound_templ->unbound_type = unbound_class;
             unbound_templ->hash = 0;
 
@@ -3574,23 +3556,9 @@ FN_TEMPLATE *TemplateFunctionInfoMapIndex( FN_TEMPLATE *e )
     return( CarveMapIndex( carveFN_TEMPLATE, e ) );
 }
 
-static void markFreeTemplateSpecialization( void *p )
-{
-    TEMPLATE_SPECIALIZATION *s = p;
-
-    s->free = TRUE;
-}
-
 static void markFreeTemplateInfo( void *p )
 {
     TEMPLATE_INFO *s = p;
-
-    s->free = TRUE;
-}
-
-static void markFreeMemberInst( void *p )
-{
-    MEMBER_INST *s = p;
 
     s->free = TRUE;
 }
@@ -3602,13 +3570,6 @@ static void markFreeClassInst( void *p )
     s->free = TRUE;
 }
 
-static void markFreeFnTemplateInst( void *p )
-{
-    FN_TEMPLATE_INST *s = p;
-
-    s->free = TRUE;
-}
-
 static void markFreeFnTemplateDefn( void *p )
 {
     FN_TEMPLATE *s = p;
@@ -3616,9 +3577,9 @@ static void markFreeFnTemplateDefn( void *p )
     s->free = TRUE;
 }
 
-static void saveTemplateSpecialization( void *p, carve_walk_base *d )
+static void saveTemplateSpecialization( TEMPLATE_SPECIALIZATION *s,
+                                        TEMPLATE_SPECIALIZATION *stop )
 {
-    TEMPLATE_SPECIALIZATION *s = p;
     TEMPLATE_SPECIALIZATION *save_next;
     TEMPLATE_INFO *save_tinfo;
     SCOPE save_decl_scope;
@@ -3633,11 +3594,8 @@ static void saveTemplateSpecialization( void *p, carve_walk_base *d )
     void *nti;
     unsigned i;
 
-    if( s->free ) {
-        return;
-    }
     save_next = s->next;
-    s->next = CarveGetIndex( carveTEMPLATE_SPECIALIZATION, save_next );
+    s->next = (TEMPLATE_SPECIALIZATION *) ( s->next != stop );
     save_tinfo = s->tinfo;
     s->tinfo = TemplateClassInfoGetIndex( save_tinfo );
     save_decl_scope = s->decl_scope;
@@ -3652,7 +3610,6 @@ static void saveTemplateSpecialization( void *p, carve_walk_base *d )
     s->spec_args = PTreeGetIndex( save_spec_args );
     save_ordering = s->ordering;
     s->ordering = ( save_ordering != NULL ) ? (void *) save_tinfo->nr_specs : NULL;
-    PCHWriteCVIndex( d->index );
     PCHWrite( s, sizeof( *s ) );
     for( i = 0; i < s->num_args; ++i ) {
         nti = NameGetIndex( s->arg_names[i] );
@@ -3700,6 +3657,7 @@ static void saveTemplateInfo( void *p, carve_walk_base *d )
     TEMPLATE_INFO *save_next;
     TEMPLATE_SPECIALIZATION *save_specializations;
     TEMPLATE_SPECIALIZATION *tprimary;
+    TEMPLATE_SPECIALIZATION *tspec;
     SYMBOL save_sym;
     void *defarg_index;
     unsigned i;
@@ -3713,35 +3671,37 @@ static void saveTemplateInfo( void *p, carve_walk_base *d )
     save_next = s->next;
     s->next = TemplateClassInfoGetIndex( save_next );
     save_specializations = s->specializations;
-    s->specializations = CarveGetIndex( carveTEMPLATE_SPECIALIZATION,
-                                        save_specializations );
+    s->specializations = (TEMPLATE_SPECIALIZATION *) ( s->specializations != NULL );
     save_sym = s->sym;
     s->sym = SymbolGetIndex( save_sym );
+
     PCHWriteCVIndex( d->index );
     PCHWrite( s, sizeof( *s ) );
+
+    s->next = save_next;
+    s->specializations = save_specializations;
+    s->sym = save_sym;
+
     for( i = 0; i < tprimary->num_args; ++i ) {
         defarg_index = RewriteGetIndex( s->defarg_list[i] );
         PCHWrite( &defarg_index, sizeof( defarg_index ) );
     }
-    s->next = save_next;
-    s->specializations = save_specializations;
-    s->sym = save_sym;
+
+    RingIterBeg( s->specializations, tspec ) {
+        saveTemplateSpecialization( tspec, s->specializations );
+    } RingIterEnd( tspec )
 }
 
-static void saveMemberInst( void *p, carve_walk_base *d )
+static void saveMemberInst( MEMBER_INST *s, MEMBER_INST *stop )
 {
-    MEMBER_INST *s = p;
     MEMBER_INST *save_next;
     DECL_INFO *save_dinfo;
     SCOPE save_scope;
     SCOPE save_class_parm_scope;
     SCOPE save_class_parm_enclosing;
 
-    if( s->free ) {
-        return;
-    }
     save_next = s->next;
-    s->next = CarveGetIndex( carveMEMBER_INST, save_next );
+    s->next = (MEMBER_INST *) ( s != stop );
     save_dinfo = s->dinfo;
     s->dinfo = (void *) ( s->dinfo != NULL );
     save_scope = s->scope;
@@ -3750,16 +3710,18 @@ static void saveMemberInst( void *p, carve_walk_base *d )
     s->class_parm_scope = ScopeGetIndex( save_class_parm_scope );
     save_class_parm_enclosing = s->class_parm_enclosing;
     s->class_parm_enclosing = ScopeGetIndex( save_class_parm_enclosing );
-    PCHWriteCVIndex( d->index );
+
     PCHWrite( s, sizeof( *s ) );
-    if( save_dinfo != NULL ) {
-        PCHWriteDeclInfo( save_dinfo );
-    }
+
     s->next = save_next;
     s->dinfo = save_dinfo;
     s->scope = save_scope;
     s->class_parm_scope = save_class_parm_scope;
     s->class_parm_enclosing = save_class_parm_enclosing;
+
+    if( s->dinfo != NULL ) {
+        PCHWriteDeclInfo( s->dinfo );
+    }
 }
 
 static void saveClassInst( void *p, carve_walk_base *d )
@@ -3770,6 +3732,8 @@ static void saveClassInst( void *p, carve_walk_base *d )
     SCOPE save_inlines_scope;
     SCOPE save_inlines_enclosing;
     DECL_INFO *save_inlines;
+    MEMBER_INST *save_members;
+    MEMBER_INST *member;
     SRCFILE save_locn_src_file;
 
     if( s->free ) {
@@ -3785,42 +3749,49 @@ static void saveClassInst( void *p, carve_walk_base *d )
     s->inlines_enclosing = ScopeGetIndex( save_inlines_enclosing );
     save_inlines = s->inlines;
     s->inlines = (void *) ( s->inlines != NULL );
+    save_members = s->members;
+    s->members = (MEMBER_INST *) ( s->members != NULL );
     save_locn_src_file = s->locn.src_file;
     s->locn.src_file = SrcFileGetIndex( save_locn_src_file );
+
     PCHWriteCVIndex( d->index );
     PCHWrite( s, sizeof( *s ) );
-    if( save_inlines != NULL ) {
-        PCHWriteDeclInfo( save_inlines );
-    }
+
     s->next = save_next;
     s->scope = save_scope;
     s->inlines_scope = save_inlines_scope;
     s->inlines_enclosing = save_inlines_enclosing;
     s->inlines = save_inlines;
+    s->members = save_members;
     s->locn.src_file = save_locn_src_file;
+
+    if( s->inlines != NULL ) {
+        PCHWriteDeclInfo( s->inlines );
+    }
+
+    RingIterBeg( s->members, member ) {
+        saveMemberInst( member, s->members );
+    } RingIterEnd( member )
 }
 
-static void saveFnTemplateInst( void *p, carve_walk_base *d )
+static void saveFnTemplateInst( FN_TEMPLATE_INST *s, FN_TEMPLATE_INST *stop )
 {
-    FN_TEMPLATE_INST *s = p;
     FN_TEMPLATE_INST *save_next;
     SYMBOL save_bound_sym;
     SCOPE save_parm_scope;
     SCOPE save_inst_scope;
 
-    if( s->free ) {
-        return;
-    }
     save_next = s->next;
-    s->next = CarveGetIndex( carveFN_TEMPLATE_INST, save_next );
+    s->next = (FN_TEMPLATE_INST *) ( s != stop );
     save_bound_sym = s->bound_sym;
     s->bound_sym = SymbolGetIndex( save_bound_sym );
     save_parm_scope = s->parm_scope;
     s->parm_scope = ScopeGetIndex( save_parm_scope );
     save_inst_scope = s->inst_scope;
     s->inst_scope = ScopeGetIndex( save_inst_scope );
-    PCHWriteCVIndex( d->index );
+
     PCHWrite( s, sizeof( *s ) );
+
     s->next = save_next;
     s->bound_sym = save_bound_sym;
     s->parm_scope = save_parm_scope;
@@ -3832,6 +3803,7 @@ static void saveFnTemplateDefn( void *p, carve_walk_base *d )
     FN_TEMPLATE *s = p;
     FN_TEMPLATE *save_next;
     FN_TEMPLATE_INST *save_instantiations;
+    FN_TEMPLATE_INST *inst;
     SYMBOL save_sym;
     REWRITE *save_defn;
     SCOPE save_decl_scope;
@@ -3842,7 +3814,7 @@ static void saveFnTemplateDefn( void *p, carve_walk_base *d )
     save_next = s->next;
     s->next = TemplateFunctionInfoGetIndex( save_next );
     save_instantiations = s->instantiations;
-    s->instantiations = CarveGetIndex( carveFN_TEMPLATE_INST, save_instantiations );
+    s->instantiations = (FN_TEMPLATE_INST *) ( s->instantiations != NULL );
     save_sym = s->sym;
     s->sym = SymbolGetIndex( save_sym );
     save_defn = s->defn;
@@ -3856,6 +3828,10 @@ static void saveFnTemplateDefn( void *p, carve_walk_base *d )
     s->sym = save_sym;
     s->defn = save_defn;
     s->decl_scope = save_decl_scope;
+
+    RingIterBeg( s->instantiations, inst ) {
+        saveFnTemplateInst( inst, s->instantiations );
+    } RingIterEnd( inst )
 }
 
 pch_status PCHWriteTemplates( void )
@@ -3870,22 +3846,11 @@ pch_status PCHWriteTemplates( void )
     PCHWrite( &all_class_templates, sizeof( all_class_templates ) );
     all_function_templates = TemplateFunctionInfoGetIndex( allFunctionTemplates );
     PCHWrite( &all_function_templates, sizeof( all_function_templates ) );
-    CarveWalkAllFree( carveMEMBER_INST, markFreeMemberInst );
-    CarveWalkAll( carveMEMBER_INST, saveMemberInst, &data );
-    PCHWriteCVIndex( terminator );
     CarveWalkAllFree( carveCLASS_INST, markFreeClassInst );
     CarveWalkAll( carveCLASS_INST, saveClassInst, &data );
     PCHWriteCVIndex( terminator );
-    CarveWalkAllFree( carveFN_TEMPLATE_INST, markFreeFnTemplateInst );
-    CarveWalkAll( carveFN_TEMPLATE_INST, saveFnTemplateInst, &data );
-    PCHWriteCVIndex( terminator );
     CarveWalkAllFree( carveFN_TEMPLATE, markFreeFnTemplateDefn );
     CarveWalkAll( carveFN_TEMPLATE, saveFnTemplateDefn, &data );
-    PCHWriteCVIndex( terminator );
-    CarveWalkAllFree( carveTEMPLATE_SPECIALIZATION,
-                      markFreeTemplateSpecialization );
-    CarveWalkAll( carveTEMPLATE_SPECIALIZATION, saveTemplateSpecialization,
-                  &data );
     PCHWriteCVIndex( terminator );
     CarveWalkAllFree( carveTEMPLATE_INFO, markFreeTemplateInfo );
     CarveWalkAll( carveTEMPLATE_INFO, saveTemplateInfo, &data );
@@ -3913,6 +3878,7 @@ pch_status PCHReadTemplates( void )
     SCOPE scope;
     REWRITE *memb_defn;
     char **memb_arg_names;
+    boolean cont;
     auto cvinit_t data;
 
     PCHRead( &templateData.max_depth, sizeof( templateData.max_depth ) );
@@ -3920,20 +3886,7 @@ pch_status PCHReadTemplates( void )
     allClassTemplates = TemplateClassInfoMapIndex( allClassTemplates );
     PCHRead( &allFunctionTemplates, sizeof( allFunctionTemplates ) );
     allFunctionTemplates = TemplateFunctionInfoMapIndex( allFunctionTemplates );
-    CarveInitStart( carveMEMBER_INST, &data );
-    for(;;) {
-        i = PCHReadCVIndex();
-        if( i == CARVE_NULL_INDEX ) break;
-        mi = CarveInitElement( &data, i );
-        PCHRead( mi, sizeof( *mi ) );
-        mi->next = CarveMapIndex( carveMEMBER_INST, mi->next );
-        mi->scope = ScopeMapIndex( mi->scope );
-        mi->class_parm_scope = ScopeMapIndex( mi->class_parm_scope );
-        mi->class_parm_enclosing = ScopeMapIndex( mi->class_parm_enclosing );
-        if( mi->dinfo != NULL ) {
-            mi->dinfo = PCHReadDeclInfo();
-        }
-    }
+
     CarveInitStart( carveCLASS_INST, &data );
     for(;;) {
         i = PCHReadCVIndex();
@@ -3948,18 +3901,26 @@ pch_status PCHReadTemplates( void )
         if( ci->inlines != NULL ) {
             ci->inlines = PCHReadDeclInfo();
         }
+
+        cont = ci->members != NULL;
+        ci->members = NULL;
+        while( cont ) {
+            mi = CPermAlloc( sizeof( MEMBER_INST ) );
+            PCHRead( mi, sizeof( *mi ) );
+            cont = mi->next != NULL;
+
+            mi->next = NULL;
+            mi->scope = ScopeMapIndex( mi->scope );
+            mi->class_parm_scope = ScopeMapIndex( mi->class_parm_scope );
+            mi->class_parm_enclosing = ScopeMapIndex( mi->class_parm_enclosing );
+
+            if( mi->dinfo != NULL ) {
+                mi->dinfo = PCHReadDeclInfo();
+            }
+            RingAppend( &ci->members, mi );
+        }
     }
-    CarveInitStart( carveFN_TEMPLATE_INST, &data );
-    for(;;) {
-        i = PCHReadCVIndex();
-        if( i == CARVE_NULL_INDEX ) break;
-        fti = CarveInitElement( &data, i );
-        PCHRead( fti, sizeof( *fti ) );
-        fti->next = CarveMapIndex( carveFN_TEMPLATE_INST, fti->next );
-        fti->bound_sym = SymbolMapIndex( fti->bound_sym );
-        fti->parm_scope = ScopeMapIndex( fti->parm_scope );
-        fti->inst_scope = ScopeMapIndex( fti->inst_scope );
-    }
+
     CarveInitStart( carveFN_TEMPLATE, &data );
     for(;;) {
         i = PCHReadCVIndex();
@@ -3967,62 +3928,25 @@ pch_status PCHReadTemplates( void )
         ftd = CarveInitElement( &data, i );
         PCHRead( ftd, sizeof( *ftd ) );
         ftd->next = TemplateFunctionInfoMapIndex( ftd->next );
-        ftd->instantiations = CarveMapIndex( carveFN_TEMPLATE_INST, ftd->instantiations );
         ftd->sym = SymbolMapIndex( ftd->sym );
         ftd->decl_scope = ScopeMapIndex( ftd->decl_scope );
         ftd->defn = RewriteMapIndex( ftd->defn );
-    }
-    CarveInitStart( carveTEMPLATE_SPECIALIZATION, &data );
-    for(;;) {
-        i = PCHReadCVIndex();
-        if( i == CARVE_NULL_INDEX ) break;
-        ts = CarveInitElement( &data, i );
-        PCHRead( ts, sizeof( *ts ) );
-        ts->next = CarveMapIndex( carveTEMPLATE_SPECIALIZATION, ts->next );
-        ts->tinfo = TemplateClassInfoMapIndex( ts->tinfo );
-        ts->locn.src_file = SrcFileMapIndex( ts->locn.src_file );
-        ts->decl_scope = ScopeMapIndex( ts->decl_scope );
-        ts->defn = RewriteMapIndex( ts->defn );
-        ts->instantiations = CarveMapIndex( carveCLASS_INST,
-                                            ts->instantiations );
-        ts->member_defns = NULL;
-        ts->spec_args = PTreeMapIndex( ts->spec_args );
-        arg_names_size = ts->num_args * sizeof( char * );
-        arg_names = CPermAlloc( arg_names_size );
-        ts->arg_names = arg_names;
-        type_list_size = ts->num_args * sizeof( TYPE );
-        type_list = CPermAlloc( type_list_size );
-        ts->type_list = type_list;
-        PCHRead( arg_names, arg_names_size );
-        PCHRead( type_list, type_list_size );
-        for( j = 0; j < ts->num_args; ++j ) {
-            arg_names[j] = NameMapIndex( arg_names[j] );
-            type_list[j] = TypeMapIndex( type_list[j] );
-        }
-        for(;;) {
-            PCHRead( &scope, sizeof( scope ) );
-            if( scope == NULL ) break;
-            scope = ScopeMapIndex( scope );
-            PCHRead( &memb_defn, sizeof( memb_defn ) );
-            memb_defn = RewriteMapIndex( memb_defn );
-            PCHRead( &j, sizeof( j ) );
-            if( j != 0 ) {
-                memb_arg_names = CPermAlloc( arg_names_size );
-                PCHRead( memb_arg_names, arg_names_size );
-                for( j = 0; j < ts->num_args; ++j ) {
-                    memb_arg_names[j] = NameMapIndex( memb_arg_names[j] );
-                }
-            } else {
-                memb_arg_names = arg_names;
-            }
-            addMemberEntry( ts, scope, memb_defn, memb_arg_names );
-        }
-        if( ts->ordering != NULL ) {
-            j = 16 * ( ( ( (unsigned) ts->ordering ) - 2 ) / 128 + 1 );
-            ts->ordering = CMemAlloc( j );
-            PCHRead( ts->ordering, j );
+
+        cont = ftd->instantiations != NULL;
+        ftd->instantiations = NULL;
+        while( cont ) {
+            fti = CPermAlloc( sizeof( FN_TEMPLATE_INST ) );
+            PCHRead( fti, sizeof( *fti ) );
+            cont = fti->next != NULL;
+
+            fti->next = NULL;
+            fti->bound_sym = SymbolMapIndex( fti->bound_sym );
+            fti->parm_scope = ScopeMapIndex( fti->parm_scope );
+            fti->inst_scope = ScopeMapIndex( fti->inst_scope );
+            RingAppend( &ftd->instantiations, fti );
         }
     }
+
     CarveInitStart( carveTEMPLATE_INFO, &data );
     for(;;) {
         i = PCHReadCVIndex();
@@ -4030,8 +3954,6 @@ pch_status PCHReadTemplates( void )
         ti = CarveInitElement( &data, i );
         PCHRead( ti, sizeof( *ti ) );
         ti->next = TemplateClassInfoMapIndex( ti->next );
-        ti->specializations = CarveMapIndex( carveTEMPLATE_SPECIALIZATION,
-                                             ti->specializations );
         ti->sym = SymbolMapIndex( ti->sym );
         tprimary = RingFirst( ti->specializations );
         defarg_list_size = tprimary->num_args * sizeof( REWRITE * );
@@ -4041,7 +3963,63 @@ pch_status PCHReadTemplates( void )
         for( j = 0; j < tprimary->num_args; ++j ) {
             defarg_list[j] = RewriteMapIndex( defarg_list[j] );
         }
+
+        cont = ti->specializations != NULL;
+        ti->specializations = NULL;
+        while( cont ) {
+            ts = CPermAlloc( sizeof( TEMPLATE_SPECIALIZATION ) );
+            PCHRead( ts, sizeof( *ts ) );
+            cont = ts->next != NULL;
+
+            ts->next = NULL;
+            ts->tinfo = TemplateClassInfoMapIndex( ts->tinfo );
+            ts->locn.src_file = SrcFileMapIndex( ts->locn.src_file );
+            ts->decl_scope = ScopeMapIndex( ts->decl_scope );
+            ts->defn = RewriteMapIndex( ts->defn );
+            ts->instantiations = CarveMapIndex( carveCLASS_INST,
+                                                ts->instantiations );
+            ts->member_defns = NULL;
+            ts->spec_args = PTreeMapIndex( ts->spec_args );
+            arg_names_size = ts->num_args * sizeof( char * );
+            arg_names = CPermAlloc( arg_names_size );
+            ts->arg_names = arg_names;
+            type_list_size = ts->num_args * sizeof( TYPE );
+            type_list = CPermAlloc( type_list_size );
+            ts->type_list = type_list;
+            PCHRead( arg_names, arg_names_size );
+            PCHRead( type_list, type_list_size );
+            for( j = 0; j < ts->num_args; ++j ) {
+                arg_names[j] = NameMapIndex( arg_names[j] );
+                type_list[j] = TypeMapIndex( type_list[j] );
+            }
+            for(;;) {
+                PCHRead( &scope, sizeof( scope ) );
+                if( scope == NULL ) break;
+                scope = ScopeMapIndex( scope );
+                PCHRead( &memb_defn, sizeof( memb_defn ) );
+                memb_defn = RewriteMapIndex( memb_defn );
+                PCHRead( &j, sizeof( j ) );
+                if( j != 0 ) {
+                    memb_arg_names = CPermAlloc( arg_names_size );
+                    PCHRead( memb_arg_names, arg_names_size );
+                    for( j = 0; j < ts->num_args; ++j ) {
+                        memb_arg_names[j] = NameMapIndex( memb_arg_names[j] );
+                    }
+                } else {
+                    memb_arg_names = arg_names;
+                }
+                addMemberEntry( ts, scope, memb_defn, memb_arg_names );
+            }
+            if( ts->ordering != NULL ) {
+                j = 16 * ( ( ( (unsigned) ts->ordering ) - 2 ) / 128 + 1 );
+                ts->ordering = CMemAlloc( j );
+                PCHRead( ts->ordering, j );
+            }
+
+            RingAppend( &ti->specializations, ts );
+        }
     }
+
     return( PCHCB_OK );
 }
 
@@ -4052,13 +4030,7 @@ pch_status PCHInitTemplates( boolean writing )
     if( writing ) {
         n = CarveLastValidIndex( carveCLASS_INST );
         PCHWriteCVIndex( n );
-        n = CarveLastValidIndex( carveFN_TEMPLATE_INST );
-        PCHWriteCVIndex( n );
         n = CarveLastValidIndex( carveFN_TEMPLATE );
-        PCHWriteCVIndex( n );
-        n = CarveLastValidIndex( carveTEMPLATE_MEMBER );
-        PCHWriteCVIndex( n );
-        n = CarveLastValidIndex( carveTEMPLATE_SPECIALIZATION );
         PCHWriteCVIndex( n );
         n = CarveLastValidIndex( carveTEMPLATE_INFO );
         PCHWriteCVIndex( n );
@@ -4066,18 +4038,9 @@ pch_status PCHInitTemplates( boolean writing )
         carveCLASS_INST = CarveRestart( carveCLASS_INST );
         n = PCHReadCVIndex();
         CarveMapOptimize( carveCLASS_INST, n );
-        carveFN_TEMPLATE_INST = CarveRestart( carveFN_TEMPLATE_INST );
-        n = PCHReadCVIndex();
-        CarveMapOptimize( carveFN_TEMPLATE_INST, n );
         carveFN_TEMPLATE = CarveRestart( carveFN_TEMPLATE );
         n = PCHReadCVIndex();
         CarveMapOptimize( carveFN_TEMPLATE, n );
-        carveTEMPLATE_MEMBER = CarveRestart( carveTEMPLATE_MEMBER );
-        n = PCHReadCVIndex();
-        CarveMapOptimize( carveTEMPLATE_MEMBER, n );
-        carveTEMPLATE_SPECIALIZATION = CarveRestart( carveTEMPLATE_SPECIALIZATION );
-        n = PCHReadCVIndex();
-        CarveMapOptimize( carveTEMPLATE_SPECIALIZATION, n );
         carveTEMPLATE_INFO = CarveRestart( carveTEMPLATE_INFO );
         n = PCHReadCVIndex();
         CarveMapOptimize( carveTEMPLATE_INFO, n );
@@ -4089,10 +4052,7 @@ pch_status PCHFiniTemplates( boolean writing )
 {
     if( ! writing ) {
         CarveMapUnoptimize( carveCLASS_INST );
-        CarveMapUnoptimize( carveFN_TEMPLATE_INST );
         CarveMapUnoptimize( carveFN_TEMPLATE );
-        CarveMapUnoptimize( carveTEMPLATE_MEMBER );
-        CarveMapUnoptimize( carveTEMPLATE_SPECIALIZATION );
         CarveMapUnoptimize( carveTEMPLATE_INFO );
     }
     return( PCHCB_OK );

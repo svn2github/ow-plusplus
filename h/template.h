@@ -66,7 +66,6 @@ PCH_struct member_inst {
     SCOPE               class_parm_scope;
     SCOPE               class_parm_enclosing;
     unsigned            is_inline : 1;
-    unsigned            free : 1;       // used for precompiled headers
 };
 
 typedef struct class_inst CLASS_INST;   // class template instantiation
@@ -110,7 +109,6 @@ PCH_struct template_specialization {
     unsigned char       *ordering;      // "at least as specialized as" bitmask
     unsigned            corrupted : 1;  // template def'n contained errors
     unsigned            defn_found : 1; // a template defn has been found
-    unsigned            free : 1;       // used for precompiled headers
 };
 
 typedef struct unbound_template UNBOUND_TEMPLATE; // unbound template class
@@ -130,15 +128,16 @@ PCH_struct template_info {
     unsigned            free : 1;       // used for precompiled headers
 };
 
+typedef struct fn_template_inst FN_TEMPLATE_INST; // function template instantiation
 PCH_struct fn_template_inst {
     FN_TEMPLATE_INST    *next;          // (ring)
     SYMBOL              bound_sym;      // bound template function symbol
     SCOPE               parm_scope;     // template parameter scope
     SCOPE               inst_scope;     // template instantiation scope
     unsigned            processed : 1;  // already processed instantiation
-    unsigned            free : 1;       // used for precompiled headers
 };
 
+typedef struct fn_template FN_TEMPLATE; // function template
 PCH_struct fn_template {
     FN_TEMPLATE         *next;          // (ring)
     FN_TEMPLATE_INST    *instantiations;// list of instantiations
