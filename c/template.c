@@ -2043,6 +2043,9 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
                     } else if( type->id == TYP_CLASS ) {
                         *is_generic |= ( type->flag & TF1_GENERIC );
                         break;
+                    } else if( type->id == TYP_TYPENAME ) {
+                        *is_generic = TRUE;
+                        break;
                     }
                     type = type->of;
                 }

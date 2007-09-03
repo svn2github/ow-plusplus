@@ -226,6 +226,8 @@ static boolean typeCompareCurrent( TC_DATA **h, TYPE type1, TYPE type2,
             return( FALSE );
         }
         break;
+    case TYP_TYPENAME:
+        return( FALSE );
     default:
 #ifndef NDEBUG
         CFatal( "unknown type being compared" );
