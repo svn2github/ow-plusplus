@@ -5166,13 +5166,8 @@ PTREE MakeConstructorId( DECL_SPEC *dspec )
         scope = dspec->scope;
         if( scope == NULL || ScopeType( scope, SCOPE_CLASS ) ) {
             dspec->scope = NULL;
-            if( dspec->partial->id == TYP_TYPENAME ) {
-                id_tree = dspec->partial->u.n.tree;
-                dspec->partial->u.n.tree = NULL;
-            } else {
-                id_tree = dspec->id;
-            }
             dspec->partial = NULL;
+            id_tree = dspec->id;
             dspec->id = NULL;
             id_tree = CheckScopedId( id_tree );
         }
@@ -8569,21 +8564,17 @@ static void freeTypename( void *e, carve_walk_base *d )
     TYPE t = e;
 
     if( t->id == TYP_TYPENAME ) {
-        PTreeFreeSubtrees( t->u.n.tree );
-        t->u.n.tree = NULL;
+        CMemFree( t->u.n.name );
+        t->u.n.name = NULL;
     }
-}
-
-void TypeFreeTypenames( void )
-{
-    auto carve_walk_base data;
-    CarveWalkAll( carveTYPE, freeTypename, &data );
 }
 
 
 static void typesFini(          // COMPLETION OF TYPES PROCESSING
     INITFINI* defn )            // - definition
 {
+    auto carve_walk_base data;
+
     defn = defn;
     ClassFini();
 #ifndef NDEBUG
@@ -8591,6 +8582,7 @@ static void typesFini(          // COMPLETION OF TYPES PROCESSING
     CarveVerifyAllGone( carveDECL_SPEC, "DECL_SPEC" );
     CarveVerifyAllGone( carveDECL_INFO, "DECL_INFO" );
 #endif
+    CarveWalkAll( carveTYPE, freeTypename, &data );
     CarveDestroy( carveTYPE );
     CarveDestroy( carveDECL_SPEC );
     CarveDestroy( carveCLASSINFO );
@@ -8824,6 +8816,7 @@ static void saveType( void *e, carve_walk_base *d )
     void *save_base;
     AUX_INFO *save_pragma;
     arg_list *save_args;
+    char *save_string;
 
     if( s->id == TYP_FREE ) {
         return;
@@ -8872,6 +8865,10 @@ static void saveType( void *e, carve_walk_base *d )
         save_pragma = s->u.f.pragma;
         s->u.f.pragma_idx = PragmaGetIndex( save_pragma );
         break;
+    case TYP_TYPENAME:
+        save_string = s->u.n.name;
+        s->u.n.name = (char *) strlen( s->u.n.name );
+        break;
     }
     s->dbgflag |= ed->dbgflag_mask;
     PCHWriteCVIndex( d->index );
@@ -8898,6 +8895,10 @@ static void saveType( void *e, carve_walk_base *d )
     case TYP_FUNCTION:
         s->u.f.pragma = save_pragma;
         s->u.f.args = save_args;
+        break;
+    case TYP_TYPENAME:
+        PCHWrite( save_string, (unsigned int) s->u.n.name );
+        s->u.n.name = save_string;
         break;
     }
 }
@@ -9041,6 +9042,7 @@ static void readTypeHashed( TYPE* vector )
 static void readTypes( type_pch_walk *type_data )
 {
     cv_index i;
+    unsigned int l;
     TYPE t;
     TYPE pch;
     auto cvinit_t data;
@@ -9084,6 +9086,12 @@ static void readTypes( type_pch_walk *type_data )
         case TYP_FUNCTION:
             t->u.f.args = argListMapIndex( type_data, pch->u.f.args );
             t->u.f.pragma = PragmaMapIndex( pch->u.f.pragma_idx );
+            break;
+        case TYP_TYPENAME:
+            l = (unsigned int) pch->u.n.name;
+            t->u.n.name = CMemAlloc( l + 1 );
+            PCHRead( t->u.n.name, l );
+            t->u.n.name[l] = '\0';
             break;
         default :
             t->u = pch->u;

@@ -3580,6 +3580,23 @@ static void markFreeFnTemplateDefn( void *p )
     s->free = TRUE;
 }
 
+static void saveUnboundTemplate( UNBOUND_TEMPLATE *s,
+                                 UNBOUND_TEMPLATE *stop )
+{
+    UNBOUND_TEMPLATE *save_next;
+    TYPE save_type;
+
+    save_next = s->next;
+    s->next = (UNBOUND_TEMPLATE *) ( s != stop );
+    save_type = s->unbound_type;
+    s->unbound_type = TypeGetIndex( save_type );
+
+    PCHWrite( s, sizeof( *s ) );
+
+    s->next = save_next;
+    s->unbound_type = save_type;
+}
+
 static void saveTemplateSpecialization( TEMPLATE_SPECIALIZATION *s,
                                         TEMPLATE_SPECIALIZATION *stop )
 {
@@ -3598,7 +3615,7 @@ static void saveTemplateSpecialization( TEMPLATE_SPECIALIZATION *s,
     unsigned i;
 
     save_next = s->next;
-    s->next = (TEMPLATE_SPECIALIZATION *) ( s->next != stop );
+    s->next = (TEMPLATE_SPECIALIZATION *) ( s != stop );
     save_tinfo = s->tinfo;
     s->tinfo = TemplateClassInfoGetIndex( save_tinfo );
     save_decl_scope = s->decl_scope;
@@ -3613,6 +3630,7 @@ static void saveTemplateSpecialization( TEMPLATE_SPECIALIZATION *s,
     s->spec_args = PTreeGetIndex( save_spec_args );
     save_ordering = s->ordering;
     s->ordering = ( save_ordering != NULL ) ? (void *) save_tinfo->nr_specs : NULL;
+
     PCHWrite( s, sizeof( *s ) );
     for( i = 0; i < s->num_args; ++i ) {
         nti = NameGetIndex( s->arg_names[i] );
@@ -3644,13 +3662,14 @@ static void saveTemplateSpecialization( TEMPLATE_SPECIALIZATION *s,
         PCHWrite( save_ordering,
                   16 * ( ( save_tinfo->nr_specs - 2 ) / 128 + 1 ) );
     }
-    s->spec_args = save_spec_args;
+
     s->next = save_next;
     s->tinfo = save_tinfo;
     s->locn.src_file = save_locn_src_file;
     s->decl_scope = save_decl_scope;
     s->defn = save_defn;
     s->instantiations = save_instantiations;
+    s->spec_args = save_spec_args;
     s->ordering = save_ordering;
 }
 
@@ -3658,10 +3677,13 @@ static void saveTemplateInfo( void *p, carve_walk_base *d )
 {
     TEMPLATE_INFO *s = p;
     TEMPLATE_INFO *save_next;
+    UNBOUND_TEMPLATE *save_unbound_templates;
+    UNBOUND_TEMPLATE *unbound;
     TEMPLATE_SPECIALIZATION *save_specializations;
     TEMPLATE_SPECIALIZATION *tprimary;
     TEMPLATE_SPECIALIZATION *tspec;
     SYMBOL save_sym;
+    REWRITE **save_defarg_list;
     void *defarg_index;
     unsigned i;
 
@@ -3673,22 +3695,32 @@ static void saveTemplateInfo( void *p, carve_walk_base *d )
 
     save_next = s->next;
     s->next = TemplateClassInfoGetIndex( save_next );
+    save_unbound_templates = s->unbound_templates;
+    s->unbound_templates = (UNBOUND_TEMPLATE *) ( s->unbound_templates != NULL );
     save_specializations = s->specializations;
     s->specializations = (TEMPLATE_SPECIALIZATION *) ( s->specializations != NULL );
     save_sym = s->sym;
     s->sym = SymbolGetIndex( save_sym );
+    save_defarg_list = s->defarg_list;
+    s->defarg_list = (REWRITE **) tprimary->num_args;
 
     PCHWriteCVIndex( d->index );
     PCHWrite( s, sizeof( *s ) );
 
     s->next = save_next;
+    s->unbound_templates = save_unbound_templates;
     s->specializations = save_specializations;
     s->sym = save_sym;
+    s->defarg_list = save_defarg_list;
 
     for( i = 0; i < tprimary->num_args; ++i ) {
         defarg_index = RewriteGetIndex( s->defarg_list[i] );
         PCHWrite( &defarg_index, sizeof( defarg_index ) );
     }
+
+    RingIterBeg( s->unbound_templates, unbound ) {
+        saveUnboundTemplate( unbound, s->unbound_templates );
+    } RingIterEnd( unbound )
 
     RingIterBeg( s->specializations, tspec ) {
         saveTemplateSpecialization( tspec, s->specializations );
@@ -3876,8 +3908,8 @@ pch_status PCHReadTemplates( void )
     FN_TEMPLATE_INST *fti;
     FN_TEMPLATE *ftd;
     TEMPLATE_SPECIALIZATION *ts;
-    TEMPLATE_SPECIALIZATION *tprimary;
     TEMPLATE_INFO *ti;
+    UNBOUND_TEMPLATE *ut;
     SCOPE scope;
     REWRITE *memb_defn;
     char **memb_arg_names;
@@ -3958,13 +3990,26 @@ pch_status PCHReadTemplates( void )
         PCHRead( ti, sizeof( *ti ) );
         ti->next = TemplateClassInfoMapIndex( ti->next );
         ti->sym = SymbolMapIndex( ti->sym );
-        tprimary = RingFirst( ti->specializations );
-        defarg_list_size = tprimary->num_args * sizeof( REWRITE * );
-        defarg_list = CPermAlloc( defarg_list_size );
+
+        defarg_list_size = (unsigned int) ti->defarg_list;
+        defarg_list = CPermAlloc( defarg_list_size * sizeof( REWRITE * ) );
         ti->defarg_list = defarg_list;
-        PCHRead( defarg_list, defarg_list_size );
-        for( j = 0; j < tprimary->num_args; ++j ) {
+        PCHRead( defarg_list, defarg_list_size * sizeof( REWRITE * ) );
+        for( j = 0; j < defarg_list_size; ++j ) {
             defarg_list[j] = RewriteMapIndex( defarg_list[j] );
+        }
+
+        cont = ti->unbound_templates != NULL;
+        ti->unbound_templates = NULL;
+        while( cont ) {
+            ut = CPermAlloc( sizeof( UNBOUND_TEMPLATE ) );
+            PCHRead( ut, sizeof( *ut ) );
+            cont = ut->next != NULL;
+
+            ut->next = NULL;
+            ut->unbound_type = TypeMapIndex( ut->unbound_type );
+
+            RingAppend( &ti->unbound_templates, ut );
         }
 
         cont = ti->specializations != NULL;

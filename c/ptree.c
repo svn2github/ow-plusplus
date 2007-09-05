@@ -112,9 +112,6 @@ static void ptreeInit(          // INITIALIZATION
 static void ptreeFini(          // COMPLETION
     INITFINI* defn )            // - definition
 {
-    // need to free any PTREEs attached to a TYP_TYPENAME
-    TypeFreeTypenames();
-
     defn = defn;
 #ifndef NDEBUG
     CarveVerifyAllGone( carvePTREE, "PTREE" );

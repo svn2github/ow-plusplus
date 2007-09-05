@@ -1223,8 +1223,16 @@ static DECL_SPEC *sendType( PTREE tree )
         type = tree->type;
     }
     if( type == NULL ) {
+        VBUF vbuf;
+
         type = MakeType( TYP_TYPENAME );
-        type->u.n.tree = tree;
+        FormatPTreeId( tree, &vbuf );
+
+        type->u.n.name = CMemAlloc( vbuf.used );
+        memcpy( type->u.n.name, vbuf.buf, vbuf.used );
+
+        VbufFree( &vbuf );
+        PTreeFreeSubtrees( tree );
         tree = NULL;
     }
     dspec = PTypeActualTypeName( type, tree );

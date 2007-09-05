@@ -645,7 +645,7 @@ PCH_struct type {
             unsigned    index;          // keeps template args distinct
         } g;
         struct {                        // TYP_TYPENAME
-            PTREE       tree;           // parse tree
+            char       *name;           // typename string
         } n;
     } u;
     dbg_info            dbg;            // FOR D2 AND DWARF
@@ -1723,7 +1723,6 @@ TYPE TypePointerDiff(           // GET TYPE FOR DIFFERENCE OF POINTERS
 TYPE TypeReference(             // GET REFERENCE TYPE
     TYPE type )                 // - the type
 ;
-void TypeFreeTypenames( void );
 
 // type cache support
 typedef enum typc_index {
