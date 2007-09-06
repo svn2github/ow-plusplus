@@ -792,12 +792,13 @@ boolean SymIsModuleDtorable(    // TEST IF SYMBOL IS MODULE-DTORABLE
     /*
         three cases:
 
-            (1) file scope variables
+            (1) file scope variables (but not temporaries)
             (2) class static members
             (3) function static variables
     */
     symGetScope( sym, scope );
-    if( ScopeId( scope ) == SCOPE_FILE ) {
+    if( ( sym->name->name[0] != NAME_DUMMY_PREFIX_0 )
+     && ( ScopeId( scope ) == SCOPE_FILE ) ) {
         retn = TRUE;
     } else {
         retn = ( sym->id == SC_STATIC );
