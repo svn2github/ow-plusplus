@@ -593,6 +593,8 @@ boolean ConvCtlAnalysePoints    // ANALYSE CONVERSION INFORMATION FOR POINTS
     TYPE_FLAGS tgt;             // - target typing info
     CTD mp_ctd;                 // - host derivation for member-ptr
 
+    info->src.unmod = BoundTemplateClass( info->src.unmod );
+    info->tgt.unmod = BoundTemplateClass( info->tgt.unmod );
     src.type = info->src.unmod;
     tgt.type = info->tgt.unmod;
     mp_ctd = CTD_LEFT;

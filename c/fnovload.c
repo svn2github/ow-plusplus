@@ -320,11 +320,8 @@ static void addListEntry( FNOV_CONTROL control, FNOV_INFO *info, SYMBOL sym,
     FNOV_LIST    **hdr;     // - header for list addition
     unsigned     i;
 
-    if( ! ( control & FNC_DISTINCT_CHECK ) ) {
-        for( i = 0; i < alist->num_args; i++ ) {
-            alist->type_list[i] = BindTemplateClass( alist->type_list[i],
-                                                     &sym->locn->tl, TRUE );
-        }
+    for( i = 0; i < alist->num_args; i++ ) {
+        alist->type_list[i] = BoundTemplateClass( alist->type_list[i] );
     }
 
     if( flags & LENT_MATCH ) {

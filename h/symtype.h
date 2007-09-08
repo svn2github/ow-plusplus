@@ -1749,8 +1749,8 @@ extern TYPE TypeCache[];
 #define TypeVoidHandlerFunOfVoid() TypeGetCache( TYPC_VOID_HANDLER_FUN_OF_VOID )
 
 // defined in template.c
-extern TYPE BindTemplateClass( TYPE typ, TOKEN_LOCN *locn,
-                               boolean deref_ptrs );
+extern TYPE BoundTemplateClass( TYPE );
+extern TYPE BindTemplateClass( TYPE , TOKEN_LOCN *, boolean );
 
 // pre-compiled header support
 TYPE TypeGetIndex( TYPE );

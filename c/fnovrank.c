@@ -942,12 +942,16 @@ static void clstoClsRank( FNOV_CONV *conv )
     TYPE                src_basic, tgt_basic;
     type_flag           srcflags, tgtflags;
     FNOV_INTRNL_CONTROL ictl;
+    FNOV_RANK* rank = conv->rank;
 
     src_basic = conv->wsrc.basic;
     tgt_basic = conv->wtgt.basic;
+    if( !( rank->control & FNC_DISTINCT_CHECK ) ) {
+        src_basic = BindTemplateClass( src_basic, NULL, FALSE );
+        tgt_basic = BindTemplateClass( tgt_basic, NULL, FALSE );
+    }
     if( !TypesIdentical( src_basic, tgt_basic ) ) {
-        FNOV_RANK* rank = conv->rank;
-        if( rank->control & FNC_DISTINCT_CHECK  ) {
+        if( rank->control & FNC_DISTINCT_CHECK ) {
             rank->rank = OV_RANK_NO_MATCH;
             return;
         }

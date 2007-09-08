@@ -2772,6 +2772,38 @@ TYPE TemplateUnboundInstantiate( TYPE unbound_class, arg_list *type_args,
     return( new_type );
 }
 
+TYPE BoundTemplateClass( TYPE typ )
+/*********************************/
+{
+    TYPE unbound = typ;
+    TYPE bound = NULL;
+    TYPE *tptr = NULL;
+
+    if( unbound != NULL ) {
+        const unsigned int mask =
+            ( 1 << TYP_MODIFIER ) | ( 1 << TYP_TYPEDEF )
+          | ( 1 << TYP_ARRAY ) | ( 1 << TYP_POINTER );
+        while( ( 1 << unbound->id ) & mask ) {
+            tptr = &unbound->of;
+            unbound = *tptr;
+        }
+
+        if( ( unbound->id == TYP_CLASS )
+         && ( unbound->flag & TF1_UNBOUND )
+         && !( unbound->flag & TF1_GENERIC ) ) {
+            if( unbound->of != NULL ) {
+                bound = unbound->of;
+
+                if( tptr != NULL ) {
+                    *tptr = bound;
+                }
+            }
+        }
+    }
+
+    return ( ( tptr == NULL ) && ( bound != NULL ) ) ? bound : typ;
+}
+
 TYPE BindTemplateClass( TYPE typ, TOKEN_LOCN *locn, boolean deref_ptrs )
 /**********************************************************************/
 {
