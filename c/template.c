@@ -1275,6 +1275,7 @@ static FN_TEMPLATE *newTemplateFunction( SYMBOL sym )
     fn_defn->instantiations = NULL;
     fn_defn->sym = sym;
     fn_defn->decl_scope = GetCurrScope();
+    ScopeKeep( fn_defn->decl_scope );
     fn_defn->defn = NULL;
     fn_defn->has_defn = FALSE;
     fn_defn->free = FALSE;
