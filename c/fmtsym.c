@@ -328,6 +328,9 @@ void FormatTemplateParmScope( VBUF *parms, SCOPE parm_scope )
         }
         delim = templateParmNext;
     }
+    if( delim == templateParmStart ) {
+        VStrConcStr( parms, templateParmStart );
+    }
     VStrConcStr( parms, templateParmStop );
 }
 

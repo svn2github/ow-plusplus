@@ -500,7 +500,16 @@ static boolean isMemberCandidate( TYPE type, int num_args )
 {
     type = FunctionDeclarationType( type );
     if( type != NULL ) {
-        if( (TypeArgList( type )->num_args+1) == num_args ) {
+        arg_list *a_list = TypeArgList( type );
+
+        if( ( a_list->num_args + 1 ) == num_args ) {
+            unsigned int i = 0;
+
+            for( i = 0; i < a_list->num_args; i++ ) {
+                a_list->type_list[i] =
+                    BoundTemplateClass( a_list->type_list[i] );
+            }
+
             return( TRUE );
         }
     }
@@ -514,7 +523,16 @@ static boolean isSimpleCandidate( TYPE type, int num_args )
 {
     type = FunctionDeclarationType( type );
     if( type != NULL ) {
-        if( TypeArgList( type )->num_args == num_args ) {
+        arg_list *a_list = TypeArgList( type );
+
+        if( a_list->num_args == num_args ) {
+            unsigned int i = 0;
+
+            for( i = 0; i < a_list->num_args; i++ ) {
+                a_list->type_list[i] =
+                    BoundTemplateClass( a_list->type_list[i] );
+            }
+
             return( TRUE );
         }
     }
