@@ -1389,3 +1389,14 @@ SYMBOL SymConstantValue             // GET CONSTANT VALUE FOR SYMBOL
     }
     return sym;
 }
+
+SYMBOL SymDefArgBase(               // GET DEFARG BASE SYMBOL
+    SYMBOL sym )                    // - the symbol
+{
+    sym = sym;
+    while( SymIsDefArg( sym ) ) {
+        sym = sym->thread;
+    }
+
+    return sym;
+}

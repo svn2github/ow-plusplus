@@ -3118,6 +3118,7 @@ static void processFunctionTemplateInstantiations( void )
 {
     FN_TEMPLATE *curr_defn;
     FN_TEMPLATE_INST *curr_inst;
+    SYMBOL sym;
 
     RingIterBeg( allFunctionTemplates, curr_defn ) {
 
@@ -3126,9 +3127,9 @@ static void processFunctionTemplateInstantiations( void )
         }
 
         RingIterBeg( curr_defn->instantiations, curr_inst ) {
+            sym = SymDefArgBase( curr_inst->bound_sym );
 
-            if( ! curr_inst->processed
-             && ( curr_inst->bound_sym->flag & SF_REFERENCED ) ) {
+            if( ! curr_inst->processed && ( sym->flag & SF_REFERENCED ) ) {
                 templateData.keep_going = TRUE;
                 curr_inst->processed = TRUE;
                 TemplateFunctionInstantiate( curr_defn, curr_inst );
@@ -3194,6 +3195,7 @@ static void processInstantiationInlines( CLASS_INST *instance )
     DECL_INFO *prev_inline;
     SCOPE save_scope;
     SCOPE save_enclosing;
+    SYMBOL sym;
 
     save_scope = GetCurrScope();
     save_enclosing = NULL;
@@ -3208,14 +3210,17 @@ static void processInstantiationInlines( CLASS_INST *instance )
     prev_inline = NULL;
 
     RingIterBegSafe( instance->inlines, curr_inline ) {
+
+        sym = SymDefArgBase( curr_inline->sym );
+
         if( instance->must_process
-         || ( curr_inline->sym->flag & SF_REFERENCED )
-         || ( curr_inline->sym->sym_type->flag & TF1_VIRTUAL ) ) {
+         || ( sym->flag & SF_REFERENCED )
+         || ( sym->sym_type->flag & TF1_VIRTUAL ) ) {
 
 #ifndef NDEBUG
             if( PragDbgToggle.member_inst ) {
                 printf( "instantiating inline template member: %s\n",
-                        DbgSymNameFull( curr_inline->sym ) );
+                        DbgSymNameFull( sym ) );
             }
 #endif
 
@@ -3252,25 +3257,28 @@ static void processInstantiationMembers( CLASS_INST *instance )
     SCOPE save_class_parm_scope;
     SCOPE save_class_parm_enclosing;
     DECL_INFO *dinfo;
+    SYMBOL sym;
 
     ScopeAdjustUsing( GetCurrScope(), NULL );
 
     prev_member = NULL;
     RingIterBegSafe( instance->members, curr_member ) {
+
         dinfo = curr_member->dinfo;
+        sym = SymDefArgBase( dinfo->sym );
 
         if( instance->must_process
-         || ( dinfo->sym->flag & SF_REFERENCED )
-         || ( dinfo->sym->sym_type->flag & TF1_VIRTUAL ) ) {
+         || ( sym->flag & SF_REFERENCED )
+         || ( sym->sym_type->flag & TF1_VIRTUAL ) ) {
 
 #ifndef NDEBUG
             if( PragDbgToggle.member_inst ) {
                 printf( "instantiating template member: %s\n",
-                        DbgSymNameFull( dinfo->sym ) );
+                        DbgSymNameFull( sym ) );
             }
 #endif
 
-            sym_scope = SymScope( dinfo->sym );
+            sym_scope = SymScope( sym );
             save_scope = sym_scope->enclosing;
 
             save_class_parm_scope = instance->scope->enclosing;

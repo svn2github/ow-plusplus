@@ -573,11 +573,7 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
         }
     }
 
-    base_sym = sym;
-    while( SymIsDefArg( base_sym ) ) {
-        base_sym = base_sym->thread;
-    }
-
+    base_sym = SymDefArgBase( sym );
     if( SymIsFunctionTemplateModel( base_sym ) ) {
         FN_TEMPLATE *fntempl = base_sym->u.defn;
 
