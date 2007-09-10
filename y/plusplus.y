@@ -473,6 +473,7 @@ Modified        By              Reason
 %type <tree> postfix-expression-before-arrow
 %type <tree> new-placement
 %type <tree> make-id
+%type <tree> class-name-id
 %type <tree> enumerator
 %type <tree> elaborated-type-name
 %type <tree> literal
@@ -2343,8 +2344,19 @@ start-class
     }
     ;
 
+class-name-id
+    : Y_ID
+    | Y_UNKNOWN_ID
+    | Y_TEMPLATE_ID
+    | Y_TYPE_NAME
+    | Y_TEMPLATE_NAME
+    | Y_NAMESPACE_NAME
+    | Y_SCOPED_TYPE_NAME
+    | Y_GLOBAL_TYPE_NAME
+    ;
+
 class-name
-    : make-id
+    : class-name-id
     {
         CLASS_DECL decl_type;
         CLNAME_STATE after_name;
