@@ -11980,9 +11980,10 @@ default int type is no longer assumed.
 f ();
 :eerrbad.
 
-:MSGSYM. ERR_MAIN_MUST_RETURN_INT
+:MSGSYM. ANSI_MAIN_MUST_RETURN_INT
 :MSGTXT. 'main' must return 'int'
 :MSGJTXT.
+:ANSI. 1
 The "main" function shall have a return type of type int.
 :errbad.
 void main()
