@@ -1419,23 +1419,53 @@ FNOV_RANK *bestrank, FNOV_RANK *curr_rank, boolean src_mptr )
 {
     OV_RESULT       result;
     TYPE            curr_type;
+    SYMBOL base_sym;
 
     curr_rank->rank = OV_RANK_NO_MATCH;
     curr_type = NULL;
-    if( SymIsThisFuncMember( curr ) ) {
-        if( src_mptr ) {
-            // curr is member function
-            // src can be member function
-            curr_type = MakeMemberPointerTo( SymClass( curr )
-                                           , curr->sym_type );
+
+    base_sym = SymDefArgBase( curr );
+    if( SymIsFunctionTemplateModel( base_sym ) ) {
+        FN_TEMPLATE *fntempl = base_sym->u.defn;
+        TYPE typ;
+        TOKEN_LOCN *locn;
+
+        if( fntempl != NULL ) {
+            locn = &curr->locn->tl;
+
+            typ = TypedefModifierRemoveOnly( *tgt );
+            if( PointerType( typ ) ) {
+                typ = typ->of;
+            }
+            typ = FunctionDeclarationType( TypedefModifierRemoveOnly( typ ) );
+
+            if( typ != NULL ) {
+                curr = TemplateFunctionGenerate( base_sym, typ->u.f.args,
+                                                 NULL, locn );
+            } else {
+                curr = NULL;
+            }
         }
-    } else {
-        // curr is static member function
-        // src can be static member functions
-        curr_type = curr->sym_type;
     }
+
+    if( curr != NULL ) {
+        if( SymIsThisFuncMember( curr ) ) {
+            if( src_mptr ) {
+                // curr is member function
+                // src can be member function
+                curr_type = MakeMemberPointerTo( SymClass( curr )
+                                               , curr->sym_type );
+            }
+        } else {
+            // curr is static member function
+            // src can be static member functions
+            curr_type = curr->sym_type;
+        }
+    }
+
     if( curr_type != NULL ) {
         doComputeArgRank( fsym, curr_type, *tgt, NULL, curr_rank );
+
         if( curr_rank->rank != OV_RANK_NO_MATCH ) {
             result = compareArgument( bestrank, NULL, curr_rank, NULL, FNC_DEFAULT );
             if( result == OV_CMP_BETTER_SECOND ) {

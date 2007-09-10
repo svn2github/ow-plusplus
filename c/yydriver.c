@@ -31,6 +31,7 @@ YYDRIVER: driver code to make use of YACC generated parser tables and support
 #include "cgfront.h"
 #ifndef NDEBUG
 #include "pragdefn.h"
+#include "dbg.h"
 #endif
 
 ExtraRptCtr( lookup_lexical );
@@ -442,7 +443,7 @@ static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control,
                     return( LK_TEMPL_ID );
                 }
             } RingIterEnd( sym )
-        } else {
+        } else if( sym_name->name_type != NULL ) {
             sym = sym_name->name_type;
             switch( sym->id ) {
             case SC_CLASS_TEMPLATE:
@@ -486,6 +487,11 @@ static lk_result lexCategory( SCOPE scope, PTREE id, lk_control control,
             id->type = type;
             ExtraRptIncrementCtr( found_type );
             return( LK_TYPE );
+        } else {
+#if !defined( NDEBUG )
+            DumpSymbolName( sym_name );
+#endif
+            CFatal( "lexCategory: unable to process id with unknown type" );
         }
     } else {
         return( LK_UNKN_ID );
