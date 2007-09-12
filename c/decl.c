@@ -793,7 +793,7 @@ static void verifyMainFunction( SYMBOL sym )
     if( ( fn_type->of->id != TYP_SINT )
      || ( ! CompFlags.extensions_enabled
        && DefaultIntType( fn_type->of ) ) ) {
-        CErr1( ERR_MAIN_MUST_RETURN_INT );
+        CErr1( ANSI_MAIN_MUST_RETURN_INT );
     }
 }
 
