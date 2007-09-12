@@ -852,6 +852,10 @@ boolean AnalyseLvalue(          // ANALYSE AN LVALUE
         break;
     }
     DbgAssert( DbgIsBoolean( retn ) );
+    if( retn ) {
+        (*a_expr)->type =
+            BindTemplateClass( (*a_expr)->type, &(*a_expr)->locn, FALSE );
+    }
     return retn;
 }
 

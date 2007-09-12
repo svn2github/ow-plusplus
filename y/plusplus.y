@@ -826,12 +826,14 @@ postfix-expression-before-dot
         if( $1->type ) {
             TYPE cls;
 
-            $1->type = BindTemplateClass( $1->type, &$1->locn, TRUE );
             cls = TypedefModifierRemoveOnly( $1->type );
-
             if( ( cls->id == TYP_POINTER ) && ( cls->flag & TF1_REFERENCE ) ) {
-                cls = TypedefModifierRemoveOnly( cls->of );
+                cls = cls->of;
             }
+            cls = BindTemplateClass( cls, &$1->locn, FALSE );
+            $1->type = BoundTemplateClass( $1->type );
+            cls = TypedefModifierRemoveOnly( cls );
+
             if( cls->id == TYP_CLASS ) {
                 setTypeMember( state, cls->u.c.scope );
             }
@@ -859,17 +861,16 @@ postfix-expression-before-arrow
         if( $$->u.subtree[0] ) {
             TYPE cls;
 
-            $$->u.subtree[0]->type =
-                BindTemplateClass( $$->u.subtree[0]->type,
-                                   &$$->u.subtree[0]->locn, TRUE );
             cls = TypedefModifierRemoveOnly( $$->u.subtree[0]->type );
-
             if( ( cls->id == TYP_POINTER )
              && ( cls->flag & TF1_REFERENCE ) ) {
                 cls = TypedefModifierRemoveOnly( cls->of );
             }
+
             if( cls->id == TYP_POINTER ) {
-                cls = TypedefModifierRemoveOnly( cls->of );
+                cls = BindTemplateClass( cls->of, &$1->locn, FALSE );
+                $1->type = BoundTemplateClass( $1->type );
+                cls = TypedefModifierRemoveOnly( cls );
                 if( cls->id == TYP_CLASS ) {
                     setTypeMember( state, cls->u.c.scope );
                 }
