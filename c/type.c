@@ -24,15 +24,11 @@
 *
 *  ========================================================================
 *
-* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
-*               DESCRIBE IT HERE!
+* Description:  C++ type system.
 *
 ****************************************************************************/
 
 
-/*
-TYPE: C++ type system
-*/
 #include "plusplus.h"
 
 #include <stddef.h>
@@ -660,7 +656,7 @@ static TYPE makeAnyPointer( type_id id, specifier_t cv_flags )
 
     ptype = MakeType( id );
     cvflag = convertCVSpec( cv_flags );
-    if( cvflag != NULL ) {
+    if( cvflag ) {
         /* build this backwards, since later processing reverses the list */
         ptype->of = MakeFlagModifier( cvflag );
     }
@@ -4966,9 +4962,10 @@ type_flag DefaultMemoryFlag(    // GET DEFAULT MEMORY FLAG FOR A TYPE
 TYPE TypeModExtract(            // EXTRACT MODIFIER INFORMATION
     TYPE type,                  // - input type
     type_flag *flags,           // - addr[ modifier flags]
-    void **a_baser,             // - addr[__based element]
+    void *baser,                // - addr[__based element]
     type_exclude mask )         // - exclusions
 {
+    void **a_baser = baser;     // - addr[__based element]
     type_flag flag;             // - accumulated flags
     type_flag mod_flag;         // - current modifier's flags
 

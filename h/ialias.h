@@ -24,17 +24,18 @@
 *
 *  ========================================================================
 *
-* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
-*               DESCRIBE IT HERE!
+* Description:  Declaration of include aliasing functions.
 *
 ****************************************************************************/
 
 
-#include <cpplib.h>
-#include <rtinit.h>
+#ifndef _IALIAS_H
+#define _IALIAS_H
 
-extern "C" YI( CPPDATA(module_dtor_ref), CPPLIB(module_dtor), DTOR_PRIORITY );
+extern void IAliasInit( void );
+extern void IAliasFini( void );
+extern const char *IAliasLookup( const char *filename, int delimiter );
+extern void IAliasAdd( const char *alias_name, const char *real_name, int delimiter );
 
-#ifdef _M_IX86
-    #pragma aux CPPDATA(module_dtor_ref) "_*";
 #endif
+

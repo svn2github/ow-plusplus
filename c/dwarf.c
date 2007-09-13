@@ -64,10 +64,6 @@
 #define _typeHasPCHDwarfHandle( type ) \
 ( CompFlags.pch_debug_info_read && ((type)->dbgflag & TF2_DBG_IN_PCH ) != 0 )
 
-
-extern pointer DFClient( void );
-extern void DFDwarfLocal( dw_client client, dw_loc_id locid, cg_sym_handle sym  );
-
 typedef enum
 {   DC_RETURN           = 0x01,         // this is a return type
     DC_DEFINE           = 0x02,         // generate definition
@@ -619,7 +615,7 @@ static boolean dwarfClassInfo( TYPE type )
                 dh = DWVariable( Client,
                          dh,
                          dl,
-                         NULL,
+                         0,
                          dl_seg,
                          CppNameDebug( curr ),
                          0,
@@ -887,7 +883,7 @@ static bool dwarfRefSymLoc( dw_loc_id locid, SYMBOL sym ){
 
     ret = FALSE;
     if( SymIsAutomatic( sym ) ){
-        DFDwarfLocal( Client, locid, (cg_sym_handle)sym );
+        DFDwarfLocal( Client, locid, sym );
     }else{
 #if _INTEL_CPU
         if(!( TargetSwitches & FLAT_MODEL )) { /* should check Client */
@@ -1327,7 +1323,7 @@ static void dwarf_block_open( SYMBOL sym )
         dh = DWVariable( Client,
                          dh,
                          dummyLoc,
-                         NULL,
+                         0,
                          dummyLoc,
                          name,
                          0,
@@ -1579,7 +1575,7 @@ static dw_handle dwarfData( SYMBOL sym )
         }
     #endif
     flags = 0;
-    class_dh = NULL;
+    class_dh = 0;
     if( SymIsClassMember( sym ) ) {
         if( SymIsStaticDataMember( sym ) ) {
             class_dh = dwarfType( SymClass( sym ), DC_DEFAULT );
@@ -1625,7 +1621,7 @@ static dw_handle dwarfDebugStatic( SYMBOL sym )
         }
     #endif
     flags = 0;
-    class_dh = NULL;
+    class_dh = 0;
     if( SymIsClassMember( sym ) ) {
         if( SymIsStaticDataMember( sym ) ) {
             class_dh = dwarfType( SymClass( sym ), DC_DEFAULT );

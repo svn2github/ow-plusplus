@@ -24,17 +24,19 @@
 *
 *  ========================================================================
 *
-* Description:  WHEN YOU FIGURE OUT WHAT THIS FILE DOES, PLEASE
-*               DESCRIBE IT HERE!
+* Description:  Compiler configuration for 16-bit x86 target.
 *
 ****************************************************************************/
 
 
-#include <cpplib.h>
-#include <rtinit.h>
+/*  size of data types on target machine */
 
-extern "C" YI( CPPDATA(module_dtor_ref), CPPLIB(module_dtor), DTOR_PRIORITY );
+#ifndef _TARGET_INCLUDED
+#define _TARGET_INCLUDED
+#include "target16.h"
+#include "targdef.h"
 
-#ifdef _M_IX86
-    #pragma aux CPPDATA(module_dtor_ref) "_*";
+// target
+#define _CPU            8086
+
 #endif

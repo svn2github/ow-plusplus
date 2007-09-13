@@ -1952,7 +1952,7 @@ unsigned ScopeIndex( SCOPE scope )
 {
     unsigned scope_index;
 
-    scope_index = NULL;
+    scope_index = 0;
     if( _IsBlockScope( scope ) ) {
         scope_index = scope->owner.index;
     }
