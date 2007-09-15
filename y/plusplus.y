@@ -1546,15 +1546,8 @@ enumerator
     : make-id /* identifier */
     ;
 
-/* TODO */
 elaborated-type-specifier
-    : class-key elaborated-type-name
-    {
-        ClassName( $2, CLASS_REFERENCE );
-        $$ = ClassRefDef();
-        GStackPop( &(state->gstack) );
-    }
-    | Y_ENUM make-id
+    : Y_ENUM make-id
     {
         ENUM_DATA edata;
         InitEnumState( &edata, $2 );
@@ -2353,8 +2346,12 @@ class-name-id
     | Y_TYPE_NAME
     | Y_TEMPLATE_NAME
     | Y_NAMESPACE_NAME
-    | Y_SCOPED_TYPE_NAME
+    | Y_GLOBAL_ID
+    | Y_GLOBAL_TEMPLATE_ID
     | Y_GLOBAL_TYPE_NAME
+    | Y_SCOPED_ID
+    | Y_SCOPED_TEMPLATE_ID
+    | Y_SCOPED_TYPE_NAME
     ;
 
 class-name
