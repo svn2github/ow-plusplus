@@ -5665,7 +5665,8 @@ static void deferDefaultRewrites( DECL_INFO *dinfo )
     ClassStoreDefArg( fn_dinfo );
 }
 
-/* static */ void declareDefaultArgs( SCOPE scope, DECL_INFO *dinfo )
+void DeclareDefaultArgs( SCOPE scope, DECL_INFO *dinfo )
+/******************************************************/
 {
     unsigned dp_control;
 
@@ -6074,7 +6075,8 @@ static TYPE stripPragma( TYPE fn_type, SYMBOL sym )
     return( fn_type );
 }
 
-/* static */ void verifySpecialFunction( SCOPE scope, DECL_INFO *dinfo )
+void VerifySpecialFunction( SCOPE scope, DECL_INFO *dinfo )
+/*********************************************************/
 {
     char *name;
     char *scope_name;
@@ -6409,7 +6411,7 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
     boolean is_block_sym;
 
     scope = ScopeNearestNonTemplate( insert_scope );
-    verifySpecialFunction( scope, dinfo );
+    VerifySpecialFunction( scope, dinfo );
     complainAboutMemInit( dinfo );
     sym = dinfo->sym;
     is_block_sym = FALSE;
@@ -6568,7 +6570,7 @@ DECL_INFO *InsertDeclInfo( SCOPE insert_scope, DECL_INFO *dinfo )
             }
         }
         if( is_a_function ) {
-            declareDefaultArgs( scope, dinfo );
+            DeclareDefaultArgs( scope, dinfo );
         } else {
             verifyNoDefaultArgs( dinfo );
         }

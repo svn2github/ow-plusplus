@@ -1723,6 +1723,14 @@ TYPE TypePointerDiff(           // GET TYPE FOR DIFFERENCE OF POINTERS
 TYPE TypeReference(             // GET REFERENCE TYPE
     TYPE type )                 // - the type
 ;
+void VerifySpecialFunction(     // VERIFY SPECIAL FUNCTION
+    SCOPE scope,                // - scope
+    DECL_INFO *dinfo )          // - decl-info
+;
+void DeclareDefaultArgs(        // DECLARE DEFAULT ARGUMENTS
+    SCOPE scope,                // - scope
+    DECL_INFO *dinfo )          // - decl-info
+;
 
 // type cache support
 typedef enum typc_index {

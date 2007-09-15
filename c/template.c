@@ -1442,8 +1442,6 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
         pushInstContext( &context, TCTX_FN_BIND, locn, fn_templ );
 
         if( num_explicit >= 1 ) {
-            void verifySpecialFunction( SCOPE, DECL_INFO * ); /* TODO */
-
             /* reparse the function declaration to get any
              * typenames parsed correctly */
             save_scope = GetCurrScope();
@@ -1452,7 +1450,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
 
             dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
             if( dinfo != NULL ) {
-                verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
+                VerifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
                                        dinfo );
                 fn_type = dinfo->sym->sym_type;
                 FreeDeclInfo( dinfo );
@@ -1481,8 +1479,6 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
         }
 
         if( ( fn_type != NULL) && bound ) {
-            void verifySpecialFunction( SCOPE, DECL_INFO * ); /* TODO */
-
             /* just reparse the function declaration once more to get
              * the bound type */
             save_scope = GetCurrScope();
@@ -1492,7 +1488,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
             dinfo = ReparseFunctionDeclaration( fn_templ->u.defn->defn );
 
             if( dinfo != NULL ) {
-                verifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
+                VerifySpecialFunction( ScopeNearestNonTemplate( parm_scope ),
                                        dinfo );
                 *templ_parm_scope = parm_scope;
             }
@@ -1562,10 +1558,7 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym, DECL_INFO *dinfo,
     new_sym->u.alias = sym;
     fn_templ = sym->u.defn;
 
-    {
-        void declareDefaultArgs( SCOPE scope, DECL_INFO *dinfo ); /* TODO */
-        declareDefaultArgs( parm_scope, dinfo );
-    }
+    DeclareDefaultArgs( parm_scope, dinfo );
 
     if( ( dinfo->proto_sym != NULL ) && SymIsDefArg( dinfo->proto_sym ) ) {
         SYMBOL *prev = &dinfo->proto_sym->thread;
@@ -1829,7 +1822,7 @@ static PTREE templateParmSimpleEnough( TYPE arg_type, PTREE parm )
             }
         } else if( MemberPtrType( arg_type ) != NULL ) {
             /* TODO: handle member function pointers */
-            CFatal( "not yet implemented" );
+            CFatal( "not yet implemented: member function pointer" );
         }
         break;
     case PT_BINARY:
