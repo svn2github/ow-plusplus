@@ -12072,3 +12072,13 @@ void fn( ) {
     long char c;
 }
 :eerrbad.
+
+:MSGSYM. ERR_NAMESPACE_NOT_ALLOWED_IN_USING_DECL
+:MSGTXT. namespace '%I' not allowed in using-declaration
+:MSGJTXT.
+Specifying a namespace-name is not allowed in a using-declaration, a
+using-directive must be used instead.
+:errbad.
+namespace ns { }
+using ns;
+:eerrbad.

@@ -1608,10 +1608,11 @@ using-declaration
     { NameSpaceUsingDeclTemplateName( $2 ); }
     | Y_USING Y_SCOPED_TEMPLATE_NAME
     { NameSpaceUsingDeclTemplateName( $2 ); }
-    | Y_USING Y_GLOBAL_NAMESPACE_NAME
-    { CFatal( "TODO: namespace not allowed in using-declaration" ); }
-    | Y_USING Y_SCOPED_NAMESPACE_NAME
-    { CFatal( "TODO: namespace not allowed in using-declaration" ); }
+    | Y_USING qualified-namespace-specifier
+    {
+        CErr2p( ERR_NAMESPACE_NOT_ALLOWED_IN_USING_DECL, $2 );
+        PTreeFreeSubtrees( $2 );
+    }
     ;
 
 using-directive

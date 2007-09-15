@@ -230,6 +230,13 @@ SYMBOL FormatMsg( VBUF *pbuf, char *fmt, va_list arg )
                 VStrConcStr( pbuf, prefix.buf );
                 VbufFree( &prefix );
             }   break;
+            case 'I':   /* PTREE id */
+            {   const PTREE p = va_arg( arg, PTREE );
+
+                FormatPTreeId( p, &prefix );
+                VStrConcStr( pbuf, prefix.buf );
+                VbufFree( &prefix );
+            }   break;
             case 'M':   /* template info */
             {   TEMPLATE_INFO * const tinfo = va_arg( arg, TEMPLATE_INFO * );
                 const SYMBOL sym = tinfo->sym;
