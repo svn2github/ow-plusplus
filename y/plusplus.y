@@ -497,8 +497,6 @@ Modified        By              Reason
 %type <tree> template-argument
 %type <tree> template-argument-list-opt
 %type <tree> template-argument-list
-%type <tree> template-class-pre-instantiation
-%type <tree> template-class-pre-id
 %type <tree> qualified-namespace-specifier
 
 %type <tree> expr-decl-stmt
@@ -1947,7 +1945,7 @@ declarator-id
     | nested-name-specifier Y_TEMPLATE_SCOPED_UNKNOWN_ID
     { $$ = MakeScopedId( $2 ); }
     /*
-     * these Y_TEMPLATE_SCOPED_ cases are needed because of the off way
+     * these Y_TEMPLATE_SCOPED_ cases are needed because of the odd way
      * template class constructors are parsed. Essentially, a constructor
      * of the form A<T>::A() gets parsed as a function with A<T> being the
      * return type and ::A being the declarator-id. zapTemplateClassDeclSpec
@@ -2380,12 +2378,12 @@ class-name
             break;
         }
     }
-    | template-class-pre-id
+    | nested-name-specifier
     {
         CLASS_DECL decl_type;
-        tc_instantiate tci_control;
+        tc_directive tcd_control;
 
-        tci_control = TCI_NULL;
+        tcd_control = TCD_NULL;
         decl_type = CLASS_REFERENCE;
 
         switch( t ) {
@@ -2395,16 +2393,14 @@ class-name
             break;
         case Y_SEMI_COLON:
             if( state->template_extern ) {
-                tci_control |= TCI_NO_MEMBERS;
+                tcd_control |= TCD_EXTERN;
             } else if( state->template_instantiate ) {
-                tci_control |= TCI_EXPLICIT_FULL;
-            } else {
-                tci_control |= TCI_NO_CLASS_DEFN;
+                tcd_control |= TCD_INSTANTIATE;
             }
             decl_type = CLASS_DECLARATION;
             break;
         }
-        ClassSpecificInstantiation( $1, decl_type, tci_control );
+        ClassSpecificInstantiation( $1, decl_type, tcd_control );
         what = P_RELEX;
     }
     ;
@@ -3113,19 +3109,6 @@ template-key
     }
     ;
 
-template-class-pre-id
-    : template-class-pre-instantiation Y_GT_SPECIAL
-    ;
-
-template-class-pre-instantiation
-    : Y_TEMPLATE_NAME lt-special template-argument-list-opt
-    { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
-    | Y_GLOBAL_TEMPLATE_NAME lt-special template-argument-list-opt
-    { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
-    | Y_SCOPED_TEMPLATE_NAME lt-special template-argument-list-opt
-    { $$ = setLocation( PTreeBinary( CO_STORAGE, $1, $3 ), &yylp[2] ); }
-    ;
-
 template-argument-list-opt
     : /* nothing */
     { $$ = PTreeBinary( CO_LIST, NULL, NULL ); }
@@ -3134,16 +3117,24 @@ template-argument-list-opt
     ;
 
 template-class-directive-extern
-    : template-class-pre-id
-    { 
-        TemplateClassDirective( $1, TCD_EXTERN ); 
+    : nested-name-specifier
+    {
+        TYPE type = NodeIsBinaryOp( $1, CO_STORAGE ) ?
+            $1->u.subtree[1]->type : $1->type;
+
+        TemplateClassDirective( type, &($1->locn), TCD_EXTERN ); 
+        NodeFreeDupedExpr( $1 );
     }
     ;
 
 template-class-directive-instantiate
-    : template-class-pre-id
-    { 
-        TemplateClassDirective( $1, TCD_INSTANTIATE ); 
+    : nested-name-specifier
+    {
+        TYPE type = NodeIsBinaryOp( $1, CO_STORAGE ) ?
+            $1->u.subtree[1]->type : $1->type;
+
+        TemplateClassDirective( type, &($1->locn), TCD_INSTANTIATE ); 
+        NodeFreeDupedExpr( $1 );
     }
     ;
 
@@ -3156,7 +3147,7 @@ template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3 );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3175,7 +3166,7 @@ scoped-template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3 );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3192,7 +3183,7 @@ scoped-template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3 );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 
@@ -3216,7 +3207,7 @@ template-scoped-template-type-instantiation
     {
         TYPE inst_type;
 
-        inst_type = TemplateClassReference( $1, $3, TCI_NULL );
+        inst_type = TemplateClassReference( $1, $3 );
         setWatchColonColon( state, $1, inst_type );
         $$ = $1;
 

@@ -562,8 +562,12 @@ void FormatFunctionType( TYPE type, VBUF *pprefix, VBUF *psuffix, int num_def,
             case TYP_LONG_DOUBLE:
             case TYP_DOT_DOT_DOT:
             case TYP_VOID:
-            case TYP_GENERIC:
                 VStrConcStr( pprefix, typeName[top->type->id] );
+                break;
+            case TYP_GENERIC:
+                VStrConcChr( pprefix, '?' );
+                VStrConcDecimal( pprefix, top->type->u.g.index );
+                VStrConcChr( pprefix, ' ' );
                 break;
             case TYP_USHORT:
                 flags = top->type->flag;

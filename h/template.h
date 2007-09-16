@@ -148,15 +148,6 @@ PCH_struct fn_template {
     unsigned            free : 1;       // used for precompiled headers
 };
 
-typedef enum tc_instantiate {
-    TCI_NO_CLASS_DEFN   = 0x01,         // don't process class def'n here
-    TCI_NO_DECL_SPEC    = 0x02,         // don't allocate a DECL_SPEC
-    TCI_NO_MEMBERS      = 0x04,         // don't process member defns in this module
-    TCI_EXPLICIT_FULL   = 0x08,         // process all defns for class template
-    TCI_SPECIFIC        = 0x10,         // specialization
-    TCI_NULL            = 0x00
-} tc_instantiate;
-
 typedef enum tc_directive {
     TCD_EXTERN          = 0x01,         // compile no member fns in this module
     TCD_INSTANTIATE     = 0x02,         // compile all member fns in this module
@@ -178,15 +169,15 @@ extern void TemplateFunctionAttachDefn( DECL_INFO * );
 extern SYMBOL TemplateFunctionGenerate( SYMBOL, arg_list *, PTREE, TOKEN_LOCN * );
 extern void TemplateClassDeclaration( PTREE, SCOPE, char * );
 extern boolean TemplateClassDefinition( PTREE, SCOPE, char * );
-extern TYPE TemplateClassReference( PTREE, PTREE, tc_instantiate );
+extern TYPE TemplateClassReference( PTREE, PTREE );
 extern void TemplateHandleClassMember( DECL_INFO * );
 extern void TemplateMemberAttachDefn( DECL_INFO * );
 extern void TemplateProcessInstantiations( void );
 extern boolean TemplateMemberCanBeIgnored( void );
 extern boolean TemplateVerifyDecl( SYMBOL );
-extern void TemplateSpecificDefnStart( PTREE, PTREE );
+extern void TemplateSpecificDefnStart( PTREE, TYPE );
 extern void TemplateSpecificDefnEnd( void );
-extern void TemplateSpecializationDefn( PTREE, PTREE );
+extern void TemplateSpecializationDefn( TYPE );
 extern SCOPE TemplateClassInstScope( TYPE );
 extern SCOPE TemplateClassParmScope( TYPE );
 extern boolean TemplateParmEqual( SYMBOL, SYMBOL );
@@ -198,7 +189,7 @@ extern SYMBOL ClassTemplateLookup( SCOPE scope, char * );
 extern SYMBOL TemplateSymFromClass( TYPE );
 extern void TemplateSetDepth( unsigned );
 extern boolean TemplateUnboundSame( TYPE, TYPE );
-extern void TemplateClassDirective( PTREE, tc_directive );
+extern void TemplateClassDirective( TYPE, TOKEN_LOCN *, tc_directive );
 extern void TemplateUsingDecl( SYMBOL, TOKEN_LOCN * );
 
 extern TEMPLATE_INFO *TemplateClassInfoGetIndex( TEMPLATE_INFO * );

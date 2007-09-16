@@ -258,6 +258,47 @@ static void templateFini( INITFINI *defn )
 
 INITDEFN( template, templateInit, templateFini )
 
+static TEMPLATE_INFO *classInstTemplateInfo( TYPE cls )
+{
+    SCOPE scope;
+
+    cls = TypedefRemove( cls );
+    DbgAssert( ( cls->id == TYP_CLASS )
+            && ( cls->flag & TF1_INSTANTIATION ) );
+
+    scope = cls->u.c.scope;
+    DbgAssert( ScopeType( scope, SCOPE_CLASS ) );
+
+    scope = scope->enclosing;
+    DbgAssert( ScopeType( scope, SCOPE_TEMPLATE_INST ) );
+
+    scope = scope->enclosing;
+    if( ScopeType( scope, SCOPE_TEMPLATE_SPEC_PARM ) ) {
+        scope = scope->enclosing;
+    }
+
+    DbgAssert( ScopeType( scope, SCOPE_TEMPLATE_PARM ) );
+
+    return scope->owner.tinfo;
+}
+
+static TEMPLATE_INFO *classUnboundTemplateInfo( TYPE cls )
+{
+    SCOPE scope;
+
+    cls = TypedefRemove( cls );
+    DbgAssert( ( cls->id == TYP_CLASS )
+            && ( cls->flag & TF1_UNBOUND ) );
+
+    scope = cls->u.c.scope;
+    DbgAssert( ScopeType( scope, SCOPE_CLASS ) );
+
+    scope = scope->enclosing;
+    DbgAssert( ScopeType( scope, SCOPE_TEMPLATE_PARM ) );
+
+    return scope->owner.tinfo;
+}
+
 static TYPE setArgIndex( SYMBOL sym, unsigned index )
 {
     TYPE type;
@@ -426,6 +467,7 @@ static TEMPLATE_SPECIALIZATION *newTemplateSpecialization(
     tspec->defn_found = FALSE;
 
     getArgList( args, tspec->type_list, tspec->arg_names, NULL, TRUE );
+
     return( tspec );
 }
 
@@ -505,18 +547,14 @@ SYMBOL ClassTemplateLookup( SCOPE scope, char *name )
     SYMBOL sym;
 
     file_scope = ScopeNearestFileOrClass( scope );
-
-    while( file_scope != NULL ) {
-        result = ScopeFindNaked( file_scope, name );
-        if( result != NULL ) {
-            sym_name = result->sym_name;
-            ScopeFreeResult( result );
-            sym = sym_name->name_type;
-            if( sym != NULL && SymIsClassTemplateModel( sym ) ) {
-                return( sym );
-            }
+    result = ScopeFindNaked( file_scope, name );
+    if( result != NULL ) {
+        sym_name = result->sym_name;
+        ScopeFreeResult( result );
+        sym = sym_name->name_type;
+        if( sym != NULL && SymIsClassTemplateModel( sym ) ) {
+            return( sym );
         }
-        file_scope = ScopeNearestFileOrClass( file_scope->enclosing );
     }
 
     return( NULL );
@@ -765,40 +803,10 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
                                            TEMPLATE_SPECIALIZATION *tspec )
 {
     TEMPLATE_SPECIALIZATION *curr_spec;
-    SYMBOL stop, curr;
-    TYPE type;
     unsigned i;
     unsigned nr_specs;
 
-    if( tspec->decl_scope != NULL ) {
-        /* It gets a bit tricky here - we need to generate distinct
-         * generic types until we have finished with the partial
-         * ordering stuff (otherwise BindClassGenericTypes might get
-         * confused).
-         *
-         * The CheckDupType will revert the type back to the original
-         * generic type.
-         */
-        stop = ScopeOrderedStart( tspec->decl_scope );
-        curr = NULL;
-        i = 0;
-        for(;;) {
-            curr = ScopeOrderedNext( stop, curr );
-            if( curr == NULL ) break;
-
-            i++;
-            type = curr->sym_type;
-
-            if( ( type->id == TYP_TYPEDEF )
-             && ( type->of->id == TYP_GENERIC ) ) {
-                type->of = MakeType( TYP_GENERIC );
-                type->of->u.g.index = i;
-            }
-        }
-    }
-
     nr_specs = tinfo->nr_specs;
-
     if( tspec->spec_args != NULL ) {
         tspec->ordering = CMemAlloc( 16 * ( ( nr_specs - 2 ) / 128 + 1 ) );
     }
@@ -887,25 +895,6 @@ static void updateTemplatePartialOrdering( TEMPLATE_INFO *tinfo,
             i++;
         }
     } RingIterEnd( curr_spec )
-
-    if( tspec->decl_scope != NULL ) {
-        stop = ScopeOrderedStart( tspec->decl_scope );
-        curr = NULL;
-        i = 0;
-        for(;;) {
-            curr = ScopeOrderedNext( stop, curr );
-            if( curr == NULL ) break;
-
-            i++;
-            type = curr->sym_type;
-
-            if( ( type->id == TYP_TYPEDEF )
-             && ( type->of->id == TYP_GENERIC ) ) {
-                DbgAssert( type->of->next == NULL );
-                type->of = CheckDupType( type->of );
-            }
-        }
-    }
 }
 
 static TEMPLATE_SPECIALIZATION *mergeClassTemplates( TEMPLATE_DATA *data,
@@ -2189,7 +2178,7 @@ static SCOPE findInstScope( TEMPLATE_SPECIALIZATION *tspec, PTREE parms,
 
 static CLASS_INST *newClassInstantiation( TEMPLATE_SPECIALIZATION *tspec,
                                           TYPE unbound_type, SCOPE scope,
-                                          tc_instantiate control )
+                                          boolean specific )
 {
     CLASS_INST *new_inst;
 
@@ -2208,9 +2197,7 @@ static CLASS_INST *newClassInstantiation( TEMPLATE_SPECIALIZATION *tspec,
     new_inst->specific = FALSE;
     new_inst->locn_set = FALSE;
     new_inst->free = FALSE;
-    if( control & TCI_SPECIFIC ) {
-        new_inst->specific = TRUE;
-    }
+    new_inst->specific = specific;
     templateData.keep_going = TRUE;
     return( new_inst );
 }
@@ -2327,7 +2314,7 @@ static TYPE instantiateClass( TEMPLATE_INFO *tinfo, PTREE parms,
     }
     inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
     curr_instantiation = newClassInstantiation( tspec, unbound_type,
-                                                inst_scope, TCI_NULL );
+                                                inst_scope, FALSE );
     if( locn != NULL ) {
         curr_instantiation->locn = *locn;
         curr_instantiation->locn_set = TRUE;
@@ -2364,6 +2351,7 @@ static TYPE createUnboundClass( TEMPLATE_INFO *tinfo,
     new_type->flag |= is_generic ? TF1_GENERIC : 0;
     ScopeOpen( new_type->u.c.scope );
     SetCurrScope( save_scope );
+
     return( new_type );
 }
 
@@ -2479,8 +2467,9 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 
 #ifndef NDEBUG
         if( PragDbgToggle.templ_spec && ( tinfo->nr_specs > 1 )) {
-            printf( "chose primary template\n" );
-            DumpTemplateInfo( tinfo );
+            printf( "chose primary template %s ", tinfo->sym->name->name );
+            DbgDumpTokenLocn( tinfo->sym->locn );
+            printf( "\n" );
         }
 #endif
     } else if( RingFirst( candidate_list ) == RingLast( candidate_list ) ) {
@@ -2494,8 +2483,14 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 
 #ifndef NDEBUG
         if( PragDbgToggle.templ_spec && ( tinfo->nr_specs > 1 )) {
-            printf( "chose template specialisation\n" );
-            DumpTemplateSpecialization( tspec );
+            VBUF vbuf;
+
+            FormatPTreeList( tspec->spec_args, &vbuf );
+            printf( "chose specialisation %s<%s> ",
+                    tinfo->sym->name->name, vbuf.buf );
+            DbgDumpTokenLocn( &tspec->locn );
+            printf( "\n" );
+            VbufFree( &vbuf );
         }
 #endif
 
@@ -2515,141 +2510,99 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
     return tspec;
 }
 
-TYPE TemplateClassReference( PTREE tid, PTREE parms, tc_instantiate control )
-/***************************************************************************/
+TYPE TemplateClassReference( PTREE tid, PTREE parms )
+/***************************************************/
 {
-    SYMBOL class_template;
     char *template_name;
-    boolean is_generic;
     TYPE typ;
     TEMPLATE_INFO *tinfo;
+    SYMBOL sym;
+    boolean is_generic;
 
     typ = TypeError;
-    class_template = NULL;
 
-    if( tid->op == PT_ID ) {
-        template_name = tid->u.id.name;
-        if( tid->sym_name != NULL ) {
-            if( ( tid->sym_name->name_type != NULL )
-             && SymIsClassTemplateModel( tid->sym_name->name_type ) ) {
-                class_template = tid->sym_name->name_type;
-            } else {
-                class_template = ClassTemplateLookup( GetCurrScope(),
-                                                      template_name );
-            }
-        }
-    } else {
-        /* we are dealing with a scoped template here */
-        PTREE right;
-
-        DbgAssert( NodeIsBinaryOp( tid, CO_STORAGE ) );
-
-        right = tid->u.subtree[1];
-        DbgAssert( ( right->op == PT_ID ) );
-
-        template_name = right->u.id.name;
-
-        if( tid->sym_name != NULL ) {
-            class_template = tid->sym_name->name_type;
-        }
+    if( ( tid->sym_name == NULL ) && ( tid->flags & PTF_TYPENAME ) ) {
+        NodeFreeDupedExpr( parms );
+        return typ;
     }
 
-    if( class_template != NULL ) {
-        tinfo = class_template->u.tinfo;
-        parms = processClassTemplateParms( tinfo, parms, &is_generic );
-        if( parms != NULL ) {
-            UNBOUND_TEMPLATE *curr;
-            unsigned int hash;
+    DbgAssert( tid->sym_name != NULL );
+    DbgAssert( tid->sym_name->name_type != NULL );
+
+    sym = tid->sym_name->name_type;
+    if( ! SymIsClassTemplateModel( sym ) ) {
+        DbgAssert( SymIsTypedef( sym ) );
+        sym = classInstTemplateInfo( sym->sym_type )->sym;
+    }
+
+    tinfo = sym->u.tinfo;
+    template_name = sym->name->name;
+
+    parms = processClassTemplateParms( tinfo, parms, &is_generic );
+    if( parms != NULL ) {
+        UNBOUND_TEMPLATE *curr;
+        unsigned int hash;
 
 #ifndef NDEBUG
-            if( PragDbgToggle.templ_inst ) {
-                VBUF vbuf;
+        if( PragDbgToggle.templ_inst ) {
+            VBUF vbuf;
 
-                FormatPTreeList( parms, &vbuf );
-                printf( "referencing template %s<%s>%s\n",
-                        template_name, vbuf.buf,
-                        is_generic ? " (generic)" : "");
-                VbufFree( &vbuf );
-            }
+            FormatPTreeList( parms, &vbuf );
+            printf( "referencing template %s<%s>%s\n",
+                    template_name, vbuf.buf,
+                    is_generic ? " (generic)" : "");
+            VbufFree( &vbuf );
+        }
 #endif
 
-            typ = NULL;
-            hash = 0;
+        typ = NULL;
+        hash = 0;
 
-            RingIterBeg( tinfo->unbound_templates, curr ) {
-                SCOPE parm_scope = curr->unbound_type->u.c.scope->enclosing;
+        RingIterBeg( tinfo->unbound_templates, curr ) {
+            SCOPE parm_scope = curr->unbound_type->u.c.scope->enclosing;
 
-                if( ( curr->hash == hash )
-                 && sameParms( parm_scope, parms ) ) {
-                    typ = curr->unbound_type;
-                    if( typ->of != NULL ) {
-                        typ = typ->of;
-                    }
-                    break;
+            if( ( curr->hash == hash )
+             && sameParms( parm_scope, parms ) ) {
+                typ = curr->unbound_type;
+                if( typ->of != NULL ) {
+                    typ = typ->of;
                 }
-            } RingIterEnd( curr )
-
-            if( typ == NULL ) {
-                typ = createUnboundClass( tinfo, parms, is_generic );
-                if( typ != NULL ) {
-                    UNBOUND_TEMPLATE *unbound_templ =
-                        CPermAlloc( sizeof( UNBOUND_TEMPLATE ) );
-                    RingAppend( &tinfo->unbound_templates, unbound_templ );
-                    unbound_templ->unbound_type = typ;
-                    unbound_templ->hash = 0;
-                }
+                break;
             }
+        } RingIterEnd( curr )
 
-            NodeFreeDupedExpr( parms );
-        }
-    } else {
-        return( NULL );
-    }
-    if( typ != NULL ) {
-        if( control & ( TCI_NO_MEMBERS | TCI_EXPLICIT_FULL ) ) {
-            CLASS_INST *inst;
-
-            typ = BindTemplateClass( typ, NULL, FALSE );
-            inst = TypeClassInstantiation( typ );
-            DbgAssert( inst != NULL );
-
-            if( control & TCI_EXPLICIT_FULL ) {
-                inst->must_process = 1;
-            }
-            if( control & TCI_NO_MEMBERS ) {
-                inst->dont_process = 1;
+        if( typ == NULL ) {
+            typ = createUnboundClass( tinfo, parms, is_generic );
+            if( typ != NULL ) {
+                UNBOUND_TEMPLATE *unbound_templ =
+                    CPermAlloc( sizeof( UNBOUND_TEMPLATE ) );
+                RingAppend( &tinfo->unbound_templates, unbound_templ );
+                unbound_templ->unbound_type = typ;
+                unbound_templ->hash = 0;
             }
         }
-    }
-    if( control & TCI_NO_DECL_SPEC ) {
-        PTreeFreeSubtrees( tid );
-        return( NULL );
+
+        NodeFreeDupedExpr( parms );
     }
     return( typ );
 }
 
-void TemplateClassDirective( PTREE list, tc_directive tcd_control )
-/*****************************************************************/
+void TemplateClassDirective( TYPE type, TOKEN_LOCN *locn,
+                             tc_directive tcd_control )
+/*******************************************************/
 {
-    DECL_SPEC *dspec;
-    PTREE tid;
-    PTREE parms;
-    TYPE typ;
-    tc_instantiate tci_control;
+    CLASS_INST *inst;
 
-    tid = list->u.subtree[0];
-    parms = list->u.subtree[1];
-    PTreeFree( list );
-    tci_control = TCI_NO_DECL_SPEC;
-    if( tcd_control & TCD_EXTERN ) {
-        tci_control |= TCI_NO_MEMBERS;
-    }
+    type = BindTemplateClass( type, locn, FALSE );
+    inst = TypeClassInstantiation( type );
+    DbgAssert( inst != NULL );
+
     if( tcd_control & TCD_INSTANTIATE ) {
-        tci_control |= TCI_EXPLICIT_FULL;
+        inst->must_process = 1;
     }
-    typ = TemplateClassReference( tid, parms, tci_control );
-    dspec = PTypeClassInstantiation( typ, tid );
-    DbgAssert( dspec == NULL );
+    if( tcd_control & TCD_EXTERN ) {
+        inst->dont_process = 1;
+    }
 }
 
 static PTREE fakeUpParm( SYMBOL sym )
@@ -2710,43 +2663,34 @@ static PTREE fakeUpTemplateParms( SCOPE parm_scope, arg_list *type_args )
 static TYPE makeBoundClass( TYPE unbound_class, SCOPE parm_scope,
                             arg_list *type_args, TOKEN_LOCN *locn )
 {
-    SCOPE scope;
+    SCOPE spec_parm_scope = NULL;
     TYPE type_instantiated;
-    SYMBOL class_template;
     TEMPLATE_INFO *tinfo;
     TEMPLATE_SPECIALIZATION *tspec;
     PTREE parms;
-    char *name;
 
     type_instantiated = NULL;
-    scope = TypeScope( unbound_class );
-    name = SimpleTypeName( unbound_class );
-    DbgAssert( name != NULL );
-    class_template = ClassTemplateLookup( scope, name );
-    if( class_template != NULL ) {
-        SCOPE spec_parm_scope = NULL;
-
-        parms = fakeUpTemplateParms( parm_scope, type_args );
+    tinfo = classUnboundTemplateInfo( unbound_class );
+    parms = fakeUpTemplateParms( parm_scope, type_args );
 
 #ifndef NDEBUG
-        if( PragDbgToggle.templ_inst ) {
-            VBUF vbuf;
+    if( PragDbgToggle.templ_inst ) {
+        VBUF vbuf;
 
-            FormatPTreeList( parms, &vbuf );
-            printf( "instantiating template %s<%s>\n",
-                    name, vbuf.buf );
-            VbufFree( &vbuf );
-        }
+        FormatPTreeList( parms, &vbuf );
+        printf( "instantiating template %s<%s>\n",
+                tinfo->sym->name->name, vbuf.buf );
+        VbufFree( &vbuf );
+    }
 #endif
 
-        tinfo = class_template->u.tinfo;
-        tspec = findTemplateClassSpecialization( tinfo, parms,
-                                                 &spec_parm_scope );
-        type_instantiated =
-            instantiateClass( tinfo, parms, tspec, unbound_class,
-                              spec_parm_scope, locn );
-        PTreeFreeSubtrees( parms );
-    }
+    tspec = findTemplateClassSpecialization( tinfo, parms,
+                                             &spec_parm_scope );
+    type_instantiated =
+        instantiateClass( tinfo, parms, tspec, unbound_class,
+                          spec_parm_scope, locn );
+    PTreeFreeSubtrees( parms );
+
     return( type_instantiated );
 }
 
@@ -3377,79 +3321,40 @@ boolean TemplateMemberCanBeIgnored( void )
     return( templateData.extra_members );
 }
 
-void TemplateSpecificDefnStart( PTREE tid, PTREE parms )
-/*******************************************************/
+void TemplateSpecificDefnStart( PTREE tid, TYPE type )
+/****************************************************/
 {
-    SYMBOL class_template;
     CLASS_INST *instance;
     TEMPLATE_INFO *tinfo;
     TEMPLATE_SPECIALIZATION *tprimary;
-    TYPE unbound_class;
-    UNBOUND_TEMPLATE *unbound_templ;
     SCOPE inst_scope;
     SCOPE parm_scope;
-    char *name;
-    boolean is_generic;
+    PTREE parms;
 
-    if( tid->op == PT_ID ) {
-        name = tid->u.id.name;
-        if( tid->sym_name != NULL ) {
-            if ( ( tid->sym_name->name_type != NULL )
-              && SymIsClassTemplateModel( tid->sym_name->name_type ) ) {
-                class_template = tid->sym_name->name_type;
-            } else {
-                class_template = ClassTemplateLookup( GetCurrScope(), name );
-            }
-        }
-    } else {
-        /* we are dealing with a scoped template here */
-        PTREE right;
-
-        DbgAssert( NodeIsBinaryOp( tid, CO_STORAGE ) );
-
-        right = tid->u.subtree[1];
-        DbgAssert( ( right->op == PT_ID ) );
-
-        name = right->u.id.name;
-
-        DbgAssert( tid->sym_name != NULL );
-        class_template = tid->sym_name->name_type;
-    }
-
-    tinfo = class_template->u.tinfo;
+    tinfo = type->u.c.scope->enclosing->owner.tinfo;
     tprimary = RingFirst( tinfo->specializations );
     if( tprimary->corrupted ) {
         return;
     }
-    parms = processClassTemplateParms( tinfo, parms, &is_generic );
-    DbgAssert( !is_generic );
-    if( parms != NULL ) {
-        /* parms have been validated; we can instantiate the class! */
-        instance = NULL;
-        inst_scope = findInstScope( tprimary, parms, &instance );
-        if( inst_scope != NULL ) {
-            instance->specific = TRUE;
-            SetCurrScope( inst_scope );
-        } else {
-            parm_scope = ScopeBegin( SCOPE_TEMPLATE_PARM );
-            ScopeSetParmClass( parm_scope, tinfo );
 
-            unbound_class = ClassUnboundTemplate( name );
-            unbound_templ = CPermAlloc( sizeof( UNBOUND_TEMPLATE ) );
-            RingAppend( &tinfo->unbound_templates, unbound_templ );
-            unbound_templ->unbound_type = unbound_class;
-            unbound_templ->hash = 0;
+    parms = fakeUpTemplateParms( type->u.c.scope->enclosing, NULL );
 
-            inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
-            instance = newClassInstantiation( tprimary, unbound_class,
-                                              inst_scope, TCI_SPECIFIC );
-            injectTemplateParms( NULL, parm_scope, parms, FALSE );
-        }
-        DbgAssert( instance->specific );
-        NodeFreeDupedExpr( parms );
+    instance = NULL;
+    inst_scope = findInstScope( tprimary, parms, &instance );
+    if( inst_scope != NULL ) {
+        instance->specific = TRUE;
+        SetCurrScope( inst_scope );
     } else {
-        tprimary->corrupted = TRUE;
+        parm_scope = ScopeBegin( SCOPE_TEMPLATE_PARM );
+        ScopeSetParmClass( parm_scope, tinfo );
+
+        inst_scope = ScopeBegin( SCOPE_TEMPLATE_INST );
+        instance = newClassInstantiation( tprimary, type,
+                                          inst_scope, TRUE );
+        injectTemplateParms( NULL, parm_scope, parms, FALSE );
     }
+    DbgAssert( instance->specific );
+    NodeFreeDupedExpr( parms );
 }
 
 void TemplateSpecificDefnEnd( void )
@@ -3461,13 +3366,15 @@ void TemplateSpecificDefnEnd( void )
     }
 }
 
-void TemplateSpecializationDefn( PTREE tid, PTREE parms )
-/*******************************************************/
+void TemplateSpecializationDefn( TYPE type )
+/******************************************/
 {
-    unsigned arg_count;
+    PTREE parms;
 
     DbgAssert( currentTemplate != NULL );
-    currentTemplate->spec_args = NodeReverseArgs( &arg_count, parms );
+
+    parms = fakeUpTemplateParms( type->u.c.scope->enclosing, NULL );
+    currentTemplate->spec_args = parms;
 }
 
 SCOPE TemplateClassInstScope( TYPE class_type )

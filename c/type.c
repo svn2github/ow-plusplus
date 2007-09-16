@@ -7745,7 +7745,8 @@ static unsigned typesBind( type_bind_info *data )
             return( TB_NULL );
         }
         u_unmod_type = TypeModFlagsBaseEC( u_type, &u_flags, &u_base );
-        if( b_unmod_type == u_unmod_type ) {
+        if( ( b_unmod_type == u_unmod_type )
+         && ( b_unmod_type->id != TYP_GENERIC ) ) {
             d_flags = u_flags ^ ( b_flags & u_flags );
             if( d_flags != TF1_NULL ) {
                 /*
@@ -7785,6 +7786,7 @@ static unsigned typesBind( type_bind_info *data )
             /* generics can be anything so default memory models can't be trusted */
             u_unmod_type = TypeModExtract( u_type, &u_flags, &u_base,
                                            TC1_NOT_ENUM_CHAR );
+
             /*
                 we have to split modifiers so that
                 "<generic> const *" matches "char __based() volatile const *"
@@ -8190,7 +8192,6 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
     boolean result;
     auto type_bind_info data;
 
-    // DbgAssert( parms->num_args == args->num_args );
     DbgAssert( parm_scope != NULL );
 
     binderInit( &data, explicit_args );
@@ -8211,9 +8212,9 @@ boolean BindGenericTypes( SCOPE parm_scope, PTREE parms, PTREE args,
 
             if( ( curr->sym_type->id == TYP_TYPEDEF )
              && ( curr->sym_type->of->id == TYP_GENERIC ) ) {
-                // TODO: check
                 if( curr->sym_type->of->of == NULL ) {
                     result = FALSE;
+                    break;
                 } else {
                     curr->sym_type->of = curr->sym_type->of->of;
                 }

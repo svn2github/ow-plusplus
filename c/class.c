@@ -1015,31 +1015,30 @@ CLNAME_STATE ClassName( PTREE id, CLASS_DECL declaration )
     return( CLNAME_NULL );
 }
 
-void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration,
-                                 int tci_control )
-/******************************************************************/
+void ClassSpecificInstantiation( PTREE id, CLASS_DECL declaration,
+                                 int tcd_control )
+/****************************************************************/
 {
-    DECL_SPEC *dspec;
     TYPE type;
-    PTREE id;
-    PTREE args;
     CLASS_DATA *data;
     SCOPE enclosing;
 
-    id = tree->u.subtree[0];
-    args = tree->u.subtree[1];
-    tree->u.subtree[0] = NULL;
-    tree->u.subtree[1] = NULL;
-    PTreeFree( tree );
     enclosing = GetCurrScope()->enclosing;
     data = classDataStack;
+
+    if( NodeIsBinaryOp( id, CO_STORAGE ) ) {
+        type = id->u.subtree[1]->type;
+    } else {
+        type = id->type;
+    }
+
     switch( declaration ) {
     case CLASS_DEFINITION:
         if( ScopeType( GetCurrScope(), SCOPE_FILE ) ) {
             /* old template specialization syntax */
             data->specific_defn = TRUE;
             data->tflag |= TF1_SPECIFIC | TF1_INSTANTIATION;
-            TemplateSpecificDefnStart( id, args );
+            TemplateSpecificDefnStart( id, type );
         } else if ( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) ) {
             /* new template specialization syntax: instantiation */
             if( ScopeType( enclosing, SCOPE_TEMPLATE_SPEC_PARM )
@@ -1047,38 +1046,35 @@ void ClassSpecificInstantiation( PTREE tree, CLASS_DECL declaration,
                 // empty spec-parm scope => explicit specialization
                 data->tflag |= TF1_SPECIFIC;
             }
-            PTreeFreeSubtrees( args );
         } else if ( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL )
                  && ScopeType( enclosing, SCOPE_FILE ) ) {
             /* new template specialization syntax: definition */
-            TemplateSpecializationDefn( id, args );
+            TemplateSpecializationDefn( type );
         } else {
-            PTreeFreeSubtrees( args );
             CErr1( ERR_ONLY_GLOBAL_SPECIFICS );
         }
         ClassName( id, declaration );
         break;
     case CLASS_DECLARATION:
         if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_INST ) ) {
-            PTreeFreeSubtrees( args );
             ClassName( id, declaration );
             break;
         } else if( ScopeType( GetCurrScope(), SCOPE_TEMPLATE_DECL )
                 && ScopeType( GetCurrScope()->enclosing, SCOPE_FILE ) ) {
             /* new template specialization syntax: declaration */
-            TemplateSpecializationDefn( id, args );
+            TemplateSpecializationDefn( type );
             ClassName( id, declaration );
             break;
         }
         data->nameless_OK = TRUE;
         /* fall through */
     case CLASS_REFERENCE:
-        type = TemplateClassReference( id, args, tci_control );
-        dspec = PTypeClassInstantiation( type, id );
-        type = dspec->partial;
-        PTypeRelease( dspec );
         data = classDataStack;
         setClassType( data, type, declaration );
+        if( tcd_control ) {
+            TemplateClassDirective( type, &(id->locn), tcd_control );
+        }
+        NodeFreeDupedExpr( id );
         break;
     }
 }
