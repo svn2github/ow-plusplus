@@ -2499,7 +2499,8 @@ findTemplateClassSpecialization( TEMPLATE_INFO *tinfo, PTREE parms,
 
         /* free instantiation parameters */
         RingIterBeg( candidate_list, candidate_iter ) {
-            AddNoteMessage( INF_CANDIATE_DEFINITION,
+            AddNoteMessage( INF_CANDIDATE_TEMPLATE_DEFINITION,
+                            candidate_iter->tspec,
                             &candidate_iter->tspec->locn );
             ScopeBurn( candidate_iter->parm_scope );
         } RingIterEnd( candidate_iter )
@@ -3331,7 +3332,7 @@ void TemplateSpecificDefnStart( PTREE tid, TYPE type )
     SCOPE parm_scope;
     PTREE parms;
 
-    tinfo = type->u.c.scope->enclosing->owner.tinfo;
+    tinfo = classUnboundTemplateInfo( type );
     tprimary = RingFirst( tinfo->specializations );
     if( tprimary->corrupted ) {
         return;

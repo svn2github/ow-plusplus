@@ -252,15 +252,10 @@ SYMBOL FormatMsg( VBUF *pbuf, char *fmt, va_list arg )
             case 'C':   /* template specialisation */
             {   TEMPLATE_SPECIALIZATION * const tspec =
                     va_arg( arg, TEMPLATE_SPECIALIZATION * );
-                const SYMBOL sym = tspec->tinfo->sym;
 
                 FormatTemplateSpecialization( tspec, &prefix );
                 VStrConcStr( pbuf, prefix.buf );
                 VbufFree( &prefix );
-                if( sym->flag2 & SF2_TOKEN_LOCN ) {
-                    DbgVerify( retn_symbol == NULL, "too many symbols" );
-                    retn_symbol = sym;
-                }
             }   break;
             default:
                 VStrConcChr( pbuf, cfmt );

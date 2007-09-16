@@ -12082,3 +12082,8 @@ using-directive must be used instead.
 namespace ns { }
 using ns;
 :eerrbad.
+
+:MSGSYM. INF_CANDIDATE_TEMPLATE_DEFINITION
+:MSGTXT. candidate %C defined %L
+:MSGJTXT.
+:INFO.
