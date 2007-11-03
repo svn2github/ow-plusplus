@@ -46,6 +46,7 @@
 #include "template.h"
 #include "pcheader.h"
 #include "initdefs.h"
+#include "conpool.h"
 #ifndef NDEBUG
 #include "pragdefn.h"
 #include "dbg.h"
@@ -2613,8 +2614,13 @@ static PTREE fakeUpParm( SYMBOL sym )
     parm = NULL;
     switch( sym->id ) {
     case SC_STATIC:
-        parm = PTreeIntConstant( sym->u.uval, TYP_SINT );
-        parm->type = sym->sym_type;
+        if( sym->flag & SF_CONSTANT_INT64 ) {
+            parm = PTreeInt64Constant( sym->u.pval->int64_constant,
+                                       sym->sym_type->id );
+        } else {
+            parm = PTreeIntConstant( sym->u.uval, TYP_SINT );
+            parm->type = sym->sym_type;
+        }
         break;
     case SC_ADDRESS_ALIAS:
         parm = MakeNodeSymbol( sym->u.alias );
