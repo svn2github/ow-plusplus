@@ -1430,15 +1430,23 @@ void FNOV_ARG_RANK( TYPE src, TYPE tgt, PTREE *pt, FNOV_RANK *rank )
         return;
       case 3 :
         if( TypesSameFnov( conv.wsrc.basic, conv.wtgt.basic ) ) {
-            if( conv.wsrc.leadflag == conv.wtgt.leadflag ) {
+            // check for non-ranking reference or flag change (for distinctness)
+            if( ( conv.wsrc.reference == conv.wtgt.reference )
+              &&( conv.wsrc.leadflag  == conv.wtgt.leadflag )
+              &&( conv.wsrc.refflag   == conv.wtgt.refflag ) ) {
                 conv.rank->rank = OV_RANK_EXACT;
-                if( rank->control & FNC_DISTINCT_CHECK  ) {
-                    if( conv.wsrc.refflag != conv.wtgt.refflag ) {
-                        conv.rank->rank = OV_RANK_SAME;
+            } else {
+                // assume rank is same
+                conv.rank->rank = OV_RANK_SAME;
+                conv.rank->u.no_ud.not_exact = 1;
+
+                // check for trivial conversion
+                if( ! conv.wtgt.reference
+                 || ! rankTgtRefCvMem( &conv ) ) {
+                    if( conv.wtgt.reference ) {
+                        rankRefMemFlags( &conv );
                     }
                 }
-            } else {
-                conv.rank->rank = OV_RANK_SAME;
             }
         } else {
             conv.rank->rank = OV_RANK_NO_MATCH;
