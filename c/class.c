@@ -1226,11 +1226,13 @@ static void checkClassStatus( CLASS_DATA *data )
     }
     info = data->info;
     if( ! info->has_ctor ) {
-        if( data->a_const ) {
-            CErr1( ERR_CONST_MEMBER_MEANS_CTOR );
-        }
-        if( data->a_reference ) {
-            CErr1( ERR_REFERENCE_MEMBER_MEANS_CTOR );
+        if( ! IsCgTypeAggregate( data->type, FALSE ) ) {
+            if( data->a_const ) {
+                CErr1( ERR_CONST_MEMBER_MEANS_CTOR );
+            }
+            if( data->a_reference ) {
+                CErr1( ERR_REFERENCE_MEMBER_MEANS_CTOR );
+            }
         }
     }
 }
