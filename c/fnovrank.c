@@ -372,6 +372,11 @@ static boolean rankTgtRefCvMem( FNOV_CONV *conv )
         first = conv->wsrc.refflag;
     } else {
         first = conv->wsrc.leadflag;
+        if( conv->wtgt.reference ) {
+            // add "const" flag to values so they can only be bound to
+            // const references
+            first |= TF1_CONST;
+        }
     }
     triv = FnovCvFlagsRank( first
                           , conv->wtgt.refflag
@@ -385,7 +390,7 @@ static boolean rankTgtRefCvMem( FNOV_CONV *conv )
                                 , conv->wtgt.refbase
                                 , conv->rank );
             } else {
-                FnovMemFlagsRank( conv->wsrc.leadflag
+                FnovMemFlagsRank( first
                                 , conv->wtgt.refflag
                                 , conv->wsrc.leadbase
                                 , conv->wtgt.refbase
@@ -1441,9 +1446,8 @@ void FNOV_ARG_RANK( TYPE src, TYPE tgt, PTREE *pt, FNOV_RANK *rank )
                 conv.rank->u.no_ud.not_exact = 1;
 
                 // check for trivial conversion
-                if( ! conv.wtgt.reference
-                 || ! rankTgtRefCvMem( &conv ) ) {
-                    if( conv.wtgt.reference ) {
+                if( conv.wtgt.reference ) {
+                    if( ! rankTgtRefCvMem( &conv ) ) {
                         rankRefMemFlags( &conv );
                     }
                 }

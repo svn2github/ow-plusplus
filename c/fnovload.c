@@ -1547,6 +1547,18 @@ static boolean computeFunctionRank( FNOV_INFO* info )
     ptlist = info->plist;
     for(;;) {
         if( index == 0 ) break;
+        if( ( rank->control & FNC_MEMBER )
+         && ( index == info->alist->num_args ) ) {
+            // see 13.3.1 [over.match.funcs] (5):
+            // even if the implicit object parameter is not
+            // const-qualified, an rvalue temporary can be bound to
+            // the parameter as long as in all other respects the
+            // temporary can be converted to the type of the implicit
+            // object parameter.
+            if( TypeReference( *tgt ) && ! TypeReference( *src ) ) {
+                *src = MakeReferenceTo( *src );
+            }
+        }
         if( ptlist != NULL ) {
             sym = FunctionSymbol( *ptlist );
             if( sym != NULL ) {
