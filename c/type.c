@@ -8559,7 +8559,7 @@ void DumpOfRefs()
 #endif
 
 
-static void freeTypename( void *e, carve_walk_base *d )
+static void freeTypeName( void *e, carve_walk_base *d )
 {
     TYPE t = e;
 
@@ -8582,7 +8582,8 @@ static void typesFini(          // COMPLETION OF TYPES PROCESSING
     CarveVerifyAllGone( carveDECL_SPEC, "DECL_SPEC" );
     CarveVerifyAllGone( carveDECL_INFO, "DECL_INFO" );
 #endif
-    CarveWalkAll( carveTYPE, freeTypename, &data );
+    CarveWalkAllFree( carveTYPE, markFreeType );
+    CarveWalkAll( carveTYPE, freeTypeName, &data );
     CarveDestroy( carveTYPE );
     CarveDestroy( carveDECL_SPEC );
     CarveDestroy( carveCLASSINFO );
