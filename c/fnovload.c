@@ -1615,9 +1615,11 @@ static boolean getRank( FNOV_INFO* info )
         if( contender && SymIsThisFuncMember( candidate->sym ) ) {
             type_flag   srcflags = info->alist->qualifier;
             type_flag   tgtflags = candidate->alist->qualifier;
-            if( !FnovCvFlagsRank( srcflags, tgtflags, &candidate->thisrank ) ) {
+            contender = !FnovCvFlagsRank( srcflags, tgtflags,
+                                          &candidate->thisrank );
+            if( contender ) {
                 FnovMemFlagsRank( srcflags, tgtflags, NULL, NULL,
-                              &candidate->thisrank );
+                                  &candidate->thisrank );
             }
         }
     }
