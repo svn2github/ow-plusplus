@@ -3094,6 +3094,10 @@ explicit-instantiation
         CErr1( WARN_MISSING_KEYWORD_IN_EXPLICT_INSTANTIATION );
     }
     | explicit-instantiation-special block-declaration-before-semicolon Y_SEMI_COLON
+    {
+        state->template_instantiate = FALSE;
+        state->template_extern = FALSE;
+    }
     ;
 
 template-key
