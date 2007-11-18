@@ -1896,8 +1896,9 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
     something_went_wrong = FALSE;
     *is_generic = FALSE;
 
-    inside_decl_scope = ScopeAccessType( SCOPE_TEMPLATE_DECL );
     save_scope = GetCurrScope();
+    inside_decl_scope = ScopeType( save_scope, SCOPE_TEMPLATE_DECL )
+                     && ( save_scope->ordered != NULL ) ;
 
     parms = NodeReverseArgs( &num_parms, parms );
     tprimary = RingFirst( tinfo->specializations );
@@ -1922,7 +1923,8 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
         for( i = 0; ; list = list->u.subtree[0] ) {
             arg_type = TypedefRemove( tprimary->type_list[i] );
             if( arg_type->id == TYP_GENERIC ) {
-                if( ! inside_decl_scope ) {
+                if( ! inside_decl_scope 
+                 && ( arg_type->u.g.index - 1 != i ) ) {
                     /* a generic type might have already been bound - we
                      * should take that into account */
                     SEARCH_RESULT *result;
