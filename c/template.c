@@ -1258,9 +1258,6 @@ static FN_TEMPLATE *newTemplateFunction( SYMBOL sym )
 {
     FN_TEMPLATE *fn_defn;
 
-    if( CErrOccurred( &(currentTemplate->errors) ) ) {
-        return( NULL );
-    }
     fn_defn = RingCarveAlloc( carveFN_TEMPLATE, &allFunctionTemplates );
     fn_defn->instantiations = NULL;
     fn_defn->sym = sym;
