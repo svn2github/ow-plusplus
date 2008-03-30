@@ -1562,6 +1562,7 @@ static SYMBOL buildTemplateFn( TYPE bound_type, SYMBOL sym, DECL_INFO *dinfo,
     fn_inst = CPermAlloc( sizeof( FN_TEMPLATE_INST ) );
     RingAppend( &fn_templ->instantiations, fn_inst );
     fn_inst->bound_sym = new_sym;
+    SrcFileGetTokenLocn( &fn_inst->locn );
     fn_inst->parm_scope = parm_scope;
     fn_inst->inst_scope = inst_scope;
     fn_inst->processed = FALSE;
@@ -2999,9 +3000,8 @@ boolean TemplateVerifyDecl( SYMBOL sym )
     return( makeSureSymIsAMember( sym_scope, sym ) );
 }
 
-void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
-                                  FN_TEMPLATE_INST *fn_inst )
-/***********************************************************/
+static void templateFunctionInstantiate( FN_TEMPLATE *fn_templ,
+                                         FN_TEMPLATE_INST *fn_inst )
 {
     SYMBOL save_fn;
     SYMBOL fn_sym;
@@ -3025,7 +3025,7 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
         VBUF vbuf1, vbuf2, vbuf3;
         FormatType( bound_sym->sym_type, &vbuf1, &vbuf2 );
         FormatTemplateParmScope( &vbuf3, parm_scope );
-        printf( "TemplateFunctionInstantiate: %s%s%s%s\n",
+        printf( "templateFunctionInstantiate: %s%s%s%s\n",
                 vbuf1.buf, fn_sym->name->name, vbuf3.buf, vbuf2.buf );
         VbufFree( &vbuf1 );
         VbufFree( &vbuf2 );
@@ -3043,7 +3043,8 @@ void TemplateFunctionInstantiate( FN_TEMPLATE *fn_templ,
     bound_sym->u.alias = fn_sym;
     save_fn = templateData.translate_fn;
     templateData.translate_fn = bound_sym;
-    pushInstContext( &context, TCTX_FN_DEFN, &bound_sym->locn->tl, bound_sym );
+
+    pushInstContext( &context, TCTX_FN_DEFN, &fn_inst->locn, bound_sym );
 
     ScopeAdjustUsing( NULL, fn_inst->inst_scope );
     ParseFunctionInstantiation( fn_templ->defn );
@@ -3075,7 +3076,7 @@ static void processFunctionTemplateInstantiations( void )
             if( ! curr_inst->processed && ( sym->flag & SF_REFERENCED ) ) {
                 templateData.keep_going = TRUE;
                 curr_inst->processed = TRUE;
-                TemplateFunctionInstantiate( curr_defn, curr_inst );
+                templateFunctionInstantiate( curr_defn, curr_inst );
             }
 
         } RingIterEnd( curr_inst )

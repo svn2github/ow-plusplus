@@ -584,10 +584,6 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
 
         if( ! ( control & FNC_DISTINCT_CHECK ) ) {
             SYMBOL result;
-            TOKEN_LOCN *locn;
-
-            locn = &sym->locn->tl;
-            result = NULL;
 
             if( control & FNC_MEMBER ) {
                 // have to strip the implicit this pointer
@@ -600,12 +596,12 @@ static void processSym( FNOV_CONTROL control, FNOV_INFO* info, SYMBOL sym )
                 }
                 result = TemplateFunctionGenerate( base_sym, mock_args,
                                                    info->templ_args,
-                                                   locn );
+                                                   &sym->locn->tl );
                 CMemFree( mock_args );
             } else {
                 result = TemplateFunctionGenerate( base_sym, info->alist,
                                                    info->templ_args,
-                                                   locn );
+                                                   &sym->locn->tl );
             }
 
             if( result != NULL ) {

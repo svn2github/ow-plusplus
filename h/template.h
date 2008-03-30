@@ -132,6 +132,7 @@ typedef struct fn_template_inst FN_TEMPLATE_INST; // function template instantia
 PCH_struct fn_template_inst {
     FN_TEMPLATE_INST    *next;          // (ring)
     SYMBOL              bound_sym;      // bound template function symbol
+    TOKEN_LOCN          locn;           // instantiation location
     SCOPE               parm_scope;     // template parameter scope
     SCOPE               inst_scope;     // template instantiation scope
     unsigned            processed : 1;  // already processed instantiation
@@ -181,7 +182,6 @@ extern void TemplateSpecializationDefn( TYPE );
 extern SCOPE TemplateClassInstScope( TYPE );
 extern SCOPE TemplateClassParmScope( TYPE );
 extern boolean TemplateParmEqual( SYMBOL, SYMBOL );
-extern void TemplateFunctionInstantiate( FN_TEMPLATE *, FN_TEMPLATE_INST * );
 extern SYMBOL TemplateFunctionTranslate( SYMBOL, boolean, SCOPE * );
 extern tc_fn_control TemplateFunctionControl( void );
 extern TYPE TemplateUnboundInstantiate( TYPE, arg_list *, TOKEN_LOCN * );
