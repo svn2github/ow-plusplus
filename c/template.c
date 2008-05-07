@@ -1376,7 +1376,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
     SCOPE decl_scope;
     SCOPE parm_scope;
     arg_list *parms;
-    PTREE pparms, pargs;
+    PTREE pparms, pargs, node;
     boolean bound;
     unsigned i;
     unsigned num_parms, num_args;
@@ -1403,6 +1403,26 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
 
     parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
     ScopeSetEnclosing( parm_scope, decl_scope );
+
+    node = templ_args;
+    while( node != NULL ) {
+        if( node->u.subtree[1] != NULL ) {
+            PTREE arg = node->u.subtree[1];
+            if( arg->op == PT_ID ) {
+                arg = AnalyseRawExpr( arg );
+            }
+            if( arg->op == PT_SYMBOL ) {
+                SYMBOL sym = arg->u.symcg.symbol;
+                if( SymIsConstantInt( sym ) ) {
+                    PTreeFreeSubtrees( arg );
+                    arg = PTreeIntConstant( sym->u.sval, TYP_SINT );
+                }
+            }
+            node->u.subtree[1] = arg;
+        }
+
+        node = node->u.subtree[0];
+    }
 
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
