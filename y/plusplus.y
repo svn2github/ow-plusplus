@@ -2756,7 +2756,7 @@ qualified-class-specifier
     : qualified-class-type
     {
         if( $$ == NULL ) {
-            what = P_SYNTAX;
+            what = P_DIAGNOSED;
         }
     }
     ;
