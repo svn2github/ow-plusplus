@@ -2772,6 +2772,11 @@ qualified-class-type
     | nested-name-specifier
     {
         $$ = PTypeClassInstantiation( state->class_colon, $1 );
+        if( StructType( $$->partial ) == NULL ) {
+            CErr2p( ERR_EXPECTED_CLASS_TYPE, $$->partial );
+            PTypeRelease( $$ );
+            $$ = NULL;
+        }
     }
     | nested-name-specifier Y_TEMPLATE_SCOPED_TYPE_NAME
     {
