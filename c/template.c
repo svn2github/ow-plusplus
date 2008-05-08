@@ -688,6 +688,7 @@ static TEMPLATE_SPECIALIZATION *findMatchingTemplateSpecialization(
         curr_arg = curr_list->u.subtree[1];
 
         if( ( curr_arg == NULL )
+         || ( curr_arg->op == PT_ERROR )
          || ( i >= tprimary->num_args ) ) {
             /* number of parameters don't match */
             /* error message: wrong number of template arguments */
@@ -708,12 +709,6 @@ static TEMPLATE_SPECIALIZATION *findMatchingTemplateSpecialization(
         }
 
         if( arg_type != NULL ) {
-            curr_arg = AnalyseRawExpr( curr_arg );
-            if( curr_arg->op == PT_ERROR ) {
-                something_went_wrong = TRUE;
-                break;
-            }
-
             if( curr_arg->op == PT_SYMBOL ) {
                 if( curr_arg->u.symcg.symbol != curr ) {
                     is_primary = FALSE;
@@ -1376,7 +1371,7 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
     SCOPE decl_scope;
     SCOPE parm_scope;
     arg_list *parms;
-    PTREE pparms, pargs, node;
+    PTREE pparms, pargs;
     boolean bound;
     unsigned i;
     unsigned num_parms, num_args;
@@ -1403,26 +1398,6 @@ static DECL_INFO *attemptGen( arg_list *args, SYMBOL fn_templ,
 
     parm_scope = ScopeCreate( SCOPE_TEMPLATE_PARM );
     ScopeSetEnclosing( parm_scope, decl_scope );
-
-    node = templ_args;
-    while( node != NULL ) {
-        if( node->u.subtree[1] != NULL ) {
-            PTREE arg = node->u.subtree[1];
-            if( arg->op == PT_ID ) {
-                arg = AnalyseRawExpr( arg );
-            }
-            if( arg->op == PT_SYMBOL ) {
-                SYMBOL sym = arg->u.symcg.symbol;
-                if( SymIsConstantInt( sym ) ) {
-                    PTreeFreeSubtrees( arg );
-                    arg = PTreeIntConstant( sym->u.sval, TYP_SINT );
-                }
-            }
-            node->u.subtree[1] = arg;
-        }
-
-        node = node->u.subtree[0];
-    }
 
 #ifndef NDEBUG
     if( PragDbgToggle.templ_function ) {
@@ -2003,13 +1978,11 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
                 break;
             }
 
-            if( parm->op != PT_TYPE ) {
+            if( parm->op == PT_ERROR ) {
+                something_went_wrong = TRUE;
+            } else if( parm->op != PT_TYPE ) {
                 if( arg_type != NULL ) {
                     if( inside_decl_scope && ! currentTemplate->all_generic ) {
-                        parm = AnalyseRawExpr( parm );
-                        if( parm->op == PT_ERROR ) {
-                            something_went_wrong = TRUE;
-                        }
                     } else {
                         parm = processIndividualParm( arg_type, parm );
                         if( parm->op == PT_ERROR ) {
@@ -2018,7 +1991,6 @@ static PTREE processClassTemplateParms( TEMPLATE_INFO *tinfo, PTREE parms,
                     }
                 } else {
                     /* non-type parameter supplied for type argument */
-                    parm = AnalyseRawExpr( parm );
                     if( parm->op != PT_ERROR ) {
                         PTreeErrorExpr( parm, ERR_NON_TYPE_PROVIDED_FOR_TYPE );
                     }
