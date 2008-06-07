@@ -1567,7 +1567,6 @@ extern TYPE TypeUserConversion( DECL_SPEC *, DECL_INFO * );
 extern PTREE DoDeclSpec( DECL_SPEC * );
 extern TYPE MakeBasedModifier( type_flag, boolean, PTREE );
 extern TYPE MakeBitfieldType( DECL_SPEC *, TYPE, unsigned, unsigned );
-extern PTREE MakeScalarDestructor( DECL_SPEC *, PTREE, DECL_SPEC * );
 extern uint_32 TypeHash( TYPE type );
 extern boolean ArrowMemberOK( SYMBOL );
 extern DECL_INFO *MakeNewDynamicArray( PTREE );
