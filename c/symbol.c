@@ -292,13 +292,15 @@ SYMBOL SymDefaultBase(          // REMOVE DEFAULT ARGUMENTS TO GET BASE SYMBOL
 }
 
 
-boolean SymIsStatic(     // DETERMINE IF SYMBOL IS STATIC
+boolean SymIsStatic(            // DETERMINE IF SYMBOL IS STATIC
     SYMBOL sym )                // - the symbol
 {
     symbol_class id;
 
     id = SymDefaultBase( sym )->id;
-    return ( SC_STATIC == id ) || ( SC_STATIC_FUNCTION_TEMPLATE == id );
+    return ( SC_STATIC == id )
+        || ( SC_EXTERN_FUNCTION_TEMPLATE == id )
+        || ( SC_STATIC_FUNCTION_TEMPLATE == id );
 }
 
 
