@@ -7713,7 +7713,10 @@ static unsigned typesBind( type_bind_info *data, boolean is_function )
              * cv-qualifier information down the stack. We do this by
              * using the "filler" field in the PTREE struct.
              */
-            u_cv_mask = ( *u_top )->filler & ( TF1_CONST | TF1_VOLATILE );
+            u_cv_mask = ( *u_top )->filler & TF1_CONST;
+            if( u_cv_mask & TF1_CONST ) {
+                u_cv_mask |= TF1_VOLATILE;
+            }
             u_allow_base = ( ( *u_top )->filler & 0x80 ) != 0;
         }
 
@@ -7909,7 +7912,7 @@ static unsigned typesBind( type_bind_info *data, boolean is_function )
             }
             PstkPush( &(data->without_generic), PTreeType( b_unmod_type->of ) );
             u_tree = PTreeType( u_unmod_type->of );
-            u_tree->filler = u_cv_mask;
+            u_tree->filler = u_cv_mask & TF1_CONST;
             if( ! flags.arg_1st_level ) {
                 u_tree->filler &= u_flags;
             } else {
