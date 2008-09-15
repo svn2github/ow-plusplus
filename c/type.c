@@ -5020,6 +5020,7 @@ TYPE TypeGetActualFlags( TYPE type, type_flag *flags )
 /****************************************************/
 {
     type_flag flag;             // - accumulated flags
+    TYPE elem_type;
 
     flag = TF1_NULL;
     for( ; type != NULL; type = type->of ) {
@@ -5033,6 +5034,16 @@ TYPE TypeGetActualFlags( TYPE type, type_flag *flags )
             break;
         }
         break;
+    }
+    // Note: Any cv-qualifiers applied to an array type affect the
+    // array element type, not the array type (3.9.3 (2))
+    for( elem_type = type; elem_type != NULL; elem_type = elem_type->of ) {
+        if( elem_type->id == TYP_MODIFIER ) {
+            flag |= elem_type->flag;
+        } else if( ( elem_type->id != TYP_TYPEDEF )
+                && ( elem_type->id != TYP_ARRAY ) ) {
+            break;
+        }
     }
     *flags = flag;
     return( type );
