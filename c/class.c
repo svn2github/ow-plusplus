@@ -706,7 +706,7 @@ static void newClassType( CLASS_DATA *data, CLASS_DECL declaration )
         
         /*
          * A declspec modifier has been applied to the class
-         * definition/declaration Store the information into the
+         * definition/declaration. Store the information into the
          * CLASS_INFO for subsequent use and checking
          */
         info->class_mod = data->class_mod_type;
@@ -742,20 +742,14 @@ static void setClassType( CLASS_DATA *data, TYPE type, CLASS_DECL declaration )
     
     /*
      * A declspec modifier has been applied to the class
-     * definition/declaration If the definition is not consistent with
-     * any previous declarations, then generate an error
+     * definition/declaration. If the definition is not consistent
+     * with any previous declarations, then generate an error
      */
     if( info->class_mod != NULL ) {
         if( data->class_mod_type != NULL ) {
             if( ! IdenticalClassModifiers( info->class_mod,
                                            data->class_mod_type ) ) {
                 CErr1( ERR_MULTIPLE_PRAGMA_MODS );
-            } else {
-                data->class_mod_type =
-                    AbsorbBaseClassModifiers( info->class_mod,
-                                              &(data->mod_flags),
-                                              &(data->fn_flags),
-                                              &(data->fn_pragma) );
             }
         } else {
             data->class_mod_type = info->class_mod;
