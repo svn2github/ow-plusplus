@@ -212,6 +212,10 @@ static void setFinalTargetSystem( OPT_STORAGE *data, char *target_name )
         SetTargetLiteral( &target_name, "QNX" );
 #elif defined( __LINUX__ )
         SetTargetLiteral( &target_name, "LINUX" );
+#elif defined( __OSX__ ) || defined( __APPLE__ )
+        SetTargetLiteral( &target_name, "OSX" );
+#elif defined( __SOLARIS__ ) || defined( __SUN__ )
+        SetTargetLiteral( &target_name, "SOLARIS" );
 #elif defined( __OS2__ )
         SetTargetLiteral( &target_name, "OS2" );
 #elif defined( __NT__ )
@@ -1243,11 +1247,9 @@ void CmdSysAnalyse( OPT_STORAGE *data )
     case OPT_intel_call_conv_ecf:
         DftCallConv = &FastcallInfo;
         break;
-#if !defined(NDEBUG) && !defined(__LINUX__)
     case OPT_intel_call_conv_eco:
         DftCallConv = &OptlinkInfo;
         break;
-#endif
     case OPT_intel_call_conv_ecp:
         DftCallConv = &PascalInfo;
         break;

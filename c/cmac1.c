@@ -361,11 +361,11 @@ static int genFUNCTION(
     sym = ParseCurrFunction();
     if( sym != NULL ) {
         FormatSymWithTypedefs( sym, &buff );
-        len = VStrLen( &buff );
+        len = VbufLen( &buff );
         if( len >= BUF_SIZE ) {
             len = BUF_SIZE;
         }
-        memcpy( Buffer, buff.buf, len );
+        memcpy( Buffer, VbufString( &buff ), len );
         VbufFree( &buff );
     } else {
         Buffer[0] = '?';
@@ -1168,7 +1168,7 @@ static MACRO_TOKEN **buildMTokenList( MACRO_TOKEN **ptail, void *ptr, MACRO_ARG 
         case T_BAD_TOKEN:
         case T_LSTRING:
         case T_STRING:
-            ptail = buildTokenOnEnd( ptail, curr_token, p + 1 );
+            ptail = buildTokenOnEnd( ptail, curr_token, (char *)p + 1 );
             ++p;
             while( *p++ ) {;}
             prev_token = curr_token;
@@ -1263,7 +1263,7 @@ static MACRO_TOKEN *substituteParms( MACRO_TOKEN *head, MACRO_ARG *macro_parms )
             }
             else
             {
-                char p[2] = { T_MACRO_EMPTY_VAR_PARM, 0 };
+                unsigned char p[2] = { T_MACRO_EMPTY_VAR_PARM, 0 };
                 buildMTokenList( &dummy_list, p, NULL );
             }
             list = dummy_list;

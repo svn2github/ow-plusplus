@@ -35,7 +35,6 @@
 #include "compcfg.h"
 #include "tgtenv.h"
 
-#include <process.h>
 #include <limits.h>
 
 #include "preproc.h"
@@ -393,7 +392,7 @@ int FELexLevel(                 // GET LEXICAL LEVEL OF SYMBOL
 }
 
 
-int FEParmType(                 // ARGUMENT PROMOTION ?
+cg_type FEParmType(                 // ARGUMENT PROMOTION ?
     SYMBOL func,                // function being called
     SYMBOL parm,                // parameter being passed
     cg_type type )              // - original type

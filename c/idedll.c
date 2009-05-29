@@ -33,14 +33,16 @@
 #include "plusplus.h"
 
 #include <ctype.h>
-#include <process.h>
-#include <malloc.h>
 
 #include "memmgr.h"
 #include "idedll.h"
 #include "wcppdll.h"
 #include "cgmisc.h"
 #include "fmtsym.h"
+
+#ifdef __WATCOMC__
+#include <malloc.h>     /* For _heapmin() */
+#endif
 
 #ifndef NDEBUG
 #include "errdefns.h"
@@ -302,7 +304,9 @@ void IDEDLL_EXPORT IDEStopRunning( void )
 
 void IDEDLL_EXPORT IDEFreeHeap( void )
 {
+#ifdef __WATCOMC__
     _heapmin();
+#endif
 }
 
 // HELP Interface
@@ -620,7 +624,7 @@ void CppStartFuncMessage( SYMBOL sym )
     if( sym != NULL ) {
         FormatSymWithTypedefs( sym, &buff );
         cbs = CompInfo.dll_callbacks;
-        (*cbs->ProgressMessage)( CompInfo.dll_handle, buff.buf );
+        (*cbs->ProgressMessage)( CompInfo.dll_handle, VbufString( &buff ) );
         VbufFree( &buff );
     }
 #else

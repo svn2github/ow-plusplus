@@ -31,6 +31,9 @@
 
 
 #ifndef _SYMTYPE_H
+#define _SYMTYPE_H
+
+#include "cgdefs.h"
 
 typedef struct cdopt_cache CDOPT_CACHE;
 typedef struct friend_list FRIEND;
@@ -55,10 +58,19 @@ typedef struct parse_tree_node *PTREE;          // defined in PTREE.H
 typedef struct rewrite_package REWRITE;         // defined in REWRITE.H
 typedef struct template_specialization TEMPLATE_SPECIALIZATION; // defined in TEMPLATE.H
 typedef struct template_info TEMPLATE_INFO;     // defined in TEMPLATE.H
+#ifndef CLASS_INST_DEFINED
+#define CLASS_INST_DEFINED
 typedef struct class_inst CLASS_INST;           // defined in TEMPLATE.H
+#endif
+#ifndef FN_TEMPLATE_DEFINED
+#define FN_TEMPLATE_DEFINED
 typedef struct fn_template FN_TEMPLATE;         // defined in TEMPLATE.H
-typedef struct func_list FNOV_LIST;             // defined in FNOVLOAD.H
+#endif
 typedef struct pool_con POOL_CON;               // defined in CONPOOL.H
+#ifndef FNOV_LIST_DEFINED
+#define FNOV_LIST_DEFINED
+typedef struct func_list FNOV_LIST;             // defined in FNOVLOAD.H
+#endif
 
 #include "linkage.h"
 #include "toknlocn.h"
@@ -863,7 +875,7 @@ PCH_struct name_space {
           unsigned      global_fs : 1;  // - global filescope
           unsigned      free : 1;       // - used for PCH
           unsigned      unnamed : 1;    // - unnamed namespace
-        };
+        } s;
     };
 };
 
@@ -922,7 +934,7 @@ PCH_struct scope {
           unsigned      colour : 1;     // - using in common enclosing algorithm
           unsigned      fn_template : 1;// - SCOPE_TEMPLATE_PARM -- function
           unsigned      dirty : 1;      // - a symbol has been added
-        };
+        } s;
     };
     scope_type_t        id;             // - type of scope
 };
@@ -1195,7 +1207,7 @@ extern boolean ScopeAccessType( scope_type_t );
 extern boolean ScopeType( SCOPE, scope_type_t );
 extern boolean ScopeEquivalent( SCOPE, scope_type_t );
 #define ScopeId( s )    ((s)->id)
-#define ScopeEnclosedInUnnamedNameSpace( s )    ((s)->in_unnamed)
+#define ScopeEnclosedInUnnamedNameSpace( sc )   ((sc)->s.in_unnamed)
 
 typedef enum {
     FVS_VIRTUAL_ABOVE   = 0x01, // sym[0] will be set
@@ -1713,7 +1725,7 @@ TYPE TypeModFlagsBaseEC(        // GET MODIFIER FLAGS & BASE, UNMODIFIED TYPE
 TYPE CgStripType(               // STRIP ONE LEVEL OF TYPE INFORMATION
     TYPE type )                 // - type
 ;
-unsigned CgTypeOutput(          // COMPUTE TYPE FOR CODE GENERATOR
+cg_type CgTypeOutput(          // COMPUTE TYPE FOR CODE GENERATOR
     TYPE type )                 // - C++ type
 ;
 boolean IsCgTypeAggregate(      // CAN TYPE CAN BE INITIALIZED AS AGGREGATE?
@@ -1729,7 +1741,7 @@ unsigned CgTypePtrSym(          // COMPUTE OUTPUT TYPE OF POINTER TO SYMBOL
 target_size_t CgTypeSize(       // COMPUTE SIZE OF A TYPE
     TYPE type )                 // - type
 ;
-unsigned CgTypeSym(             // COMPUTE OUTPUT TYPE FOR SYMBOL
+cg_type CgTypeSym(             // COMPUTE OUTPUT TYPE FOR SYMBOL
     SYMBOL sym )                // - the symbol
 ;
 TYPE TypePointerDiff(           // GET TYPE FOR DIFFERENCE OF POINTERS
@@ -1789,5 +1801,4 @@ SYMBOL SymbolMapIndex( SYMBOL );
 SCOPE ScopeGetIndex( SCOPE );
 SCOPE ScopeMapIndex( SCOPE );
 
-#define _SYMTYPE_H
 #endif

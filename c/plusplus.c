@@ -31,14 +31,12 @@
 #include "plusplus.h"
 
 #include <signal.h>
-#include <process.h>
 #include <ctype.h>
 #include <setjmp.h>
 #include <unistd.h>
 #include <limits.h>
-#include <fcntl.h>
-#include <malloc.h>
 
+#include "walloca.h"
 #include "scan.h"
 #include "memmgr.h"
 #include "stats.h"
@@ -286,6 +284,7 @@ static int doCCompile(          // COMPILE C++ PROGRAM
             CompFlags.cmdline_error = TRUE;
             exit_status |= WPP_ERRORS;
         } else {
+            ErrFileErase();
             if( ! CompFlags.quiet_mode ) {
                 if( CompFlags.batch_file_processing
                  || CompInfo.compfile_max != 1 ) {
@@ -298,42 +297,52 @@ static int doCCompile(          // COMPILE C++ PROGRAM
                 CompFlags.cmdline_error = TRUE;
             }
             PTypeCheckInit();       /* must come after command line parsing */
-            ErrFileOpen();          /* open error file just in case */
             if( CompFlags.cpp_output ) {
                 PpOpen();           /* must be before OpenPgmFile() */
             } else {
                 BrinfInit( TRUE );  /* must be before OpenPgmFile() */
             }
-            OpenPgmFile();
-            CtxSetContext( CTX_SOURCE );
-            CompFlags.srcfile_compiled = TRUE;
-            ExitPointAcquire( cpp_preproc );
             if( CompFlags.cpp_output ) {
+                CtxSetContext( CTX_SOURCE );
+                ExitPointAcquire( cpp_preproc );
                 ExitPointAcquire( cpp_preproc_only );
+                CompFlags.ignore_fnf = TRUE;
+                CompFlags.cpp_output = FALSE;
+                if( !CompFlags.disable_ialias ) {
+                    OpenSrcFile( "_ialias.h", TRUE );
+                    PpParse();
+                    SrcFileClose( TRUE );
+                }
+                CompFlags.cpp_output = TRUE;
+                CompFlags.ignore_fnf = FALSE;
+                if( ForceInclude ) {
+                    EmitLineNL( 1, WholeFName );
+                    openForceIncludeFile();
+                    PpParse();
+                    SrcFileClose( TRUE );
+                }
+                OpenPgmFile();
+                PpParse();
+            } else {
+                OpenPgmFile();
+                CtxSetContext( CTX_SOURCE );
+                CompFlags.srcfile_compiled = TRUE;
+                ExitPointAcquire( cpp_preproc );
+                ExitPointAcquire( cpp_object );
+                ExitPointAcquire( cpp_analysis );
+                CgFrontModInitInit();       // must be before pchdr read point
+                CompFlags.watch_for_pcheader = FALSE;
                 CompFlags.ignore_fnf = TRUE;
                 if( !CompFlags.disable_ialias ) {
                     OpenSrcFile( "_ialias.h", TRUE );
                 }
                 CompFlags.ignore_fnf = FALSE;
-                if( ForceInclude ) {
-                    openForceIncludeFile();
-                }
-                PpParse();
-            } else {
-                ExitPointAcquire( cpp_object );
-                ExitPointAcquire( cpp_analysis );
-                CgFrontModInitInit();       // must be before pchdr read point
                 if( CompFlags.use_pcheaders ) {
                     // getting the first token should involve opening
                     // the first #include if there are no definitions
                     // in the primary source file
                     CompFlags.watch_for_pcheader = TRUE;
                 }
-                CompFlags.ignore_fnf = TRUE;
-                if( !CompFlags.disable_ialias ) {
-                    OpenSrcFile( "_ialias.h", TRUE );
-                }
-                CompFlags.ignore_fnf = FALSE;
                 if( ForceInclude ) {
                     openForceIncludeFile();
                     DbgVerify( ! CompFlags.watch_for_pcheader,
@@ -517,6 +526,24 @@ static int compilePrimaryCmd(   // COMPILE PRIMARY CMD LINE
 }
 
 
+static void reallocTokens( void )   // ALLOCATE STORAGE FOR TOKENS
+{                                   // - tokens need to be writable
+#ifndef __WATCOMC__
+    int i;
+
+    /* Quick hack: The tokens need to be writable, but string literals
+     * often aren't. For Watcom we use -zc switch, otherwise allocate
+     * writable storage manually.
+     * NB: We might want to only copy the tokens that actually need
+     * to be writable.
+     */
+    for( i = 0; i < T_LAST_TOKEN; ++i ) {
+        Tokens[i] = strdup( Tokens[i] );
+    }
+#endif
+}
+
+
 #ifndef NDEBUG
 #define ZAP_NUM 20
 #define ZAP_SIZE 1024
@@ -561,6 +588,7 @@ int PP_EXPORT WppCompile(       // MAIN-LINE (DLL)
     InitFiniStartup( &exitPointStart );
     ExitPointAcquire( mem_management );
     DbgHeapInit();
+    reallocTokens();
     if( dll_data->cmd_line != NULL ) {
         char* vect[4];
         unsigned i = 1;
@@ -582,7 +610,7 @@ int PP_EXPORT WppCompile(       // MAIN-LINE (DLL)
         if( input[0] == '\0' && output[0] == '\0' ) {
             new_argv = &(dll_data->argv[1]);
         } else {
-            new_argv = _alloca(( dll_data->argc + 2 ) * sizeof( char * ));
+            new_argv = alloca(( dll_data->argc + 2 ) * sizeof( char * ));
             if( new_argv != NULL ) {
                 char **s = &(dll_data->argv[1]);
                 char **d = new_argv;

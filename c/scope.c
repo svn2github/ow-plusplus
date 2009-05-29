@@ -62,6 +62,7 @@
 #include "typesig.h"
 #include "brinfo.h"
 #include "conpool.h"
+#include "fmtsym.h"
 
 #define _ScopeMask( i )         ( 1 << (i) )
 
@@ -584,9 +585,9 @@ static boolean recordableScope( SCOPE scope )
 static void reinitScope( SCOPE scope )
 {
     // keep ->in_unnamed setting
-    scope->dtor_reqd = FALSE;
-    scope->dtor_naked = FALSE;
-    scope->try_catch = FALSE;
+    scope->s.dtor_reqd = FALSE;
+    scope->s.dtor_naked = FALSE;
+    scope->s.try_catch = FALSE;
     scope->ordered = NULL;
     scope->owner.sym = NULL;
     scope->names = HashCreate( hashTableSize[scope->id] );
@@ -600,15 +601,15 @@ static SCOPE makeScope( scope_type_t scope_type )
     ExtraRptIncrementCtr( scopes_kept );
     new_scope = CarveAlloc( carveSCOPE );
     new_scope->id = scope_type;
-    new_scope->keep = FALSE;
-    new_scope->dtor_reqd = FALSE;
-    new_scope->dtor_naked = FALSE;
-    new_scope->try_catch = FALSE;
-    new_scope->arg_check = FALSE;
-    new_scope->cg_stab = FALSE;
-    new_scope->in_unnamed = FALSE;
-    new_scope->fn_template = FALSE;
-    new_scope->dirty = FALSE;
+    new_scope->s.keep = FALSE;
+    new_scope->s.dtor_reqd = FALSE;
+    new_scope->s.dtor_naked = FALSE;
+    new_scope->s.try_catch = FALSE;
+    new_scope->s.arg_check = FALSE;
+    new_scope->s.cg_stab = FALSE;
+    new_scope->s.in_unnamed = FALSE;
+    new_scope->s.fn_template = FALSE;
+    new_scope->s.dirty = FALSE;
     new_scope->enclosing = NULL;
     new_scope->ordered = NULL;
     new_scope->owner.sym = NULL;
@@ -757,14 +758,14 @@ static SCOPE makeFileScope( fs_control control, SYMBOL sym )
     ns->sym = sym;
     ns->scope = scope;
     ns->all = allNameSpaces;
-    ns->global_fs = FALSE;
-    ns->free = FALSE;
-    ns->unnamed = FALSE;
+    ns->s.global_fs = FALSE;
+    ns->s.free = FALSE;
+    ns->s.unnamed = FALSE;
     if( control & FS_GLOBAL ) {
-        ns->global_fs = TRUE;
+        ns->s.global_fs = TRUE;
     } else if( control & FS_UNNAMED ) {
-        ns->unnamed = TRUE;
-        scope->in_unnamed = TRUE;
+        ns->s.unnamed = TRUE;
+        scope->s.in_unnamed = TRUE;
     }
     allNameSpaces = ns;
     scope->owner.ns = ns;
@@ -777,8 +778,8 @@ static void scopeOpenMaybeNull( SCOPE scope )
 
     enclosing = GetCurrScope();
     scope->enclosing = enclosing;
-    if( enclosing != NULL && enclosing->in_unnamed ) {
-        scope->in_unnamed = TRUE;
+    if( enclosing != NULL && enclosing->s.in_unnamed ) {
+        scope->s.in_unnamed = TRUE;
     }
     SetCurrScope(scope);
 }
@@ -898,16 +899,16 @@ static SCOPE findCommonEnclosing( SCOPE scope1, SCOPE scope2 )
         if( i1 == scope2 ) {
             return( i1 );
         }
-        i1->colour = TRUE;
+        i1->s.colour = TRUE;
     }
     for( i2 = scope2; i2 != NULL; i2 = i2->enclosing ) {
         if( i2 == scope1 ) {
             return( i2 );
         }
-        i2->colour = FALSE;
+        i2->s.colour = FALSE;
     }
     for( it = scope1; it != NULL; it = it->enclosing ) {
-        if( ! it->colour ) {
+        if( ! it->s.colour ) {
             return( it );
         }
     }
@@ -1015,7 +1016,7 @@ SCOPE ScopeIsGlobalNameSpace( SCOPE scope )
     if( scope != NULL ) {
         if( _IsFileScope( scope ) ) {
             ns = scope->owner.ns;
-            if( ns->global_fs ) {
+            if( ns->s.global_fs ) {
                 return( scope );
             }
         }
@@ -1031,7 +1032,7 @@ SCOPE ScopeIsUnnamedNameSpace( SCOPE scope )
     if( scope != NULL ) {
         if( _IsFileScope( scope ) ) {
             ns = scope->owner.ns;
-            if( ns->unnamed ) {
+            if( ns->s.unnamed ) {
                 return( scope );
             }
         }
@@ -1094,14 +1095,14 @@ SCOPE ScopeSetContaining( SYMBOL_NAME sym_name, SCOPE new_containing )
     return( old_containing );
 }
 
-#define doScopeEstablish( s, cs )               \
+#define doScopeEstablish( sc, cs )              \
     {                                           \
         SCOPE enclosing;                        \
                                                 \
         enclosing = cs;                         \
-        s->enclosing = enclosing;               \
-        if( enclosing->in_unnamed ) {           \
-            s->in_unnamed = TRUE;               \
+        sc->enclosing = enclosing;              \
+        if( enclosing->s.in_unnamed ) {         \
+            sc->s.in_unnamed = TRUE;            \
         }                                       \
     }
 
@@ -1261,9 +1262,14 @@ static void handleFileSyms( SYMBOL sym )
         if( SymIsFunction( sym ) ) {
             if( sym->flag & SF_REFERENCED ) {
                 if( ! SymIsInitialized( sym ) ) {
-                    if( sym != ModuleInitFuncSym() ) {
-                        CErr2p( ERR_FUNCTION_NOT_DEFINED, sym );
-                        sym->id = SC_EXTERN;
+                    /* Check to see if we have a matching aux entry with code attached */
+                    struct aux_entry * paux = NULL;
+                    paux = AuxLookup( sym->name->name );
+                    if( !paux || !paux->info || !paux->info->code ) {
+                        if( sym != ModuleInitFuncSym() ) {
+                            CErr2p( ERR_FUNCTION_NOT_DEFINED, sym );
+                            sym->id = SC_EXTERN;
+                        }
                     }
                 }
             }
@@ -1295,7 +1301,7 @@ static void processNameSpaces( void )
     }
     CompFlags.namespace_checks_done = TRUE;
     for( curr = allNameSpaces; curr != NULL; curr = curr->all ) {
-        if( curr->unnamed ) {
+        if( curr->s.unnamed ) {
             ScopeWalkOrderedSymbols( curr->scope, &handleUnnamedNameSpaceSyms );
         } else {
             ScopeWalkOrderedSymbols( curr->scope, &handleFileSyms );
@@ -1343,14 +1349,14 @@ SCOPE ScopeClose( void )
     } RingIterEndSafe( use )
     if( ! HashEmpty( dropping_scope->names ) ) {
         ExtraRptIncrementCtr( nonempty_scopes_closed );
-        dropping_scope->keep = TRUE;
+        dropping_scope->s.keep = TRUE;
         switch( dropping_scope->id ) {
         case SCOPE_BLOCK:
             ScopeWalkOrderedSymbols( dropping_scope, &handleBlockSyms );
             break;
         case SCOPE_FILE:
             ns = dropping_scope->owner.ns;
-            if( ns->global_fs ) {
+            if( ns->s.global_fs ) {
                 processNameSpaces();
             }
             break;
@@ -1361,10 +1367,10 @@ SCOPE ScopeClose( void )
     }
     /* if this scope must be kept then its enclosing scope must be kept */
     if( GetCurrScope() != NULL ) {
-        GetCurrScope()->keep |= dropping_scope->keep;
+        GetCurrScope()->s.keep |= dropping_scope->s.keep;
     }
     BrinfCloseScope( dropping_scope );
-    if( dropping_scope->keep == FALSE ) {
+    if( dropping_scope->s.keep == FALSE ) {
         ScopeBurn( dropping_scope );
         dropping_scope = NULL;
     }
@@ -1621,8 +1627,8 @@ SCOPE ScopeOpenNameSpace( char *name, SYMBOL sym )
 void ScopeEndFileScope( void )
 /****************************/
 {
-    DbgAssert( GetFileScope() == NULL || ! GetFileScope()->in_unnamed );
-    DbgAssert( GetInternalScope() == NULL || ! GetInternalScope()->in_unnamed );
+    DbgAssert( GetFileScope() == NULL || ! GetFileScope()->s.in_unnamed );
+    DbgAssert( GetInternalScope() == NULL || ! GetInternalScope()->s.in_unnamed );
     SetCurrScope(GetInternalScope());
     ScopeEnd( SCOPE_FILE );
     SetCurrScope(GetFileScope());
@@ -1823,7 +1829,7 @@ boolean VariableName( SYMBOL_NAME sym_name )
 static void addOrdered( SCOPE scope, SYMBOL sym )
 {
     ExtraRptIncrementCtr( syms_defined );
-    scope->dirty = TRUE;
+    scope->s.dirty = TRUE;
     if( sym->id == SC_DEFAULT ) {
         return;
     }
@@ -1931,7 +1937,7 @@ char *ScopeNameSpaceFormatName( SCOPE scope )
 
     if( _IsFileScope( scope ) ) {
         ns = scope->owner.ns;
-        if( ns->unnamed ) {
+        if( ns->s.unnamed ) {
             return( "<unique>" );
         }
         ns_sym = ns->sym;
@@ -2101,7 +2107,7 @@ SYMBOL_NAME scopeInsertName( SCOPE scope, SYMBOL sym, char *name )
 
     sym_name = HashLookup( scope->names, name );
     if( sym_name == NULL ) {
-        if( scope->arg_check ) {
+        if( scope->s.arg_check ) {
             /* args are treated as if they were declared in the outermost block */
             enclosing = scope->enclosing;
             while( ! _IsFunctionScope( enclosing ) ) {
@@ -4481,18 +4487,18 @@ static boolean removeDuplicateNS( lookup_walk *data )
         next = cap->next;
         sym_name = cap->sym_name;
         scope = sym_name->containing;
-        scope->colour = FALSE;
+        scope->s.colour = FALSE;
     }
     dead = NULL;
     for( cap = data->paths; cap != NULL; cap = next ) {
         next = cap->next;
         sym_name = cap->sym_name;
         scope = sym_name->containing;
-        if( scope->colour ) {
+        if( scope->s.colour ) {
             cap->throw_away = TRUE;
             dead = cap;
         } else {
-            scope->colour = TRUE;
+            scope->s.colour = TRUE;
         }
     }
     if( dead != NULL ) {
@@ -6760,13 +6766,13 @@ boolean ScopeEnclosed( SCOPE encloser, SCOPE enclosed )
 void ScopeKeep( SCOPE scope )
 /***************************/
 {
-    scope->keep = TRUE;
+    scope->s.keep = TRUE;
 }
 
 void ScopeArgumentCheck( SCOPE scope )
 /************************************/
 {
-    scope->arg_check = TRUE;
+    scope->s.arg_check = TRUE;
 }
 
 void ScopeQualifyPush( SCOPE scope, SCOPE access )
@@ -7169,6 +7175,15 @@ void ScopeAuxName( char *id, AUX_INFO *aux_info )
         syms = sym_name->name_type;
     }
     RingIterBeg( syms, sym ) {
+
+        /*
+         *  Check to see if we are defining code and we already have a symbol 
+         *  defined that has code attached ( a function body )
+         */ 
+        if( aux_info && aux_info->code && SymIsInitialized( sym ) && SymIsFunction( sym ) ){
+            CErr2p( ERR_FUNCTION_REDEFINITION, sym );   //ERR_SYM_ALREADY_DEFINED, sym );
+        }
+        
         fn_type = FunctionDeclarationType( sym->sym_type );
         if( fn_type == NULL ) {
             changeNonFunction( sym, aux_info );
@@ -7389,7 +7404,7 @@ static void markFreeNameSpace( void *p )
 {
     NAME_SPACE *ns = p;
 
-    ns->free = TRUE;
+    ns->s.free = TRUE;
 }
 
 static void saveNameSpace( void *e, carve_walk_base *d )
@@ -7399,7 +7414,7 @@ static void saveNameSpace( void *e, carve_walk_base *d )
     SCOPE save_scope;
     NAME_SPACE *save_all;
 
-    if( ns->free ) {
+    if( ns->s.free ) {
         return;
     }
     save_sym = ns->sym;
@@ -7462,7 +7477,7 @@ static void saveScope( void *e, carve_walk_base *d )
     case SCOPE_TEMPLATE_PARM:
         save_owner_tinfo = s->owner.tinfo;
         if( save_owner_tinfo != NULL ) {
-            DbgAssert( s->fn_template == FALSE );
+            DbgAssert( s->s.fn_template == FALSE );
             s->owner.tinfo = TemplateClassInfoGetIndex( save_owner_tinfo );
         }
         break;
@@ -7816,7 +7831,7 @@ static void readScopes( void )
         s->id = pch->id;
         s->flags = pch->flags;
         // used to indicate changes from creation time (or PCH creation time)
-        s->dirty = FALSE;
+        s->s.dirty = FALSE;
         switch( pch->id ) {
         case SCOPE_FUNCTION:
             s->owner.sym = SymbolMapIndex( pch->owner.sym );
@@ -7829,7 +7844,7 @@ static void readScopes( void )
             s->owner.ns = NameSpaceMapIndex( pch->owner.ns );
             break;
         case SCOPE_TEMPLATE_PARM:
-            DbgAssert( s->fn_template == FALSE );
+            DbgAssert( s->s.fn_template == FALSE );
             s->owner.tinfo = TemplateClassInfoMapIndex( pch->owner.tinfo );
             break;
         default :
@@ -7993,7 +8008,7 @@ void ScopeSetParmClass( SCOPE parm_scope, TEMPLATE_INFO * info )
 {
     DbgAssert( parm_scope->id == SCOPE_TEMPLATE_PARM );
     parm_scope->owner.tinfo = info;
-    parm_scope->fn_template = FALSE;
+    parm_scope->s.fn_template = FALSE;
 }
 
 
@@ -8002,7 +8017,7 @@ void ScopeSetParmFn( SCOPE parm_scope, FN_TEMPLATE *defn )
 {
     DbgAssert( parm_scope->id == SCOPE_TEMPLATE_PARM );
     parm_scope->owner.defn = defn;
-    parm_scope->fn_template = TRUE;
+    parm_scope->s.fn_template = TRUE;
 }
 
 
@@ -8012,5 +8027,5 @@ void ScopeSetParmCopy( SCOPE parm_scope, SCOPE old_parm_scope )
     DbgAssert( parm_scope->id == SCOPE_TEMPLATE_PARM );
     DbgAssert( old_parm_scope->id == SCOPE_TEMPLATE_PARM );
     parm_scope->owner.tinfo = old_parm_scope->owner.tinfo;
-    parm_scope->fn_template = old_parm_scope->fn_template;
+    parm_scope->s.fn_template = old_parm_scope->s.fn_template;
 }

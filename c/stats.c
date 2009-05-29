@@ -37,6 +37,7 @@
 #include "errdefns.h"
 #include "vbuf.h"
 #include "vstk.h"
+#include "pcheader.h"
 
 
 static void statsInit(          // INITIALIZE STATISTICS GATHERING
@@ -61,16 +62,16 @@ static void intPrint            // PRINT INT LINE SEGMENT
     , unsigned int count )
 {
     if( count == 0 ) {
-        VStrConcStr( buf, "no " );
+        VbufConcStr( buf, "no " );
     } else {
-        VStrConcDecimal( buf, count );
-        VStrConcChr( buf, ' ' );
+        VbufConcDecimal( buf, count );
+        VbufConcChr( buf, ' ' );
     }
-    VStrConcStr( buf, thing );
+    VbufConcStr( buf, thing );
     if( count != 1 ) {
-        VStrConcChr( buf, 's' );
+        VbufConcChr( buf, 's' );
     }
-    VStrConcStr( buf, end );
+    VbufConcStr( buf, end );
 }
 
 
@@ -90,18 +91,17 @@ static void statsPrint(         // PRINT STATISTICS
     if( WholeFName != NULL ) {
         VBUF buffer;
         VbufInit( &buffer );
-        VStrNull( &buffer );
-        VStrConcStr( &buffer, WholeFName );
-        VStrConcStr( &buffer, ": " );
+        VbufConcStr( &buffer, WholeFName );
+        VbufConcStr( &buffer, ": " );
         intPrint( &buffer, "line", ", ", SrcLineCount );
         if( IncLineCount != 0 ) {
-            VStrConcStr( &buffer, "included " );
-            VStrConcDecimal( &buffer, IncLineCount );
-            VStrConcStr( &buffer, ", " );
+            VbufConcStr( &buffer, "included " );
+            VbufConcDecimal( &buffer, IncLineCount );
+            VbufConcStr( &buffer, ", " );
         }
         intPrint( &buffer, "warning", ", ", WngCount );
         intPrint( &buffer, "error", "", ErrCount );
-        MsgDisplayLine( buffer.buf );
+        MsgDisplayLine( VbufString( &buffer ) );
         CompFlags.stats_printed = 1;
         VbufFree( &buffer );
     }
@@ -110,6 +110,33 @@ static void statsPrint(         // PRINT STATISTICS
 
 INITDEFN( statistics, statsInit, statsPrint )
 
+
+pch_status PCHReadStats( void )
+{
+    IncLineCount = PCHReadUInt();
+    return( PCHCB_OK );
+}
+
+
+pch_status PCHWriteStats( void )
+{
+    PCHWriteUInt( IncLineCount );
+    return( PCHCB_OK );
+}
+
+
+pch_status PCHInitStats( boolean writing )
+{
+    writing = writing;
+    return( PCHCB_OK );
+}
+
+
+pch_status PCHFiniStats( boolean writing )
+{
+    writing = writing;
+    return( PCHCB_OK );
+}
 
 
 #ifdef XTRA_RPT
@@ -582,27 +609,27 @@ static void extraRptTable(      // PRINT A TABLE
         sprintf( fmt, "%%%dd", digits + 1 );
         for( r = 0; r < reg->tab.dim_row; ++ r ) {
             long* row = &reg->tab.table[ r * reg->tab.dim_col ];
-            VStrNull( &buffer );
+            VbufRewind( &buffer );
             if( row_lbl == NULL ) {
                 sprintf( buf, "%4d", r );
                 buf[4] = ':';
                 buf[5] = ' ';
                 buf[6] = '\0';
-                VStrConcStr( &buffer, buf );
+                VbufConcStr( &buffer, buf );
             } else {
                 char const *l = row_lbl[r];
                 unsigned b;
                 for( b = label_width - strlen(l); b != 0; --b ) {
-                    VStrConcChr( &buffer, ' ' );
+                    VbufConcChr( &buffer, ' ' );
                 }
-                VStrConcStr( &buffer, l );
-                VStrConcStr( &buffer, ": " );
+                VbufConcStr( &buffer, l );
+                VbufConcStr( &buffer, ": " );
             }
             for( c = 0; c < reg->tab.dim_col; ++ c ) {
                 sprintf( buf, fmt, row[ c ] );
-                VStrConcStr( &buffer, buf );
+                VbufConcStr( &buffer, buf );
             }
-            MsgDisplayLine( buffer.buf );
+            MsgDisplayLine( VbufString( &buffer ) );
         }
         MsgDisplayLine( "" );
         VbufFree( &buffer );

@@ -49,7 +49,7 @@ ExtraRptCtr( ctr_cgfiles );     // number of CGFILE lookups
 
 
 typedef struct _ovfn OVFN;
-typedef struct _ovfn {          // ORIGINATING VIRTUAL FUNCTION
+struct _ovfn {                  // ORIGINATING VIRTUAL FUNCTION
     OVFN *next;                 // - next in ring
     SYMBOL vfun;                // - the virtual function
 };
@@ -219,7 +219,7 @@ static void* resolveInitedSym(  // RESOLVE AN INITIALIZED SYMBOL
 
     ExtraRptIncrementCtr( ctr_cgfiles );
     cgfile = CgioLocateAnyFile( sym );
-    if( cgfile != NULL && cgfile->refed ) {
+    if( cgfile != NULL && cgfile->s.refed ) {
         retn = NULL;
     } else {
         // function is initialized and inlined everywhere it is referenced
